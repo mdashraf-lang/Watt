@@ -18,6 +18,8 @@ import type { MainStackParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
+import TermsScreen from './TermsScreen';
+import PrivacyScreen from './PrivacyScreen';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
 
@@ -41,6 +43,8 @@ export default function ProfileScreen() {
   const [securityModal, setSecurityModal] = useState(false);
   const [helpModal, setHelpModal]         = useState(false);
   const [aboutModal, setAboutModal]       = useState(false);
+  const [termsModal, setTermsModal]       = useState(false);
+  const [privacyModal, setPrivacyModal]   = useState(false);
   const [editName, setEditName] = useState(profile?.full_name ?? '');
   const [editCar, setEditCar]   = useState(profile?.car_model ?? '');
   const [saving, setSaving]     = useState(false);
@@ -291,12 +295,12 @@ export default function ProfileScreen() {
             <Text style={styles.aboutDesc}>{t.about_desc}</Text>
 
             <Text style={styles.settingSectionLabel}>{t.about_legal}</Text>
-            <TouchableOpacity style={styles.contactRow} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.contactRow} activeOpacity={0.8} onPress={() => setTermsModal(true)}>
               <Text style={styles.contactIcon}>📄</Text>
               <Text style={styles.contactLabel}>{t.about_terms}</Text>
               <Text style={styles.settingArrow}>›</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.contactRow} activeOpacity={0.8}>
+            <TouchableOpacity style={styles.contactRow} activeOpacity={0.8} onPress={() => setPrivacyModal(true)}>
               <Text style={styles.contactIcon}>🔒</Text>
               <Text style={styles.contactLabel}>{t.about_privacy}</Text>
               <Text style={styles.settingArrow}>›</Text>
@@ -306,6 +310,9 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <TermsScreen   visible={termsModal}   onClose={() => setTermsModal(false)} />
+      <PrivacyScreen visible={privacyModal} onClose={() => setPrivacyModal(false)} />
 
     </SafeAreaView>
   );

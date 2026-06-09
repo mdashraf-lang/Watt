@@ -7,6 +7,8 @@ import type { RootStackParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
+import TermsScreen from './TermsScreen';
+import PrivacyScreen from './PrivacyScreen';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'Phone'>;
 
@@ -18,6 +20,8 @@ export default function PhoneScreen() {
   const [loading, setLoading] = useState(false);
 
   const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const [termsModal, setTermsModal]     = useState(false);
+  const [privacyModal, setPrivacyModal] = useState(false);
 
   const handleSend = async () => {
     if (!isValid) return;
@@ -80,10 +84,13 @@ export default function PhoneScreen() {
 
         <Text style={styles.terms}>
           {t.login_terms}{' '}
-          <Text style={styles.termsLink}>{t.login_privacy}</Text>
+          <Text style={styles.termsLink} onPress={() => setPrivacyModal(true)}>{t.login_privacy}</Text>
           {' '}{t.login_and}{' '}
-          <Text style={styles.termsLink}>{t.login_usage}</Text>
+          <Text style={styles.termsLink} onPress={() => setTermsModal(true)}>{t.login_usage}</Text>
         </Text>
+
+      <TermsScreen   visible={termsModal}   onClose={() => setTermsModal(false)} />
+      <PrivacyScreen visible={privacyModal} onClose={() => setPrivacyModal(false)} />
       </View>
     </KeyboardAvoidingView>
   );
