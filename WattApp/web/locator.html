@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <title>Watt EV — محطات الشحن في عُمان</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+
+    <style>
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+
+      html, body {
+        height: 100%;
+        font-family: 'Noto Sans Arabic', 'Roboto', sans-serif;
+        background: #f8fafc;
+      }
+
+      /* ── Top bar ── */
+      #topbar {
+        position: fixed;
+        top: 0; left: 0; right: 0;
+        height: 56px;
+        background: #16a34a;
+        display: flex;
+        align-items: center;
+        padding: 0 20px;
+        gap: 10px;
+        z-index: 100;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      }
+      #topbar .logo { font-size: 26px; }
+      #topbar .brand {
+        font-size: 20px;
+        font-weight: 700;
+        color: #fff;
+        letter-spacing: 3px;
+      }
+      #topbar .tagline {
+        font-size: 12px;
+        color: rgba(255,255,255,0.75);
+        margin-right: auto;
+      }
+      #topbar .badge {
+        background: rgba(255,255,255,0.15);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+      }
+
+      /* ── Locator container ── */
+      #locator-wrap {
+        position: fixed;
+        top: 56px; bottom: 0; left: 0; right: 0;
+      }
+
+      gmpx-store-locator {
+        width: 100%;
+        height: 100%;
+
+        --gmpx-color-surface: #ffffff;
+        --gmpx-color-on-surface: #0f172a;
+        --gmpx-color-on-surface-variant: #64748b;
+        --gmpx-color-primary: #16a34a;
+        --gmpx-color-outline: #e2e8f0;
+        --gmpx-fixed-panel-width-row-layout: 360px;
+        --gmpx-fixed-panel-height-column-layout: 55%;
+        --gmpx-font-family-base: 'Noto Sans Arabic', 'Roboto', sans-serif;
+        --gmpx-font-family-headings: 'Roboto', sans-serif;
+        --gmpx-font-size-base: 0.875rem;
+        --gmpx-hours-color-open: #16a34a;
+        --gmpx-hours-color-closed: #dc2626;
+        --gmpx-rating-color: #f59e0b;
+        --gmpx-rating-color-empty: #e2e8f0;
+      }
+    </style>
+
+    <script>
+      const CONFIGURATION = {
+        "locations": [
+          {
+            "title": "Watt — Muscat Mall",
+            "address1": "Muscat Mall, Al Khuwair",
+            "address2": "Muscat, Oman",
+            "coords": { "lat": 23.5880, "lng": 58.3829 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Avenues Mall",
+            "address1": "The Avenues Mall",
+            "address2": "Muscat, Oman",
+            "coords": { "lat": 23.6000, "lng": 58.1500 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Muscat International Airport",
+            "address1": "Muscat International Airport",
+            "address2": "Seeb, Muscat, Oman",
+            "coords": { "lat": 23.5928, "lng": 58.2843 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Royal Hospital",
+            "address1": "Royal Hospital, Al Ghubra",
+            "address2": "Muscat, Oman",
+            "coords": { "lat": 23.6030, "lng": 58.4025 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Shatti Al Qurum Waterfront",
+            "address1": "Shatti Al Qurum Beach",
+            "address2": "Al Qurum, Muscat, Oman",
+            "coords": { "lat": 23.5975, "lng": 58.4102 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Bahja Petrol Station",
+            "address1": "Bahja Service Station",
+            "address2": "Al Qurum, Muscat, Oman",
+            "coords": { "lat": 23.5750, "lng": 58.3900 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Nizwa Fort Plaza",
+            "address1": "Nizwa Fort",
+            "address2": "Nizwa, Ad Dakhiliyah, Oman",
+            "coords": { "lat": 22.9333, "lng": 57.5333 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Sohar Port Industrial Zone",
+            "address1": "Sohar Port",
+            "address2": "Sohar, North Al Batinah, Oman",
+            "coords": { "lat": 24.3500, "lng": 56.7500 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Salalah Garden Mall",
+            "address1": "Salalah Garden Mall",
+            "address2": "Salalah, Dhofar, Oman",
+            "coords": { "lat": 17.0235, "lng": 54.0924 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Salalah Beach Resort",
+            "address1": "Salalah Beach Resort",
+            "address2": "Salalah, Dhofar, Oman",
+            "coords": { "lat": 17.0150, "lng": 54.1200 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Sur Marina",
+            "address1": "Sur Marina",
+            "address2": "Sur, South Al Sharqiyah, Oman",
+            "coords": { "lat": 22.5689, "lng": 59.5285 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Ibri Commercial Centre",
+            "address1": "Ibri Commercial Centre",
+            "address2": "Ibri, Al Dhahirah, Oman",
+            "coords": { "lat": 23.2167, "lng": 56.5167 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Khasab Port",
+            "address1": "Khasab Port",
+            "address2": "Khasab, Musandam, Oman",
+            "coords": { "lat": 26.1833, "lng": 56.2333 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Buraimi",
+            "address1": "Al Mahatta Area",
+            "address2": "Buraimi, Al Buraimi, Oman",
+            "coords": { "lat": 24.2500, "lng": 55.7833 },
+            "placeId": ""
+          },
+          {
+            "title": "Watt — Duqm Special Economic Zone",
+            "address1": "Duqm SEZ",
+            "address2": "Duqm, Al Wusta, Oman",
+            "coords": { "lat": 19.6667, "lng": 57.7000 },
+            "placeId": ""
+          }
+        ],
+        "mapOptions": {
+          "center": { "lat": 22.5, "lng": 57.5 },
+          "fullscreenControl": true,
+          "mapTypeControl": false,
+          "streetViewControl": false,
+          "zoom": 6,
+          "zoomControl": true,
+          "maxZoom": 17,
+          "mapId": ""
+        },
+        "mapsApiKey": "AIzaSyAzbx3XZ-Zfqop62gfKhuRIRPNSQXruy1Y",
+        "capabilities": {
+          "input": true,
+          "autocomplete": true,
+          "directions": true,
+          "distanceMatrix": true,
+          "details": true,
+          "actions": false
+        }
+      };
+    </script>
+
+    <script type="module">
+      document.addEventListener('DOMContentLoaded', async () => {
+        await customElements.whenDefined('gmpx-store-locator');
+        const locator = document.querySelector('gmpx-store-locator');
+        locator.configureFromQuickBuilder(CONFIGURATION);
+      });
+    </script>
+  </head>
+
+  <body>
+    <!-- Top bar -->
+    <div id="topbar">
+      <span class="logo">⚡</span>
+      <span class="brand">WATT</span>
+      <span class="tagline">شبكة شحن السيارات الكهربائية في عُمان</span>
+      <span class="badge">15 محطة</span>
+    </div>
+
+    <!-- Map locator -->
+    <div id="locator-wrap">
+      <script
+        type="module"
+        src="https://ajax.googleapis.com/ajax/libs/@googlemaps/extended-component-library/0.6.11/index.min.js"
+      ></script>
+      <gmpx-api-loader
+        key="AIzaSyAzbx3XZ-Zfqop62gfKhuRIRPNSQXruy1Y"
+        solution-channel="GMP_QB_locatorplus_v11_cABCDE"
+      ></gmpx-api-loader>
+      <gmpx-store-locator map-id="DEMO_MAP_ID"></gmpx-store-locator>
+    </div>
+  </body>
+</html>
