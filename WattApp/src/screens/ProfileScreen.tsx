@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import {
   Alert,
+  Linking,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -34,10 +36,20 @@ export default function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, signOut, updateProfile } = useAuth();
   const { t, toggleLanguage } = useLang();
-  const [editModal, setEditModal] = useState(false);
+  const [editModal, setEditModal]         = useState(false);
+  const [notifModal, setNotifModal]       = useState(false);
+  const [securityModal, setSecurityModal] = useState(false);
+  const [helpModal, setHelpModal]         = useState(false);
+  const [aboutModal, setAboutModal]       = useState(false);
   const [editName, setEditName] = useState(profile?.full_name ?? '');
-  const [editCar, setEditCar] = useState(profile?.car_model ?? '');
-  const [saving, setSaving] = useState(false);
+  const [editCar, setEditCar]   = useState(profile?.car_model ?? '');
+  const [saving, setSaving]     = useState(false);
+
+  // Notification toggles (UI only)
+  const [notifPush, setNotifPush]       = useState(true);
+  const [notifBooking, setNotifBooking] = useState(true);
+  const [notifCharging, setNotifCharging] = useState(true);
+  const [notifPromo, setNotifPromo]     = useState(false);
 
   const handleSave = async () => {
     setSaving(true);
@@ -121,10 +133,10 @@ export default function ProfileScreen() {
         {/* Settings */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.profile_settings}</Text>
-          <SettingRow icon="🔔" label={t.profile_notifications} />
-          <SettingRow icon="🔒" label={t.profile_security} />
-          <SettingRow icon="❓" label={t.profile_help} />
-          <SettingRow icon="ℹ️" label={t.profile_about} />
+          <SettingRow icon="🔔" label={t.profile_notifications} onPress={() => setNotifModal(true)} />
+          <SettingRow icon="🔒" label={t.profile_security}      onPress={() => setSecurityModal(true)} />
+          <SettingRow icon="❓" label={t.profile_help}          onPress={() => setHelpModal(true)} />
+          <SettingRow icon="ℹ️" label={t.profile_about}         onPress={() => setAboutModal(true)} />
           <TouchableOpacity style={styles.settingRow} onPress={toggleLanguage} activeOpacity={0.7}>
             <View style={styles.settingLeft}>
               <Text style={styles.settingIcon}>🌐</Text>
@@ -177,6 +189,124 @@ export default function ProfileScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      {/* ── Notifications Modal ─────────────────────────── */}
+      <Modal visible={notifModal} transparent animationType="slide" onRequestClose={() => setNotifModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setNotifModal(false)}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t.notif_title}</Text>
+            <ToggleRow label={t.notif_push} sub={t.notif_push_sub} value={notifPush} onToggle={setNotifPush} />
+            <ToggleRow label={t.notif_booking} sub={t.notif_booking_sub} value={notifBooking} onToggle={setNotifBooking} />
+            <ToggleRow label={t.notif_charging} sub={t.notif_charging_sub} value={notifCharging} onToggle={setNotifCharging} />
+            <ToggleRow label={t.notif_promo} sub={t.notif_promo_sub} value={notifPromo} onToggle={setNotifPromo} />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Security & Privacy Modal ─────────────────────── */}
+      <Modal visible={securityModal} transparent animationType="slide" onRequestClose={() => setSecurityModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setSecurityModal(false)}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t.security_title}</Text>
+
+            <Text style={styles.settingSectionLabel}>{t.security_account}</Text>
+            <View style={styles.infoCard}>
+              <Text style={styles.infoCardLabel}>{t.security_email_label}</Text>
+              <Text style={styles.infoCardValue}>{profile?.phone || '—'}</Text>
+            </View>
+
+            <Text style={styles.settingSectionLabel}>{t.security_protection}</Text>
+            <ProtectionRow icon="🔐" label={t.security_ssl} sub={t.security_ssl_sub} />
+            <ProtectionRow icon="🚫" label={t.security_no_share} sub={t.security_no_share_sub} />
+            <ProtectionRow icon="📱" label={t.security_local} sub={t.security_local_sub} />
+
+            <Text style={styles.settingSectionLabel}>{t.security_danger}</Text>
+            <TouchableOpacity
+              style={styles.deleteBtn}
+              onPress={() => Alert.alert(t.security_delete, t.security_delete_msg, [
+                { text: t.cancel, style: 'cancel' },
+                { text: t.security_delete_confirm, style: 'destructive', onPress: signOut },
+              ])}
+            >
+              <Text style={styles.deleteBtnText}>🗑 {t.security_delete}</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── Help & Support Modal ─────────────────────────── */}
+      <Modal visible={helpModal} transparent animationType="slide" onRequestClose={() => setHelpModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setHelpModal(false)}>
+          <View style={[styles.modalSheet, { maxHeight: '85%' }]}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t.help_title}</Text>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.settingSectionLabel}>{t.help_faq}</Text>
+              <FaqItem q={t.help_q1} a={t.help_a1} />
+              <FaqItem q={t.help_q2} a={t.help_a2} />
+              <FaqItem q={t.help_q3} a={t.help_a3} />
+              <FaqItem q={t.help_q4} a={t.help_a4} />
+
+              <Text style={styles.settingSectionLabel}>{t.help_contact}</Text>
+              <TouchableOpacity style={styles.contactRow} onPress={() => Linking.openURL('https://wa.me/96892421050')} activeOpacity={0.8}>
+                <Text style={styles.contactIcon}>💬</Text>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactLabel}>{t.help_whatsapp}</Text>
+                  <Text style={styles.contactSub}>{t.help_whatsapp_sub}</Text>
+                </View>
+                <Text style={styles.settingArrow}>›</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.contactRow} onPress={() => Linking.openURL('mailto:support@watt.om')} activeOpacity={0.8}>
+                <Text style={styles.contactIcon}>✉️</Text>
+                <View style={styles.contactInfo}>
+                  <Text style={styles.contactLabel}>{t.help_email_support}</Text>
+                  <Text style={styles.contactSub}>{t.help_email_sub}</Text>
+                </View>
+                <Text style={styles.settingArrow}>›</Text>
+              </TouchableOpacity>
+              <View style={{ height: 20 }} />
+            </ScrollView>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* ── About Modal ──────────────────────────────────── */}
+      <Modal visible={aboutModal} transparent animationType="slide" onRequestClose={() => setAboutModal(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setAboutModal(false)}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>{t.about_title}</Text>
+            <View style={styles.aboutHero}>
+              <View style={styles.aboutLogoCircle}>
+                <Text style={{ fontSize: 32 }}>⚡</Text>
+              </View>
+              <Text style={styles.aboutAppName}>WATT</Text>
+              <Text style={styles.aboutTagline}>{t.about_tagline}</Text>
+              <View style={styles.versionBadge}>
+                <Text style={styles.versionText}>{t.about_version} 1.0.0</Text>
+              </View>
+            </View>
+            <Text style={styles.aboutDesc}>{t.about_desc}</Text>
+
+            <Text style={styles.settingSectionLabel}>{t.about_legal}</Text>
+            <TouchableOpacity style={styles.contactRow} activeOpacity={0.8}>
+              <Text style={styles.contactIcon}>📄</Text>
+              <Text style={styles.contactLabel}>{t.about_terms}</Text>
+              <Text style={styles.settingArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.contactRow} activeOpacity={0.8}>
+              <Text style={styles.contactIcon}>🔒</Text>
+              <Text style={styles.contactLabel}>{t.about_privacy}</Text>
+              <Text style={styles.settingArrow}>›</Text>
+            </TouchableOpacity>
+
+            <Text style={styles.aboutCopyright}>{t.about_copyright}</Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -201,14 +331,52 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
   );
 }
 
-function SettingRow({ icon, label }: { icon: string; label: string }) {
+function SettingRow({ icon, label, onPress }: { icon: string; label: string; onPress?: () => void }) {
   return (
-    <TouchableOpacity style={styles.settingRow} activeOpacity={0.7}>
+    <TouchableOpacity style={styles.settingRow} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.settingLeft}>
         <Text style={styles.settingIcon}>{icon}</Text>
         <Text style={styles.settingLabel}>{label}</Text>
       </View>
       <Text style={styles.settingArrow}>›</Text>
+    </TouchableOpacity>
+  );
+}
+
+function ToggleRow({ label, sub, value, onToggle }: { label: string; sub: string; value: boolean; onToggle: (v: boolean) => void }) {
+  return (
+    <View style={styles.toggleRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        <Text style={styles.toggleSub}>{sub}</Text>
+      </View>
+      <Switch value={value} onValueChange={onToggle} trackColor={{ false: COLORS.border, true: COLORS.primary }} thumbColor="#fff" />
+    </View>
+  );
+}
+
+function ProtectionRow({ icon, label, sub }: { icon: string; label: string; sub: string }) {
+  return (
+    <View style={styles.protectionRow}>
+      <Text style={styles.protectionIcon}>{icon}</Text>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.toggleLabel}>{label}</Text>
+        <Text style={styles.toggleSub}>{sub}</Text>
+      </View>
+      <Text style={{ color: COLORS.primary, fontSize: 16 }}>✓</Text>
+    </View>
+  );
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <TouchableOpacity style={styles.faqItem} onPress={() => setOpen(!open)} activeOpacity={0.8}>
+      <View style={styles.faqHeader}>
+        <Text style={styles.faqQ} numberOfLines={open ? undefined : 1}>{q}</Text>
+        <Text style={styles.faqArrow}>{open ? '▾' : '›'}</Text>
+      </View>
+      {open && <Text style={styles.faqA}>{a}</Text>}
     </TouchableOpacity>
   );
 }
@@ -291,4 +459,35 @@ const styles = StyleSheet.create({
   saveBtn: { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 4 },
   saveBtnDisabled: { opacity: 0.6 },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  // Settings modals
+  settingSectionLabel: { fontSize: 12, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 1, marginTop: 20, marginBottom: 8 },
+  toggleRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12 },
+  toggleLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  toggleSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  protectionRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12 },
+  protectionIcon: { fontSize: 20, width: 28 },
+  infoCard: { backgroundColor: COLORS.background, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: COLORS.border, marginBottom: 4 },
+  infoCardLabel: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 4 },
+  infoCardValue: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+  deleteBtn: { marginTop: 8, padding: 14, backgroundColor: '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: '#fecaca', alignItems: 'center' },
+  deleteBtnText: { color: COLORS.error, fontWeight: '700', fontSize: 14 },
+  contactRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 12 },
+  contactIcon: { fontSize: 22, width: 32 },
+  contactInfo: { flex: 1 },
+  contactLabel: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  contactSub: { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  faqItem: { borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 12 },
+  faqHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  faqQ: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.text },
+  faqArrow: { fontSize: 16, color: COLORS.primary, marginLeft: 8 },
+  faqA: { fontSize: 13, color: COLORS.textSecondary, marginTop: 8, lineHeight: 20 },
+  aboutHero: { alignItems: 'center', paddingVertical: 16, gap: 6 },
+  aboutLogoCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  aboutAppName: { fontSize: 28, fontWeight: '800', color: COLORS.primary, letterSpacing: 4 },
+  aboutTagline: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'center' },
+  versionBadge: { backgroundColor: '#f0fdf4', paddingHorizontal: 14, paddingVertical: 4, borderRadius: 20, marginTop: 4 },
+  versionText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  aboutDesc: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 4 },
+  aboutCopyright: { fontSize: 11, color: COLORS.textTertiary, textAlign: 'center', marginTop: 20, paddingBottom: 8 },
 });
