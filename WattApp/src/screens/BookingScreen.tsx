@@ -138,6 +138,16 @@ export default function BookingScreen() {
       }).select().single();
 
       if (error) throw error;
+
+      // Send WhatsApp booking confirmation (fire-and-forget)
+      if (profile.phone) {
+        const dateStr = bookedAt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' }).replace('/', '/');
+        const timeStr = bookedAt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+        supabase.functions.invoke('notify-booking', {
+          body: { phone: profile.phone, date: dateStr, time: timeStr },
+        });
+      }
+
       navigation.replace('ActiveBooking', { bookingId: data.id });
     } catch (e: any) {
       Alert.alert('خطأ في الحجز', e.message);

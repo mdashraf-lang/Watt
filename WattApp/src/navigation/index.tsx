@@ -104,6 +104,7 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+        {/* LOGIN COMMENTED OUT FOR DEVELOPMENT
         {!session ? (
           <>
             <RootStack.Screen name="Splash" component={SplashScreen} />
@@ -113,6 +114,8 @@ export default function AppNavigator() {
         ) : (
           <RootStack.Screen name="Main" component={MainNavigator} />
         )}
+        */}
+        <RootStack.Screen name="Main" component={MainNavigator} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

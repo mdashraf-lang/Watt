@@ -119,7 +119,7 @@ export interface InvestorApplication {
 export type RootStackParamList = {
   Splash: undefined;
   Phone: undefined;
-  OTP: { phone: string };
+  OTP: { email: string };
   Main: undefined;
 };
 

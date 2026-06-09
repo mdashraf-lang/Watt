@@ -26,8 +26,8 @@ const OTP_LENGTH = 6;
 export default function OTPScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { phone } = route.params;
-  const { verifyOTP, signInWithPhone } = useAuth();
+  const { email } = route.params;
+  const { verifyOTP, signInWithEmail } = useAuth();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,7 @@ export default function OTPScreen() {
   const verifyCode = async (code: string) => {
     setLoading(true);
     try {
-      await verifyOTP(phone, code);
+      await verifyOTP(email, code);
       // AuthContext listener handles navigation via session change
     } catch (e: any) {
       Alert.alert('رمز غير صحيح', e.message || 'الرمز المدخل غير صحيح أو انتهت صلاحيته');
@@ -71,7 +71,7 @@ export default function OTPScreen() {
 
   const handleResend = async () => {
     try {
-      await signInWithPhone(phone);
+      await signInWithEmail(email);
       setResendCountdown(60);
       setOtp(Array(OTP_LENGTH).fill(''));
       inputs.current[0]?.focus();
@@ -79,8 +79,6 @@ export default function OTPScreen() {
       Alert.alert('خطأ', e.message);
     }
   };
-
-  const maskedPhone = phone.replace(/(\+968)(\d{4})(\d{4})/, '$1 $2 ****');
 
   return (
     <KeyboardAvoidingView
@@ -102,13 +100,13 @@ export default function OTPScreen() {
 
       <View style={styles.content}>
         <View style={styles.iconCircle}>
-          <Text style={styles.iconEmoji}>📱</Text>
+          <Text style={styles.iconEmoji}>✉️</Text>
         </View>
 
-        <Text style={styles.title}>التحقق من الهاتف</Text>
+        <Text style={styles.title}>تحقق من بريدك</Text>
         <Text style={styles.subtitle}>
           أدخل الرمز المكون من {OTP_LENGTH} أرقام المرسل إلى{'\n'}
-          <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
+          <Text style={styles.phoneHighlight}>{email}</Text>
         </Text>
 
         {/* OTP Boxes */}

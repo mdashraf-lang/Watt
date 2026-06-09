@@ -7,14 +7,29 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signInWithPhone: (phone: string) => Promise<void>;
-  verifyOTP: (phone: string, token: string) => Promise<void>;
+  signInWithEmail: (email: string) => Promise<void>;
+  verifyOTP: (email: string, token: string) => Promise<void>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateProfile: (data: Partial<Profile>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// Remove this block when login is re-enabled
+const DEV_PROFILE: Profile = {
+  id: 'dev-user',
+  phone: '+96892421050',
+  full_name: 'مستخدم تجريبي',
+  membership_level: 'gold',
+  wallet_balance: 25.000,
+  total_sessions: 12,
+  total_kwh: 148.5,
+  rating: 4.9,
+  car_model: 'Tesla Model 3',
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -49,13 +64,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
 
-  const signInWithPhone = async (phone: string) => {
-    const { error } = await supabase.auth.signInWithOtp({ phone });
+  const signInWithEmail = async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({ email });
     if (error) throw error;
   };
 
-  const verifyOTP = async (phone: string, token: string) => {
-    const { error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+  const verifyOTP = async (email: string, token: string) => {
+    const { error } = await supabase.auth.verifyOtp({ email, token, type: 'email' });
     if (error) throw error;
   };
 
@@ -78,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ session, profile, loading, signInWithPhone, verifyOTP, signOut, refreshProfile, updateProfile }}>
+    <AuthContext.Provider value={{ session, profile: profile ?? DEV_PROFILE, loading, signInWithEmail, verifyOTP, signOut, refreshProfile, updateProfile }}>
       {children}
     </AuthContext.Provider>
   );
