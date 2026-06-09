@@ -14,15 +14,16 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { MainStackParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
 
-const MEMBERSHIP_LABEL: Record<string, string> = {
-  standard: 'عضو عادي',
-  silver: 'عضو فضي',
-  gold: 'عضو ذهبي',
-};
+const MEMBERSHIP_LABEL = (t: any): Record<string, string> => ({
+  standard: t.profile_member_standard,
+  silver: t.profile_member_silver,
+  gold: t.profile_member_gold,
+});
 const MEMBERSHIP_COLOR: Record<string, string> = {
   standard: COLORS.textSecondary,
   silver: '#94a3b8',
@@ -32,6 +33,7 @@ const MEMBERSHIP_COLOR: Record<string, string> = {
 export default function ProfileScreen() {
   const navigation = useNavigation<Nav>();
   const { profile, signOut, updateProfile } = useAuth();
+  const { t, toggleLanguage } = useLang();
   const [editModal, setEditModal] = useState(false);
   const [editName, setEditName] = useState(profile?.full_name ?? '');
   const [editCar, setEditCar] = useState(profile?.car_model ?? '');
@@ -43,22 +45,23 @@ export default function ProfileScreen() {
       await updateProfile({ full_name: editName, car_model: editCar });
       setEditModal(false);
     } catch (e: any) {
-      Alert.alert('خطأ', e.message);
+      Alert.alert(t.error, e.message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleSignOut = () => {
-    Alert.alert('تسجيل الخروج', 'هل أنت متأكد من تسجيل الخروج؟', [
-      { text: 'تراجع', style: 'cancel' },
-      { text: 'خروج', style: 'destructive', onPress: signOut },
+    Alert.alert(t.profile_logout_title, t.profile_logout_msg, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.profile_logout_confirm, style: 'destructive', onPress: signOut },
     ]);
   };
 
   if (!profile) return null;
 
   const memberColor = MEMBERSHIP_COLOR[profile.membership_level];
+  const memberLabel = MEMBERSHIP_LABEL(t);
   const isGold = profile.membership_level === 'gold';
 
   return (
@@ -71,29 +74,29 @@ export default function ProfileScreen() {
               {profile.full_name ? profile.full_name[0].toUpperCase() : '?'}
             </Text>
           </View>
-          <Text style={[styles.name, isGold && styles.nameGold]}>{profile.full_name || 'مستخدم Watt'}</Text>
+          <Text style={[styles.name, isGold && styles.nameGold]}>{profile.full_name || t.profile_dev_name}</Text>
           <Text style={[styles.phone, isGold && styles.phoneGold]}>{profile.phone}</Text>
           <View style={[styles.memberBadge, { backgroundColor: memberColor + '30', borderColor: memberColor }]}>
             <Text style={styles.memberEmoji}>{isGold ? '👑' : '⭐'}</Text>
-            <Text style={[styles.memberText, { color: memberColor }]}>{MEMBERSHIP_LABEL[profile.membership_level]}</Text>
+            <Text style={[styles.memberText, { color: memberColor }]}>{memberLabel[profile.membership_level]}</Text>
           </View>
         </View>
 
         {/* Stats */}
         <View style={styles.statsRow}>
-          <StatBox label="الجلسات" value={String(profile.total_sessions)} emoji="⚡" />
-          <StatBox label="kWh إجمالي" value={profile.total_kwh.toFixed(0)} emoji="🔋" />
-          <StatBox label="التقييم" value={String(profile.rating)} emoji="⭐" />
+          <StatBox label={t.profile_sessions} value={String(profile.total_sessions)} emoji="⚡" />
+          <StatBox label={t.profile_kwh} value={profile.total_kwh.toFixed(0)} emoji="🔋" />
+          <StatBox label={t.profile_rating} value={String(profile.rating)} emoji="⭐" />
         </View>
 
         {/* Car */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>معلوماتي</Text>
-          <InfoRow icon="🚗" label="سيارتي" value={profile.car_model || 'لم تُضف بعد'} />
-          <InfoRow icon="📱" label="رقم الهاتف" value={profile.phone || '-'} />
-          <InfoRow icon="🏅" label="تاريخ الانضمام" value={new Date(profile.created_at).toLocaleDateString('ar-OM')} />
+          <Text style={styles.sectionTitle}>{t.profile_my_info}</Text>
+          <InfoRow icon="🚗" label={t.profile_car} value={profile.car_model || t.profile_car_none} />
+          <InfoRow icon="📱" label={t.profile_phone} value={profile.phone || '-'} />
+          <InfoRow icon="🏅" label={t.profile_joined} value={new Date(profile.created_at).toLocaleDateString()} />
           <TouchableOpacity style={styles.editRow} onPress={() => { setEditName(profile.full_name); setEditCar(profile.car_model ?? ''); setEditModal(true); }}>
-            <Text style={styles.editText}>✏️ تعديل المعلومات</Text>
+            <Text style={styles.editText}>{t.profile_edit}</Text>
           </TouchableOpacity>
         </View>
 
@@ -107,8 +110,8 @@ export default function ProfileScreen() {
             <View style={styles.investorLeft}>
               <Text style={styles.investorEmoji}>💡</Text>
               <View>
-                <Text style={styles.investorTitle}>كن مستثمراً في Watt</Text>
-                <Text style={styles.investorSub}>أضف محطة في موقعك وأكسب دخلاً شهرياً</Text>
+                <Text style={styles.investorTitle}>{t.profile_investor_title}</Text>
+                <Text style={styles.investorSub}>{t.profile_investor_sub}</Text>
               </View>
             </View>
             <Text style={styles.investorArrow}>←</Text>
@@ -117,16 +120,23 @@ export default function ProfileScreen() {
 
         {/* Settings */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>الإعدادات</Text>
-          <SettingRow icon="🔔" label="الإشعارات" />
-          <SettingRow icon="🔒" label="الأمان والخصوصية" />
-          <SettingRow icon="❓" label="المساعدة والدعم" />
-          <SettingRow icon="ℹ️" label="عن التطبيق" />
+          <Text style={styles.sectionTitle}>{t.profile_settings}</Text>
+          <SettingRow icon="🔔" label={t.profile_notifications} />
+          <SettingRow icon="🔒" label={t.profile_security} />
+          <SettingRow icon="❓" label={t.profile_help} />
+          <SettingRow icon="ℹ️" label={t.profile_about} />
+          <TouchableOpacity style={styles.settingRow} onPress={toggleLanguage} activeOpacity={0.7}>
+            <View style={styles.settingLeft}>
+              <Text style={styles.settingIcon}>🌐</Text>
+              <Text style={styles.settingLabel}>{t.profile_language}</Text>
+            </View>
+            <Text style={[styles.settingArrow, { color: COLORS.primary, fontWeight: '700', fontSize: 14 }]}>{t.profile_language_label}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Logout */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} activeOpacity={0.85}>
-          <Text style={styles.logoutText}>🚪 تسجيل الخروج</Text>
+          <Text style={styles.logoutText}>{t.profile_logout}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 32 }} />
@@ -137,23 +147,23 @@ export default function ProfileScreen() {
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setEditModal(false)}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>تعديل المعلومات</Text>
+            <Text style={styles.modalTitle}>{t.profile_edit_title}</Text>
 
-            <Text style={styles.inputLabel}>الاسم الكامل</Text>
+            <Text style={styles.inputLabel}>{t.profile_edit_name}</Text>
             <TextInput
               style={styles.textInput}
               value={editName}
               onChangeText={setEditName}
-              placeholder="أدخل اسمك"
+              placeholder={t.profile_edit_name_ph}
               placeholderTextColor={COLORS.textTertiary}
             />
 
-            <Text style={styles.inputLabel}>موديل السيارة</Text>
+            <Text style={styles.inputLabel}>{t.profile_edit_car}</Text>
             <TextInput
               style={styles.textInput}
               value={editCar}
               onChangeText={setEditCar}
-              placeholder="مثال: Tesla Model 3"
+              placeholder={t.profile_edit_car_ph}
               placeholderTextColor={COLORS.textTertiary}
             />
 
@@ -162,7 +172,7 @@ export default function ProfileScreen() {
               onPress={handleSave}
               disabled={saving}
             >
-              <Text style={styles.saveBtnText}>{saving ? 'جارٍ الحفظ...' : 'حفظ التغييرات'}</Text>
+              <Text style={styles.saveBtnText}>{saving ? t.saving : t.save}</Text>
             </TouchableOpacity>
           </View>
         </TouchableOpacity>

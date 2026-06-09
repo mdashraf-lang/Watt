@@ -18,6 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { MainStackParamList, Station } from '../types';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
+import { useLang } from '../context/LanguageContext';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
 
@@ -28,13 +29,6 @@ const STATUS_COLOR: Record<string, string> = {
   offline: COLORS.offline,
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  available: 'متاحة',
-  busy: 'مشغولة',
-  fault: 'عطل',
-  offline: 'غير متاحة',
-};
-
 const OMAN_REGION: Region = {
   latitude: 23.588,
   longitude: 58.383,
@@ -43,6 +37,13 @@ const OMAN_REGION: Region = {
 };
 
 export default function MapScreen() {
+  const { t } = useLang();
+  const STATUS_LABEL: Record<string, string> = {
+    available: t.status_available,
+    busy: t.status_busy,
+    fault: t.status_fault,
+    offline: t.status_offline,
+  };
   const navigation = useNavigation<Nav>();
   const mapRef = useRef<MapView>(null);
   const [stations, setStations] = useState<Station[]>([]);
@@ -130,7 +131,7 @@ export default function MapScreen() {
       <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.status] }]} />
       <View style={styles.listCardInfo}>
         <Text style={styles.listCardName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.listCardSub}>{item.governorate} • {item.available_connectors}/{item.total_connectors} متاح</Text>
+        <Text style={styles.listCardSub}>{item.governorate} • {item.available_connectors}/{item.total_connectors} {t.map_available}</Text>
       </View>
       <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
     </TouchableOpacity>
@@ -166,7 +167,7 @@ export default function MapScreen() {
           <Text style={styles.searchIcon}>🔍</Text>
           <TextInput
             style={styles.searchInput}
-            placeholder="ابحث عن محطة..."
+            placeholder={t.map_search}
             placeholderTextColor={COLORS.textSecondary}
             value={search}
             onChangeText={setSearch}
@@ -188,7 +189,7 @@ export default function MapScreen() {
       {!showList && !selected && (
         <View style={styles.pillRow}>
           <TouchableOpacity style={styles.pill} onPress={toggleList} activeOpacity={0.85}>
-            <Text style={styles.pillText}>⚡ محطات قريبة مني</Text>
+            <Text style={styles.pillText}>{`⚡ ${t.map_nearby}`}</Text>
             {loading && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
           </TouchableOpacity>
         </View>
@@ -199,7 +200,7 @@ export default function MapScreen() {
         <View style={styles.listSheet}>
           <View style={styles.listHandle} />
           <Text style={styles.listTitle}>
-            المحطات ({filtered.length}) {search ? `• "${search}"` : ''}
+            {t.map_stations} ({filtered.length}) {search ? `• "${search}"` : ''}
           </Text>
           {loading ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
@@ -213,7 +214,7 @@ export default function MapScreen() {
             />
           )}
           <TouchableOpacity style={styles.closeListBtn} onPress={() => setShowList(false)}>
-            <Text style={styles.closeListText}>إغلاق</Text>
+            <Text style={styles.closeListText}>{t.close}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -227,7 +228,7 @@ export default function MapScreen() {
                 <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[selected.status] }]} />
                 <Text style={styles.selectedName} numberOfLines={1}>{selected.name}</Text>
               </View>
-              <Text style={styles.selectedSub}>{selected.governorate} · {selected.available_connectors} / {selected.total_connectors} متاح</Text>
+              <Text style={styles.selectedSub}>{selected.governorate} · {selected.available_connectors} / {selected.total_connectors} {t.map_available}</Text>
               <Text style={styles.selectedStatus}>{STATUS_LABEL[selected.status]}</Text>
             </View>
             <View style={styles.selectedRight}>
@@ -245,14 +246,14 @@ export default function MapScreen() {
               }}
               activeOpacity={0.85}
             >
-              <Text style={styles.detailsBtnText}>التفاصيل</Text>
+              <Text style={styles.detailsBtnText}>{t.map_details}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.bookBtn, selected.status !== 'available' && styles.bookBtnDisabled]}
               onPress={() => selected.status === 'available' && navigation.navigate('Booking', { station: selected })}
               activeOpacity={0.85}
             >
-              <Text style={styles.bookBtnText}>احجز الآن</Text>
+              <Text style={styles.bookBtnText}>{t.map_book}</Text>
             </TouchableOpacity>
           </View>
 

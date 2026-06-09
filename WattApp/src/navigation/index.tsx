@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 import type { RootStackParamList, MainStackParamList, TabParamList } from '../types';
 
@@ -37,6 +38,7 @@ function TabEmojiIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
 }
 
 function MainTabs() {
+  const { t } = useLang();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -56,22 +58,22 @@ function MainTabs() {
       <Tab.Screen
         name="Map"
         component={MapScreen}
-        options={{ tabBarLabel: 'الخريطة', tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="🗺️" focused={focused} /> }}
+        options={{ tabBarLabel: t.tab_map, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="🗺️" focused={focused} /> }}
       />
       <Tab.Screen
         name="Bookings"
         component={BookingsScreen}
-        options={{ tabBarLabel: 'حجوزاتي', tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="📋" focused={focused} /> }}
+        options={{ tabBarLabel: t.tab_bookings, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="📋" focused={focused} /> }}
       />
       <Tab.Screen
         name="Wallet"
         component={WalletScreen}
-        options={{ tabBarLabel: 'محفظتي', tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="💳" focused={focused} /> }}
+        options={{ tabBarLabel: t.tab_wallet, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="💳" focused={focused} /> }}
       />
       <Tab.Screen
         name="Profile"
         component={ProfileScreen}
-        options={{ tabBarLabel: 'حسابي', tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="👤" focused={focused} /> }}
+        options={{ tabBarLabel: t.tab_profile, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="👤" focused={focused} /> }}
       />
     </Tab.Navigator>
   );

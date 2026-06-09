@@ -15,6 +15,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Booking'>;
@@ -42,14 +43,15 @@ function getTimeSlots() {
   return slots;
 }
 
-const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
-const MONTH_NAMES = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
-
 export default function BookingScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { station } = route.params;
   const { profile } = useAuth();
+  const { t } = useLang();
+
+  const DAY_NAMES = [t.day_0, t.day_1, t.day_2, t.day_3, t.day_4, t.day_5, t.day_6];
+  const MONTH_NAMES = [t.month_0, t.month_1, t.month_2, t.month_3, t.month_4, t.month_5, t.month_6, t.month_7, t.month_8, t.month_9, t.month_10, t.month_11];
 
   const days = getDays();
   const timeSlots = getTimeSlots();
@@ -103,18 +105,18 @@ export default function BookingScreen() {
 
   const handleBook = async () => {
     if (!selectedTime) {
-      Alert.alert('تنبيه', 'يرجى اختيار وقت الحجز');
+      Alert.alert(t.warning, t.booking_select_time);
       return;
     }
     if (!profile) return;
 
     if (profile.wallet_balance < estimatedCost) {
       Alert.alert(
-        'رصيد غير كافٍ',
-        `رصيدك الحالي ${profile.wallet_balance.toFixed(3)} OMR. المطلوب ${estimatedCost.toFixed(3)} OMR`,
+        t.booking_low_balance,
+        `${t.booking_low_balance_msg} ${profile.wallet_balance.toFixed(3)} OMR. ${t.booking_low_balance_needed} ${estimatedCost.toFixed(3)} OMR`,
         [
           { text: 'إلغاء', style: 'cancel' },
-          { text: 'شحن المحفظة', onPress: () => navigation.navigate('Tabs') },
+          { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
         ]
       );
       return;
@@ -150,7 +152,7 @@ export default function BookingScreen() {
 
       navigation.replace('ActiveBooking', { bookingId: data.id });
     } catch (e: any) {
-      Alert.alert('خطأ في الحجز', e.message);
+      Alert.alert(t.booking_error, e.message);
     } finally {
       setLoading(false);
     }
@@ -162,7 +164,7 @@ export default function BookingScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>حجز الشحن</Text>
+        <Text style={styles.headerTitle}>{t.booking_title}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -178,7 +180,7 @@ export default function BookingScreen() {
 
         {/* Day selector */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>اختر اليوم</Text>
+          <Text style={styles.sectionTitle}>{t.booking_choose_day}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
             {days.map((d, i) => (
               <TouchableOpacity
@@ -187,7 +189,7 @@ export default function BookingScreen() {
                 onPress={() => { setSelectedDay(i); setSelectedTime(''); }}
               >
                 <Text style={[styles.dayName, i === selectedDay && styles.dayTextActive]}>
-                  {i === 0 ? 'اليوم' : DAY_NAMES[d.getDay()]}
+                  {i === 0 ? t.booking_today : DAY_NAMES[d.getDay()]}
                 </Text>
                 <Text style={[styles.dayNum, i === selectedDay && styles.dayTextActive]}>
                   {d.getDate()} {MONTH_NAMES[d.getMonth()].slice(0, 3)}
@@ -199,7 +201,7 @@ export default function BookingScreen() {
 
         {/* Time slots */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>اختر الوقت</Text>
+          <Text style={styles.sectionTitle}>{t.booking_choose_time}</Text>
           {fetchingSlots ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginVertical: 16 }} />
           ) : (
@@ -226,7 +228,7 @@ export default function BookingScreen() {
 
         {/* Duration */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>مدة الشحن</Text>
+          <Text style={styles.sectionTitle}>{t.booking_duration}</Text>
           <View style={styles.durationRow}>
             {DURATIONS.map(d => (
               <TouchableOpacity
@@ -244,15 +246,15 @@ export default function BookingScreen() {
 
         {/* Summary */}
         <View style={styles.summary}>
-          <Text style={styles.summaryTitle}>ملخص التكلفة</Text>
-          <SummaryRow label="المدة" value={`${selectedDuration} دقيقة`} />
-          <SummaryRow label="الطاقة المتوقعة" value={`${estimatedKwh.toFixed(1)} kWh`} />
-          <SummaryRow label="السعر" value={`${station.price_per_kwh.toFixed(3)} OMR/kWh`} />
+          <Text style={styles.summaryTitle}>{t.booking_summary}</Text>
+          <SummaryRow label={t.booking_duration_label} value={`${selectedDuration} ${t.booking_minute}`} />
+          <SummaryRow label={t.booking_kwh} value={`${estimatedKwh.toFixed(1)} kWh`} />
+          <SummaryRow label={t.booking_price_rate} value={`${station.price_per_kwh.toFixed(3)} OMR/kWh`} />
           <View style={styles.summaryDivider} />
-          <SummaryRow label="التكلفة الإجمالية" value={`${estimatedCost.toFixed(3)} OMR`} bold />
+          <SummaryRow label={t.booking_total} value={`${estimatedCost.toFixed(3)} OMR`} bold />
           {profile && (
             <SummaryRow
-              label="الرصيد بعد الحجز"
+              label={t.booking_balance_after}
               value={`${(profile.wallet_balance - estimatedCost).toFixed(3)} OMR`}
               color={profile.wallet_balance >= estimatedCost ? COLORS.success : COLORS.error}
             />
@@ -272,7 +274,7 @@ export default function BookingScreen() {
           {loading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.bookBtnText}>تأكيد الحجز · {estimatedCost.toFixed(3)} OMR</Text>
+            <Text style={styles.bookBtnText}>{`${t.booking_confirm_btn} ·`} {estimatedCost.toFixed(3)} OMR</Text>
           )}
         </TouchableOpacity>
       </View>

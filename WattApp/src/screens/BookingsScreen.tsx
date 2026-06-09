@@ -14,17 +14,10 @@ import type { Booking, MainStackParamList } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
+import { useLang } from '../context/LanguageContext';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
 
-const STATUS_LABEL: Record<string, string> = {
-  pending: 'في الانتظار',
-  confirmed: 'مؤكد',
-  active: 'نشط',
-  completed: 'مكتمل',
-  cancelled: 'ملغي',
-  no_show: 'لم يحضر',
-};
 const STATUS_COLOR: Record<string, string> = {
   pending: COLORS.warning,
   confirmed: COLORS.primary,
@@ -34,14 +27,22 @@ const STATUS_COLOR: Record<string, string> = {
   no_show: COLORS.fault,
 };
 
-const FILTER_TABS = [
-  { key: 'all', label: 'الكل' },
-  { key: 'active', label: 'النشطة' },
-  { key: 'confirmed', label: 'المؤكدة' },
-  { key: 'completed', label: 'المكتملة' },
-];
-
 export default function BookingsScreen() {
+  const { t } = useLang();
+  const STATUS_LABEL: Record<string, string> = {
+    pending: t.bookings_status_pending,
+    confirmed: t.bookings_status_confirmed,
+    active: t.bookings_status_active,
+    completed: t.bookings_status_completed,
+    cancelled: t.bookings_status_cancelled,
+    no_show: t.bookings_status_no_show,
+  };
+  const FILTER_TABS = [
+    { key: 'all', label: t.bookings_filter_all },
+    { key: 'active', label: t.bookings_filter_active },
+    { key: 'confirmed', label: t.bookings_filter_confirmed },
+    { key: 'completed', label: t.bookings_filter_completed },
+  ];
   const navigation = useNavigation<Nav>();
   const { profile } = useAuth();
   const [bookings, setBookings] = useState<Booking[]>([]);
@@ -81,7 +82,7 @@ export default function BookingsScreen() {
           </View>
           <View style={styles.cardInfo}>
             <Text style={styles.stationName} numberOfLines={1}>
-              {item.station?.name_ar || item.station?.name || 'محطة غير معروفة'}
+              {item.station?.name_ar || item.station?.name || t.bookings_unknown_station}
             </Text>
             <Text style={styles.stationGov}>{item.station?.governorate}</Text>
           </View>
@@ -102,7 +103,7 @@ export default function BookingsScreen() {
         {isActionable && (
           <View style={styles.cardAction}>
             <Text style={styles.cardActionText}>
-              {item.status === 'active' ? '⚡ جلسة الشحن نشطة' : 'اضغط لعرض QR والبدء'}
+              {item.status === 'active' ? t.bookings_session_active : t.bookings_scan_qr}
             </Text>
           </View>
         )}
@@ -114,8 +115,8 @@ export default function BookingsScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>حجوزاتي</Text>
-        <Text style={styles.headerCount}>{bookings.length} حجز</Text>
+        <Text style={styles.headerTitle}>{t.bookings_header}</Text>
+        <Text style={styles.headerCount}>{bookings.length} {t.bookings_count}</Text>
       </View>
 
       {/* Filter tabs */}
@@ -138,16 +139,16 @@ export default function BookingsScreen() {
       ) : filtered.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyEmoji}>📋</Text>
-          <Text style={styles.emptyTitle}>لا توجد حجوزات</Text>
+          <Text style={styles.emptyTitle}>{t.bookings_empty_title}</Text>
           <Text style={styles.emptySub}>
-            {filter === 'all' ? 'ابدأ بحجز محطة شحن من الخريطة' : `لا توجد حجوزات ${FILTER_TABS.find(t => t.key === filter)?.label}`}
+            {filter === 'all' ? t.bookings_empty_sub_all : t.bookings_empty_sub_filter}
           </Text>
           {filter === 'all' && (
             <TouchableOpacity
               style={styles.emptyBtn}
               onPress={() => navigation.navigate('Tabs')}
             >
-              <Text style={styles.emptyBtnText}>اذهب للخريطة</Text>
+              <Text style={styles.emptyBtnText}>{t.bookings_go_map}</Text>
             </TouchableOpacity>
           )}
         </View>

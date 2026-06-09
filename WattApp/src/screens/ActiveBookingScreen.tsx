@@ -17,6 +17,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { Booking, MainStackParamList } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'ActiveBooking'>;
@@ -27,6 +28,7 @@ export default function ActiveBookingScreen() {
   const route = useRoute<Route>();
   const { bookingId } = route.params;
   const { profile, refreshProfile } = useAuth();
+  const { t } = useLang();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -55,7 +57,7 @@ export default function ActiveBookingScreen() {
       const expiresAt = new Date(bookedAt.getTime() + booking.duration_minutes * 60000);
       const diff = expiresAt.getTime() - Date.now();
       if (diff <= 0) {
-        setTimeLeft('انتهى الوقت');
+        setTimeLeft(t.active_time_expired);
         clearInterval(interval);
       } else {
         const h = Math.floor(diff / 3600000);
@@ -107,7 +109,7 @@ export default function ActiveBookingScreen() {
         stationName: booking.station?.name || '',
       });
     } catch (e: any) {
-      Alert.alert('خطأ', e.message);
+      Alert.alert(t.error, e.message);
     } finally {
       setStartLoading(false);
     }
@@ -115,12 +117,12 @@ export default function ActiveBookingScreen() {
 
   const handleCancel = () => {
     Alert.alert(
-      'إلغاء الحجز',
-      'هل أنت متأكد من إلغاء الحجز؟',
+      t.active_cancel_title,
+      t.active_cancel_msg,
       [
-        { text: 'تراجع', style: 'cancel' },
+        { text: t.cancel, style: 'cancel' },
         {
-          text: 'إلغاء الحجز', style: 'destructive',
+          text: t.active_cancel_btn, style: 'destructive',
           onPress: async () => {
             setCancelLoading(true);
             await supabase.from('bookings').update({ status: 'cancelled', cancellation_reason: 'user_cancelled' }).eq('id', bookingId);
@@ -151,7 +153,7 @@ export default function ActiveBookingScreen() {
         <TouchableOpacity onPress={() => navigation.navigate('Tabs')} style={styles.back}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>الحجز المؤكد</Text>
+        <Text style={styles.headerTitle}>{t.active_header}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -159,13 +161,13 @@ export default function ActiveBookingScreen() {
         {/* Status badge */}
         <View style={styles.statusCard}>
           <Text style={styles.statusEmoji}>✅</Text>
-          <Text style={styles.statusTitle}>تم تأكيد الحجز</Text>
-          <Text style={styles.statusSub}>احضر إلى المحطة واقترب من الشاحن</Text>
+          <Text style={styles.statusTitle}>{t.active_confirmed}</Text>
+          <Text style={styles.statusSub}>{t.active_confirmed_sub}</Text>
         </View>
 
         {/* QR Code */}
         <View style={styles.qrCard}>
-          <Text style={styles.qrTitle}>رمز QR للدخول</Text>
+          <Text style={styles.qrTitle}>{t.active_qr_title}</Text>
           <View style={styles.qrContainer}>
             <QRCode
               value={booking.qr_code}
@@ -180,21 +182,21 @@ export default function ActiveBookingScreen() {
 
         {/* Countdown */}
         <View style={styles.countdownCard}>
-          <Text style={styles.countdownLabel}>الوقت المتبقي</Text>
+          <Text style={styles.countdownLabel}>{t.active_countdown_label}</Text>
           <Text style={styles.countdownTime}>{timeLeft || '--:--:--'}</Text>
-          <Text style={styles.countdownSub}>للوصول إلى المحطة</Text>
+          <Text style={styles.countdownSub}>{t.active_countdown_sub}</Text>
         </View>
 
         {/* Booking details */}
         <View style={styles.detailsCard}>
-          <Text style={styles.detailsTitle}>تفاصيل الحجز</Text>
-          <DetailRow label="المحطة" value={booking.station?.name_ar || booking.station?.name || ''} />
-          <DetailRow label="التاريخ" value={bookedAt.toLocaleDateString('ar-OM')} />
-          <DetailRow label="الوقت" value={bookedAt.toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })} />
-          <DetailRow label="المدة" value={`${booking.duration_minutes} دقيقة`} />
-          <DetailRow label="الطاقة المتوقعة" value={`${booking.estimated_kwh?.toFixed(1) || '—'} kWh`} />
+          <Text style={styles.detailsTitle}>{t.active_details_title}</Text>
+          <DetailRow label={t.active_station} value={booking.station?.name_ar || booking.station?.name || ''} />
+          <DetailRow label={t.active_date} value={bookedAt.toLocaleDateString('ar-OM')} />
+          <DetailRow label={t.active_time} value={bookedAt.toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })} />
+          <DetailRow label={t.active_duration} value={`${booking.duration_minutes} ${t.active_duration_min}`} />
+          <DetailRow label={t.active_kwh} value={`${booking.estimated_kwh?.toFixed(1) || '—'} kWh`} />
           <View style={styles.divider} />
-          <DetailRow label="التكلفة المتوقعة" value={`${booking.estimated_cost?.toFixed(3) || '—'} OMR`} bold />
+          <DetailRow label={t.active_cost} value={`${booking.estimated_cost?.toFixed(3) || '—'} OMR`} bold />
         </View>
       </ScrollView>
 
@@ -209,7 +211,7 @@ export default function ActiveBookingScreen() {
           {startLoading ? <ActivityIndicator color="#fff" /> : (
             <>
               <Text style={styles.startBtnIcon}>⚡</Text>
-              <Text style={styles.startBtnText}>ابدأ الشحن الآن</Text>
+              <Text style={styles.startBtnText}>{t.active_start_btn}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -219,7 +221,7 @@ export default function ActiveBookingScreen() {
           disabled={cancelLoading}
           activeOpacity={0.85}
         >
-          <Text style={styles.cancelBtnText}>إلغاء الحجز</Text>
+          <Text style={styles.cancelBtnText}>{t.active_cancel_btn}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

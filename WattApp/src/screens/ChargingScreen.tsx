@@ -16,6 +16,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { ChargingSession, MainStackParamList } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Charging'>;
@@ -29,6 +30,7 @@ export default function ChargingScreen() {
   const route = useRoute<Route>();
   const { sessionId, stationName } = route.params;
   const { profile, refreshProfile } = useAuth();
+  const { t } = useLang();
 
   const [session, setSession] = useState<ChargingSession | null>(null);
   const [batteryPct, setBatteryPct] = useState(20);
@@ -94,11 +96,11 @@ export default function ChargingScreen() {
 
   const handleStop = () => {
     Alert.alert(
-      'إيقاف الشحن',
-      `هل تريد إيقاف الشحن؟\nتم شحن ${kwhDelivered.toFixed(2)} kWh بتكلفة ${cost.toFixed(3)} OMR`,
+      t.charging_stop_title,
+      `${t.charging_stop_msg}\n${kwhDelivered.toFixed(2)} kWh - ${cost.toFixed(3)} OMR`,
       [
-        { text: 'تراجع', style: 'cancel' },
-        { text: 'إيقاف', style: 'destructive', onPress: stopCharging },
+        { text: t.charging_back, style: 'cancel' },
+        { text: t.charging_stop_confirm, style: 'destructive', onPress: stopCharging },
       ]
     );
   };
@@ -137,7 +139,7 @@ export default function ChargingScreen() {
       await refreshProfile();
       navigation.navigate('Tabs');
     } catch (e: any) {
-      Alert.alert('خطأ', e.message);
+      Alert.alert(t.error, e.message);
     } finally {
       setStopLoading(false);
     }
@@ -159,7 +161,7 @@ export default function ChargingScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
         <View style={{ width: 40 }} />
-        <Text style={styles.headerTitle}>جلسة الشحن</Text>
+        <Text style={styles.headerTitle}>{t.charging_header}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -179,7 +181,7 @@ export default function ChargingScreen() {
         <View style={styles.batteryRing}>
           <View style={styles.batteryLabel}>
             <Text style={styles.batteryPct}>{batteryPct}%</Text>
-            <Text style={styles.batteryText}>شحن البطارية</Text>
+            <Text style={styles.batteryText}>{t.charging_battery}</Text>
           </View>
           <Animated.View style={[styles.progressBar, { backgroundColor: progressColor, width: `${batteryPct}%` }]} />
         </View>
@@ -187,15 +189,15 @@ export default function ChargingScreen() {
 
       {/* Stats cards */}
       <View style={styles.statsRow}>
-        <StatCard label="الطاقة" value={kwhDelivered.toFixed(2)} unit="kWh" icon="⚡" color={COLORS.primary} />
-        <StatCard label="التكلفة" value={cost.toFixed(3)} unit="OMR" icon="💰" color={COLORS.gold} />
-        <StatCard label="المدة" value={formatElapsed(elapsedSeconds)} unit="" icon="⏱" color={COLORS.text} />
+        <StatCard label={t.charging_energy} value={kwhDelivered.toFixed(2)} unit="kWh" icon="⚡" color={COLORS.primary} />
+        <StatCard label={t.charging_cost} value={cost.toFixed(3)} unit="OMR" icon="💰" color={COLORS.gold} />
+        <StatCard label={t.charging_duration} value={formatElapsed(elapsedSeconds)} unit="" icon="⏱" color={COLORS.text} />
       </View>
 
       {/* Wallet balance */}
       {profile && (
         <View style={styles.walletInfo}>
-          <Text style={styles.walletLabel}>الرصيد المتبقي بعد الشحن</Text>
+          <Text style={styles.walletLabel}>{t.charging_balance_after}</Text>
           <Text style={[styles.walletBalance, { color: profile.wallet_balance - cost < 0 ? COLORS.error : COLORS.primary }]}>
             {(profile.wallet_balance - cost).toFixed(3)} OMR
           </Text>
@@ -213,7 +215,7 @@ export default function ChargingScreen() {
           {stopLoading ? <ActivityIndicator color="#fff" /> : (
             <>
               <Text style={styles.stopIcon}>⏹</Text>
-              <Text style={styles.stopText}>إيقاف الشحن</Text>
+              <Text style={styles.stopText}>{t.charging_stop}</Text>
             </>
           )}
         </TouchableOpacity>

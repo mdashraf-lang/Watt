@@ -1,26 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  Alert,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { RootStackParamList } from '../types';
 import { useAuth } from '../context/AuthContext';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'OTP'>;
 type Route = RouteProp<RootStackParamList, 'OTP'>;
-
 const OTP_LENGTH = 6;
 
 export default function OTPScreen() {
@@ -28,6 +18,7 @@ export default function OTPScreen() {
   const route = useRoute<Route>();
   const { email } = route.params;
   const { verifyOTP, signInWithEmail } = useAuth();
+  const { t } = useLang();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
@@ -36,8 +27,8 @@ export default function OTPScreen() {
 
   useEffect(() => {
     if (resendCountdown <= 0) return;
-    const t = setTimeout(() => setResendCountdown(c => c - 1), 1000);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setResendCountdown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
   }, [resendCountdown]);
 
   const handleChange = (text: string, index: number) => {
@@ -59,9 +50,8 @@ export default function OTPScreen() {
     setLoading(true);
     try {
       await verifyOTP(email, code);
-      // AuthContext listener handles navigation via session change
     } catch (e: any) {
-      Alert.alert('رمز غير صحيح', e.message || 'الرمز المدخل غير صحيح أو انتهت صلاحيته');
+      Alert.alert(t.otp_wrong_code, e.message || t.otp_wrong_code_msg);
       setOtp(Array(OTP_LENGTH).fill(''));
       inputs.current[0]?.focus();
     } finally {
@@ -76,17 +66,13 @@ export default function OTPScreen() {
       setOtp(Array(OTP_LENGTH).fill(''));
       inputs.current[0]?.focus();
     } catch (e: any) {
-      Alert.alert('خطأ', e.message);
+      Alert.alert(t.otp_error, e.message);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <StatusBar style="dark" />
-
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
           <Text style={styles.backText}>←</Text>
@@ -102,14 +88,12 @@ export default function OTPScreen() {
         <View style={styles.iconCircle}>
           <Text style={styles.iconEmoji}>✉️</Text>
         </View>
-
-        <Text style={styles.title}>تحقق من بريدك</Text>
+        <Text style={styles.title}>{t.otp_title}</Text>
         <Text style={styles.subtitle}>
-          أدخل الرمز المكون من {OTP_LENGTH} أرقام المرسل إلى{'\n'}
-          <Text style={styles.phoneHighlight}>{email}</Text>
+          {t.otp_subtitle}{'\n'}
+          <Text style={styles.emailHighlight}>{email}</Text>
         </Text>
 
-        {/* OTP Boxes */}
         <View style={styles.otpRow}>
           {otp.map((digit, i) => (
             <TextInput
@@ -130,20 +114,19 @@ export default function OTPScreen() {
         {loading && (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={COLORS.primary} />
-            <Text style={styles.verifyingText}>جارٍ التحقق...</Text>
+            <Text style={styles.verifyingText}>{t.otp_verifying}</Text>
           </View>
         )}
 
-        {/* Resend */}
         <View style={styles.resendRow}>
           {resendCountdown > 0 ? (
             <Text style={styles.resendTimer}>
-              إعادة الإرسال بعد{' '}
+              {t.otp_resend_after}{' '}
               <Text style={styles.timerNum}>{resendCountdown}s</Text>
             </Text>
           ) : (
             <TouchableOpacity onPress={handleResend}>
-              <Text style={styles.resendBtn}>إعادة إرسال الرمز</Text>
+              <Text style={styles.resendBtn}>{t.otp_resend_btn}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -154,35 +137,20 @@ export default function OTPScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16,
-  },
-  back: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.card,
-    alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, elevation: 2,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 56, paddingBottom: 16 },
+  back: { width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.card, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
   backText: { fontSize: 20, color: COLORS.text },
   logoSmall: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   logoEmoji: { fontSize: 22 },
   logoLabel: { fontSize: 18, fontWeight: '800', color: COLORS.primary, letterSpacing: 2 },
   content: { flex: 1, paddingHorizontal: 24, paddingTop: 32, alignItems: 'center' },
-  iconCircle: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginBottom: 24,
-  },
+  iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center', marginBottom: 24 },
   iconEmoji: { fontSize: 40 },
   title: { fontSize: 26, fontWeight: '800', color: COLORS.text, marginBottom: 10 },
   subtitle: { fontSize: 15, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22, marginBottom: 36 },
-  phoneHighlight: { fontWeight: '700', color: COLORS.primary },
+  emailHighlight: { fontWeight: '700', color: COLORS.primary },
   otpRow: { flexDirection: 'row', gap: 10, marginBottom: 28 },
-  otpBox: {
-    width: 48, height: 56, borderRadius: 14,
-    borderWidth: 1.5, borderColor: COLORS.border,
-    backgroundColor: COLORS.card, fontSize: 22, fontWeight: '700', color: COLORS.text,
-    textAlign: 'center',
-  },
+  otpBox: { width: 48, height: 56, borderRadius: 14, borderWidth: 1.5, borderColor: COLORS.border, backgroundColor: COLORS.card, fontSize: 22, fontWeight: '700', color: COLORS.text, textAlign: 'center' },
   otpBoxFilled: { borderColor: COLORS.primary, backgroundColor: '#f0fdf4' },
   loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 20 },
   verifyingText: { color: COLORS.textSecondary, fontSize: 14 },

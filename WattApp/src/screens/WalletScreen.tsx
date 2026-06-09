@@ -14,17 +14,22 @@ import type { WalletTransaction } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
+import { useLang } from '../context/LanguageContext';
 
 const TOP_UP_AMOUNTS = [5, 10, 20, 50];
 
 const TX_ICON: Record<string, string> = {
   topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁',
 };
-const TX_LABEL: Record<string, string> = {
-  topup: 'شحن رصيد', charge: 'شحن سيارة', refund: 'استرداد', bonus: 'مكافأة',
-};
 
 export default function WalletScreen() {
+  const { t } = useLang();
+  const TX_LABEL: Record<string, string> = {
+    topup: t.wallet_tx_topup,
+    charge: t.wallet_tx_charge,
+    refund: t.wallet_tx_refund,
+    bonus: t.wallet_tx_bonus,
+  };
   const { profile, refreshProfile } = useAuth();
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +70,7 @@ export default function WalletScreen() {
       await refreshProfile();
       await fetchTransactions();
       setShowTopUp(false);
-      Alert.alert('تم الشحن', `تم إضافة ${selectedAmount} OMR إلى محفظتك بنجاح ✅`);
+      Alert.alert(t.wallet_success_title, `${t.wallet_success_msg} ${selectedAmount} ${t.wallet_success_suffix}`);
     } catch (e: any) {
       Alert.alert('خطأ', e.message);
     } finally {
@@ -99,11 +104,11 @@ export default function WalletScreen() {
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Balance card */}
       <View style={styles.balanceCard}>
-        <Text style={styles.balanceLabel}>رصيد المحفظة</Text>
+        <Text style={styles.balanceLabel}>{t.wallet_balance_label}</Text>
         <Text style={styles.balanceAmount}>{profile?.wallet_balance.toFixed(3) ?? '0.000'}</Text>
         <Text style={styles.balanceCurrency}>OMR</Text>
         <TouchableOpacity style={styles.topUpBtn} onPress={() => setShowTopUp(true)} activeOpacity={0.85}>
-          <Text style={styles.topUpBtnText}>⬆️ شحن الرصيد</Text>
+          <Text style={styles.topUpBtnText}>{t.wallet_top_up_btn}</Text>
         </TouchableOpacity>
       </View>
 
@@ -111,32 +116,32 @@ export default function WalletScreen() {
       <View style={styles.statsRow}>
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{profile?.total_sessions ?? 0}</Text>
-          <Text style={styles.statLabel}>جلسات الشحن</Text>
+          <Text style={styles.statLabel}>{t.wallet_sessions}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statValue}>{profile?.total_kwh?.toFixed(0) ?? 0}</Text>
-          <Text style={styles.statLabel}>kWh إجمالي</Text>
+          <Text style={styles.statLabel}>{t.wallet_total_kwh}</Text>
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
           <Text style={styles.statValue}>
             {transactions.filter(t => t.type === 'charge').reduce((s, t) => s + Math.abs(t.amount), 0).toFixed(2)}
           </Text>
-          <Text style={styles.statLabel}>OMR أنفق</Text>
+          <Text style={styles.statLabel}>{t.wallet_spent}</Text>
         </View>
       </View>
 
       {/* Transactions */}
       <View style={styles.txSection}>
-        <Text style={styles.txSectionTitle}>سجل المعاملات</Text>
+        <Text style={styles.txSectionTitle}>{t.wallet_tx_title}</Text>
         {loading ? (
           <ActivityIndicator color={COLORS.primary} style={{ marginTop: 32 }} />
         ) : transactions.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyEmoji}>💳</Text>
-            <Text style={styles.emptyText}>لا توجد معاملات بعد</Text>
-            <Text style={styles.emptySub}>ابدأ بشحن سيارتك لرؤية سجل المعاملات</Text>
+            <Text style={styles.emptyText}>{t.wallet_empty_title}</Text>
+            <Text style={styles.emptySub}>{t.wallet_empty_sub}</Text>
           </View>
         ) : (
           <FlatList
@@ -154,8 +159,8 @@ export default function WalletScreen() {
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowTopUp(false)} activeOpacity={1}>
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>شحن الرصيد</Text>
-            <Text style={styles.modalSub}>اختر المبلغ المراد إضافته</Text>
+            <Text style={styles.modalTitle}>{t.wallet_modal_title}</Text>
+            <Text style={styles.modalSub}>{t.wallet_modal_sub}</Text>
 
             <View style={styles.amountsGrid}>
               {TOP_UP_AMOUNTS.map(a => (
@@ -170,19 +175,19 @@ export default function WalletScreen() {
             </View>
 
             <View style={styles.modalSummary}>
-              <Text style={styles.modalSummaryLabel}>الرصيد الحالي</Text>
+              <Text style={styles.modalSummaryLabel}>{t.wallet_current}</Text>
               <Text style={styles.modalSummaryValue}>{profile?.wallet_balance.toFixed(3)} OMR</Text>
             </View>
             <View style={styles.modalSummary}>
-              <Text style={styles.modalSummaryLabel}>المبلغ المضاف</Text>
+              <Text style={styles.modalSummaryLabel}>{t.wallet_adding}</Text>
               <Text style={[styles.modalSummaryValue, { color: COLORS.success }]}>+{selectedAmount} OMR</Text>
             </View>
             <View style={[styles.modalSummary, styles.modalTotal]}>
-              <Text style={styles.modalTotalLabel}>الرصيد الجديد</Text>
+              <Text style={styles.modalTotalLabel}>{t.wallet_new}</Text>
               <Text style={styles.modalTotalValue}>{((profile?.wallet_balance ?? 0) + selectedAmount).toFixed(3)} OMR</Text>
             </View>
 
-            <Text style={styles.paymentLabel}>الدفع عبر</Text>
+            <Text style={styles.paymentLabel}>{t.wallet_payment_via}</Text>
             <View style={styles.paymentBadge}>
               <Text style={styles.paymentText}>💳 Thawani Pay</Text>
             </View>
@@ -194,7 +199,7 @@ export default function WalletScreen() {
               activeOpacity={0.85}
             >
               {topUpLoading ? <ActivityIndicator color="#fff" /> : (
-                <Text style={styles.confirmBtnText}>تأكيد الشحن · {selectedAmount} OMR</Text>
+                <Text style={styles.confirmBtnText}>{t.wallet_confirm_btn} · {selectedAmount} OMR</Text>
               )}
             </TouchableOpacity>
           </View>

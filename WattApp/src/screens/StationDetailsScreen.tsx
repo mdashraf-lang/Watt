@@ -13,6 +13,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { Connector, MainStackParamList, Station } from '../types';
 import { supabase } from '../lib/supabase';
+import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
@@ -20,9 +21,6 @@ type Route = RouteProp<MainStackParamList, 'StationDetails'>;
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available, busy: COLORS.busy, fault: COLORS.fault, offline: COLORS.offline,
-};
-const STATUS_LABEL: Record<string, string> = {
-  available: 'متاحة', busy: 'مشغولة', fault: 'عطل', offline: 'غير متاحة',
 };
 
 const AMENITY_ICONS: Record<string, string> = {
@@ -37,6 +35,12 @@ export default function StationDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { stationId } = route.params;
+
+  const { t } = useLang();
+
+  const STATUS_LABEL: Record<string, string> = {
+    available: t.status_available, busy: t.status_busy, fault: t.status_fault, offline: t.status_offline,
+  };
 
   const [station, setStation] = useState<Station | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
@@ -109,22 +113,22 @@ export default function StationDetailsScreen() {
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
-          <StatCard label="السعر" value={`${station.price_per_kwh.toFixed(3)}`} unit="OMR/kWh" icon="💰" />
-          <StatCard label="القدرة" value={`${station.power_kw}`} unit="kW" icon="⚡" />
-          <StatCard label="التقييم" value={`${station.rating}`} unit="★" icon="⭐" />
-          <StatCard label="المتاح" value={`${station.available_connectors}/${station.total_connectors}`} unit="مقبس" icon="🔌" />
+          <StatCard label={t.station_price} value={`${station.price_per_kwh.toFixed(3)}`} unit="OMR/kWh" icon="💰" />
+          <StatCard label={t.station_power} value={`${station.power_kw}`} unit="kW" icon="⚡" />
+          <StatCard label={t.station_rating} value={`${station.rating}`} unit="★" icon="⭐" />
+          <StatCard label={t.station_available} value={`${station.available_connectors}/${station.total_connectors}`} unit={t.socket} icon="🔌" />
         </View>
 
         {/* Connectors */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>نوع المقابس</Text>
+          <Text style={styles.sectionTitle}>{t.station_connectors}</Text>
           {connectors.map(c => (
             <View key={c.id} style={styles.connectorRow}>
               <View style={[styles.connectorStatus, { backgroundColor: c.status === 'available' ? COLORS.available : COLORS.busy }]} />
               <Text style={styles.connectorType}>{c.connector_type}</Text>
               <Text style={styles.connectorPower}>{c.power_kw} kW</Text>
               <Text style={[styles.connectorLabel, { color: c.status === 'available' ? COLORS.available : COLORS.busy }]}>
-                {c.status === 'available' ? 'متاح' : 'مشغول'}
+                {c.status === 'available' ? t.status_available : t.status_busy}
               </Text>
             </View>
           ))}
@@ -132,17 +136,17 @@ export default function StationDetailsScreen() {
 
         {/* Info */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>معلومات المحطة</Text>
-          <InfoRow icon="🕐" label="ساعات العمل" value={station.operating_hours} />
-          <InfoRow icon="📍" label="المنطقة" value={`${station.governorate}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
-          <InfoRow icon="🔧" label="آخر صيانة" value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString('ar-OM') : 'غير محدد'} />
-          <InfoRow icon="⭐" label="عدد التقييمات" value={`${station.total_ratings} تقييم`} />
+          <Text style={styles.sectionTitle}>{t.station_info}</Text>
+          <InfoRow icon="🕐" label={t.station_hours} value={station.operating_hours} />
+          <InfoRow icon="📍" label={t.station_area} value={`${station.governorate}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
+          <InfoRow icon="🔧" label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString('ar-OM') : t.station_maintenance_none} />
+          <InfoRow icon="⭐" label="عدد التقييمات" value={`${station.total_ratings} ${t.station_ratings_count}`} />
         </View>
 
         {/* Amenities */}
         {station.amenities && station.amenities.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>المرافق</Text>
+            <Text style={styles.sectionTitle}>{t.station_amenities}</Text>
             <View style={styles.amenitiesGrid}>
               {station.amenities.map(a => (
                 <View key={a} style={styles.amenityChip}>
@@ -168,7 +172,7 @@ export default function StationDetailsScreen() {
           onPress={() => canBook && navigation.navigate('Booking', { station })}
           activeOpacity={0.85}
         >
-          <Text style={styles.bookBtnText}>{canBook ? 'احجز الآن' : 'غير متاحة'}</Text>
+          <Text style={styles.bookBtnText}>{canBook ? t.station_book : t.station_unavailable}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
