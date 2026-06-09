@@ -15,6 +15,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
+import { translateGov, stationDisplayName } from '../i18n/govMap';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
 
@@ -28,7 +29,8 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 export default function BookingsScreen() {
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
+  const locale = isRTL ? 'ar-OM' : 'en-GB';
   const STATUS_LABEL: Record<string, string> = {
     pending: t.bookings_status_pending,
     confirmed: t.bookings_status_confirmed,
@@ -82,9 +84,9 @@ export default function BookingsScreen() {
           </View>
           <View style={styles.cardInfo}>
             <Text style={styles.stationName} numberOfLines={1}>
-              {item.station?.name_ar || item.station?.name || t.bookings_unknown_station}
+              {item.station ? stationDisplayName(item.station, isRTL) : t.bookings_unknown_station}
             </Text>
-            <Text style={styles.stationGov}>{item.station?.governorate}</Text>
+            <Text style={styles.stationGov}>{item.station?.governorate ? translateGov(item.station.governorate, isRTL) : ''}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[item.status] + '20' }]}>
             <Text style={[styles.statusText, { color: STATUS_COLOR[item.status] }]}>
@@ -94,9 +96,9 @@ export default function BookingsScreen() {
         </View>
 
         <View style={styles.cardDetails}>
-          <DetailChip icon="📅" label={bookedAt.toLocaleDateString('ar-OM')} />
-          <DetailChip icon="🕐" label={bookedAt.toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })} />
-          <DetailChip icon="⏱" label={`${item.duration_minutes}د`} />
+          <DetailChip icon="📅" label={bookedAt.toLocaleDateString(locale)} />
+          <DetailChip icon="🕐" label={bookedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} />
+          <DetailChip icon="⏱" label={`${item.duration_minutes}${t.min_abbr}`} />
           <DetailChip icon="💰" label={`${(item.actual_cost ?? item.estimated_cost ?? 0).toFixed(3)} OMR`} />
         </View>
 

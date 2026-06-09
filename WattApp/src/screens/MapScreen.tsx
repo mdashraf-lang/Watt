@@ -19,6 +19,7 @@ import type { MainStackParamList, Station } from '../types';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
+import { translateGov } from '../i18n/govMap';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
 
@@ -37,7 +38,7 @@ const OMAN_REGION: Region = {
 };
 
 export default function MapScreen() {
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
   const STATUS_LABEL: Record<string, string> = {
     available: t.status_available,
     busy: t.status_busy,
@@ -131,7 +132,7 @@ export default function MapScreen() {
       <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.status] }]} />
       <View style={styles.listCardInfo}>
         <Text style={styles.listCardName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.listCardSub}>{item.governorate} • {item.available_connectors}/{item.total_connectors} {t.map_available}</Text>
+        <Text style={styles.listCardSub}>{translateGov(item.governorate, isRTL)} • {item.available_connectors}/{item.total_connectors} {t.map_available}</Text>
       </View>
       <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
     </TouchableOpacity>
@@ -228,7 +229,7 @@ export default function MapScreen() {
                 <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[selected.status] }]} />
                 <Text style={styles.selectedName} numberOfLines={1}>{selected.name}</Text>
               </View>
-              <Text style={styles.selectedSub}>{selected.governorate} · {selected.available_connectors} / {selected.total_connectors} {t.map_available}</Text>
+              <Text style={styles.selectedSub}>{translateGov(selected.governorate, isRTL)} · {selected.available_connectors} / {selected.total_connectors} {t.map_available}</Text>
               <Text style={styles.selectedStatus}>{STATUS_LABEL[selected.status]}</Text>
             </View>
             <View style={styles.selectedRight}>

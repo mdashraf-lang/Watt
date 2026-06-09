@@ -18,6 +18,7 @@ import type { Booking, MainStackParamList } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
+import { stationDisplayName } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'ActiveBooking'>;
@@ -28,7 +29,8 @@ export default function ActiveBookingScreen() {
   const route = useRoute<Route>();
   const { bookingId } = route.params;
   const { profile, refreshProfile } = useAuth();
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
+  const locale = isRTL ? 'ar-OM' : 'en-GB';
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
@@ -190,9 +192,9 @@ export default function ActiveBookingScreen() {
         {/* Booking details */}
         <View style={styles.detailsCard}>
           <Text style={styles.detailsTitle}>{t.active_details_title}</Text>
-          <DetailRow label={t.active_station} value={booking.station?.name_ar || booking.station?.name || ''} />
-          <DetailRow label={t.active_date} value={bookedAt.toLocaleDateString('ar-OM')} />
-          <DetailRow label={t.active_time} value={bookedAt.toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })} />
+          <DetailRow label={t.active_station} value={booking.station ? stationDisplayName(booking.station, isRTL) : ''} />
+          <DetailRow label={t.active_date} value={bookedAt.toLocaleDateString(locale)} />
+          <DetailRow label={t.active_time} value={bookedAt.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })} />
           <DetailRow label={t.active_duration} value={`${booking.duration_minutes} ${t.active_duration_min}`} />
           <DetailRow label={t.active_kwh} value={`${booking.estimated_kwh?.toFixed(1) || '—'} kWh`} />
           <View style={styles.divider} />

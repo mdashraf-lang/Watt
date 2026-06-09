@@ -14,6 +14,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { Connector, MainStackParamList, Station } from '../types';
 import { supabase } from '../lib/supabase';
 import { useLang } from '../context/LanguageContext';
+import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
@@ -36,7 +37,8 @@ export default function StationDetailsScreen() {
   const route = useRoute<Route>();
   const { stationId } = route.params;
 
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
+  const locale = isRTL ? 'ar-OM' : 'en-GB';
 
   const STATUS_LABEL: Record<string, string> = {
     available: t.status_available, busy: t.status_busy, fault: t.status_fault, offline: t.status_offline,
@@ -100,8 +102,8 @@ export default function StationDetailsScreen() {
             <Text style={styles.heroEmoji}>⚡</Text>
           </View>
           <View style={styles.heroInfo}>
-            <Text style={styles.heroName}>{station.name_ar || station.name}</Text>
-            <Text style={styles.heroAddress}>{station.address_ar || station.address}</Text>
+            <Text style={styles.heroName}>{stationDisplayName(station, isRTL)}</Text>
+            <Text style={styles.heroAddress}>{stationDisplayAddress(station, isRTL)}</Text>
             <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[station.status] + '20' }]}>
               <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[station.status] }]} />
               <Text style={[styles.statusText, { color: STATUS_COLOR[station.status] }]}>
@@ -138,9 +140,9 @@ export default function StationDetailsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.station_info}</Text>
           <InfoRow icon="🕐" label={t.station_hours} value={station.operating_hours} />
-          <InfoRow icon="📍" label={t.station_area} value={`${station.governorate}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
-          <InfoRow icon="🔧" label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString('ar-OM') : t.station_maintenance_none} />
-          <InfoRow icon="⭐" label="عدد التقييمات" value={`${station.total_ratings} ${t.station_ratings_count}`} />
+          <InfoRow icon="📍" label={t.station_area} value={`${translateGov(station.governorate, isRTL)}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
+          <InfoRow icon="🔧" label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString(locale) : t.station_maintenance_none} />
+          <InfoRow icon="⭐" label={t.ratings_label} value={`${station.total_ratings} ${t.station_ratings_count}`} />
         </View>
 
         {/* Amenities */}

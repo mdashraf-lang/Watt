@@ -268,6 +268,12 @@ const en: Translations = {
   investor_step4: 'Charger Installation',
   investor_done: 'Back to Home',
 
+  // Units
+  hour_abbr: 'h',
+  min_abbr: 'm',
+  ratings_label: 'Total Ratings',
+  per_month: '/mo',
+
   // Tabs
   tab_map: 'Map',
   tab_bookings: 'Bookings',

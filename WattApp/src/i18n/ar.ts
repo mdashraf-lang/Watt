@@ -266,6 +266,12 @@ const ar = {
   investor_step4: 'تركيب الشاحن',
   investor_done: 'العودة للرئيسية',
 
+  // Units
+  hour_abbr: 'س',
+  min_abbr: 'د',
+  ratings_label: 'عدد التقييمات',
+  per_month: '/شهر',
+
   // Tabs
   tab_map: 'الخريطة',
   tab_bookings: 'حجوزاتي',

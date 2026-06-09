@@ -16,6 +16,7 @@ import type { MainStackParamList } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
+import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'Booking'>;
@@ -48,7 +49,7 @@ export default function BookingScreen() {
   const route = useRoute<Route>();
   const { station } = route.params;
   const { profile } = useAuth();
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
 
   const DAY_NAMES = [t.day_0, t.day_1, t.day_2, t.day_3, t.day_4, t.day_5, t.day_6];
   const MONTH_NAMES = [t.month_0, t.month_1, t.month_2, t.month_3, t.month_4, t.month_5, t.month_6, t.month_7, t.month_8, t.month_9, t.month_10, t.month_11];
@@ -173,8 +174,8 @@ export default function BookingScreen() {
         <View style={styles.stationCard}>
           <Text style={styles.stationEmoji}>⚡</Text>
           <View style={styles.stationInfo}>
-            <Text style={styles.stationName}>{station.name_ar || station.name}</Text>
-            <Text style={styles.stationSub}>{station.governorate} · {station.price_per_kwh.toFixed(3)} OMR/kWh</Text>
+            <Text style={styles.stationName}>{stationDisplayName(station, isRTL)}</Text>
+            <Text style={styles.stationSub}>{translateGov(station.governorate, isRTL)} · {station.price_per_kwh.toFixed(3)} OMR/kWh</Text>
           </View>
         </View>
 
@@ -237,7 +238,7 @@ export default function BookingScreen() {
                 onPress={() => setSelectedDuration(d)}
               >
                 <Text style={[styles.durationText, d === selectedDuration && styles.durationTextActive]}>
-                  {d >= 60 ? `${d / 60}س` : `${d}د`}
+                  {d >= 60 ? `${d / 60}${t.hour_abbr}` : `${d}${t.min_abbr}`}
                 </Text>
               </TouchableOpacity>
             ))}
