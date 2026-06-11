@@ -15,13 +15,33 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { MainStackParamList, Station } from '../types';
+import type { CustomerStackParamList, Station, ChargerListing } from '../types';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { translateGov } from '../i18n/govMap';
 
-type Nav = NativeStackNavigationProp<MainStackParamList, 'Tabs'>;
+type Nav = NativeStackNavigationProp<CustomerStackParamList, 'Tabs'>;
+
+function listingToStation(l: ChargerListing): Station {
+  return {
+    id: l.id,
+    name: `🏠 ${l.host_name ?? 'Private Charger'}`,
+    address: l.address,
+    latitude: l.latitude,
+    longitude: l.longitude,
+    status: l.is_available ? 'available' : 'offline',
+    price_per_kwh: l.price_per_kwh,
+    total_connectors: 1,
+    available_connectors: l.is_available ? 1 : 0,
+    rating: l.rating,
+    total_ratings: l.total_ratings,
+    power_kw: l.power_kw,
+    operating_hours: `${l.availability_start ?? '08:00'} – ${l.availability_end ?? '22:00'}`,
+    governorate: '',
+    created_at: l.created_at,
+  };
+}
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available,
@@ -48,15 +68,18 @@ export default function MapScreen() {
   const navigation = useNavigation<Nav>();
   const mapRef = useRef<MapView>(null);
   const [stations, setStations] = useState<Station[]>([]);
+  const [listings, setListings] = useState<ChargerListing[]>([]);
   const [filtered, setFiltered] = useState<Station[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState<Station | null>(null);
+  const [selectedListing, setSelectedListing] = useState<ChargerListing | null>(null);
   const [showList, setShowList] = useState(false);
   const listAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     fetchStations();
+    fetchListings();
     subscribeToStations();
     requestLocation();
   }, []);
@@ -79,6 +102,20 @@ export default function MapScreen() {
       setFiltered(data as Station[]);
     }
     setLoading(false);
+  };
+
+  const fetchListings = async () => {
+    const { data } = await supabase
+      .from('charger_listings')
+      .select('*, profiles(full_name)')
+      .eq('is_available', true);
+    if (data) {
+      const mapped = data.map((d: any) => ({
+        ...d,
+        host_name: d.profiles?.full_name ?? null,
+      })) as ChargerListing[];
+      setListings(mapped);
+    }
   };
 
   const subscribeToStations = () => {
@@ -114,10 +151,23 @@ export default function MapScreen() {
 
   const selectStation = (station: Station) => {
     setSelected(station);
+    setSelectedListing(null);
     setShowList(false);
     mapRef.current?.animateToRegion({
       latitude: station.latitude,
       longitude: station.longitude,
+      latitudeDelta: 0.02,
+      longitudeDelta: 0.02,
+    }, 600);
+  };
+
+  const selectListing = (listing: ChargerListing) => {
+    setSelectedListing(listing);
+    setSelected(null);
+    setShowList(false);
+    mapRef.current?.animateToRegion({
+      latitude: listing.latitude,
+      longitude: listing.longitude,
       latitudeDelta: 0.02,
       longitudeDelta: 0.02,
     }, 600);
@@ -157,6 +207,17 @@ export default function MapScreen() {
           >
             <View style={[styles.pin, { backgroundColor: STATUS_COLOR[station.status] }]}>
               <Text style={styles.pinText}>⚡</Text>
+            </View>
+          </Marker>
+        ))}
+        {listings.map(listing => (
+          <Marker
+            key={`listing-${listing.id}`}
+            coordinate={{ latitude: listing.latitude, longitude: listing.longitude }}
+            onPress={() => selectListing(listing)}
+          >
+            <View style={[styles.pin, styles.pinHome]}>
+              <Text style={styles.pinText}>🏠</Text>
             </View>
           </Marker>
         ))}
@@ -216,6 +277,45 @@ export default function MapScreen() {
           )}
           <TouchableOpacity style={styles.closeListBtn} onPress={() => setShowList(false)}>
             <Text style={styles.closeListText}>{t.close}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Selected listing card (private home charger) */}
+      {selectedListing && !showList && (
+        <View style={styles.selectedCard}>
+          <View style={styles.selectedCardRow}>
+            <View style={styles.selectedInfo}>
+              <View style={styles.selectedNameRow}>
+                <View style={[styles.statusDot, { backgroundColor: selectedListing.is_available ? COLORS.available : COLORS.offline }]} />
+                <Text style={styles.selectedName} numberOfLines={1}>
+                  🏠 {selectedListing.host_name ?? 'Private Charger'}
+                </Text>
+              </View>
+              <Text style={styles.selectedSub}>{selectedListing.address}</Text>
+              <Text style={styles.selectedSub}>
+                {selectedListing.charger_type} · {selectedListing.power_kw} kW · {selectedListing.availability_start}–{selectedListing.availability_end}
+              </Text>
+            </View>
+            <View style={styles.selectedRight}>
+              <Text style={styles.selectedPrice}>{selectedListing.price_per_kwh.toFixed(3)}</Text>
+              <Text style={styles.selectedPriceUnit}>OMR/kWh</Text>
+            </View>
+          </View>
+          <View style={styles.selectedBtnRow}>
+            <TouchableOpacity
+              style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
+              onPress={() => selectedListing.is_available && navigation.navigate('Booking', {
+                station: listingToStation(selectedListing),
+                listingId: selectedListing.id,
+              })}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.bookBtnText}>{selectedListing.is_available ? t.map_book : t.map_unavailable}</Text>
+            </TouchableOpacity>
+          </View>
+          <TouchableOpacity style={styles.dismissBtn} onPress={() => setSelectedListing(null)}>
+            <Text style={styles.dismissText}>✕</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -296,6 +396,7 @@ const styles = StyleSheet.create({
     borderWidth: 2, borderColor: '#fff',
     shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 }, elevation: 4,
   },
+  pinHome: { backgroundColor: '#3b82f6' },
   pinText: { fontSize: 16 },
   pillRow: {
     position: 'absolute', bottom: 100, left: 0, right: 0,

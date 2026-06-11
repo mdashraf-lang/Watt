@@ -2,6 +2,7 @@ export interface Profile {
   id: string;
   phone: string;
   full_name: string;
+  role: 'customer' | 'host';
   avatar_url?: string;
   membership_level: 'standard' | 'silver' | 'gold';
   wallet_balance: number;
@@ -11,6 +12,26 @@ export interface Profile {
   car_model?: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface ChargerListing {
+  id: string;
+  host_id: string;
+  host_name?: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  charger_type: 'Type2' | 'CCS' | 'CHAdeMO' | 'GBT';
+  power_kw: number;
+  price_per_kwh: number;
+  is_available: boolean;
+  availability_start?: string;
+  availability_end?: string;
+  description?: string;
+  total_bookings: number;
+  rating: number;
+  total_ratings: number;
+  created_at: string;
 }
 
 export interface Station {
@@ -118,23 +139,45 @@ export interface InvestorApplication {
 // Navigation param lists
 export type RootStackParamList = {
   Splash: undefined;
+  RoleSelect: undefined;
+  SignIn: { role: 'customer' | 'host' };
+  SignUp: { role: 'customer' | 'host' };
+  HostSetup: { phone: string; password: string; fullName: string };
+  CustomerMain: undefined;
+  HostMain: undefined;
+  // Legacy — PhoneScreen and OTPScreen still reference these
   Phone: undefined;
   OTP: { email: string };
-  Main: undefined;
 };
 
-export type MainStackParamList = {
+export type CustomerStackParamList = {
   Tabs: undefined;
   StationDetails: { stationId: string };
-  Booking: { station: Station };
+  Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
   Investor: undefined;
 };
 
-export type TabParamList = {
+export type CustomerTabParamList = {
   Map: undefined;
   Bookings: undefined;
   Wallet: undefined;
   Profile: undefined;
 };
+
+export type HostStackParamList = {
+  HostTabs: undefined;
+};
+
+export type HostTabParamList = {
+  Dashboard: undefined;
+  MyCharger: undefined;
+  Earnings: undefined;
+  HostProfile: undefined;
+};
+
+// Keep these for backward-compat in screens not yet migrated
+export type RootStackParamList_Legacy = RootStackParamList;
+export type MainStackParamList = CustomerStackParamList;
+export type TabParamList = CustomerTabParamList;

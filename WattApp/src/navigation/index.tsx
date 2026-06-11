@@ -6,11 +6,22 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
-import type { RootStackParamList, MainStackParamList, TabParamList } from '../types';
+import type {
+  RootStackParamList,
+  CustomerStackParamList,
+  CustomerTabParamList,
+  HostStackParamList,
+  HostTabParamList,
+} from '../types';
 
+// Auth screens
 import SplashScreen from '../screens/SplashScreen';
-import PhoneScreen from '../screens/PhoneScreen';
-import OTPScreen from '../screens/OTPScreen';
+import RoleSelectScreen from '../screens/RoleSelectScreen';
+import SignInScreen from '../screens/SignInScreen';
+import SignUpScreen from '../screens/SignUpScreen';
+import HostSetupScreen from '../screens/HostSetupScreen';
+
+// Customer screens
 import MapScreen from '../screens/MapScreen';
 import StationDetailsScreen from '../screens/StationDetailsScreen';
 import BookingScreen from '../screens/BookingScreen';
@@ -21,9 +32,16 @@ import BookingsScreen from '../screens/BookingsScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import InvestorScreen from '../screens/InvestorScreen';
 
+// Host screens
+import HostDashboardScreen from '../screens/HostDashboardScreen';
+import HostChargerScreen from '../screens/HostChargerScreen';
+import HostEarningsScreen from '../screens/HostEarningsScreen';
+
 const RootStack = createNativeStackNavigator<RootStackParamList>();
-const MainStack = createNativeStackNavigator<MainStackParamList>();
-const Tab = createBottomTabNavigator<TabParamList>();
+const CustomerStack = createNativeStackNavigator<CustomerStackParamList>();
+const CustomerTab = createBottomTabNavigator<CustomerTabParamList>();
+const HostStack = createNativeStackNavigator<HostStackParamList>();
+const HostTab = createBottomTabNavigator<HostTabParamList>();
 
 function TabEmojiIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   return (
@@ -37,10 +55,12 @@ function TabEmojiIcon({ emoji, focused }: { emoji: string; focused: boolean }) {
   );
 }
 
-function MainTabs() {
+// ── CUSTOMER ──────────────────────────────────────────────
+
+function CustomerTabs() {
   const { t } = useLang();
   return (
-    <Tab.Navigator
+    <CustomerTab.Navigator
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: COLORS.primary,
@@ -55,45 +75,99 @@ function MainTabs() {
         tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
       }}
     >
-      <Tab.Screen
+      <CustomerTab.Screen
         name="Map"
         component={MapScreen}
         options={{ tabBarLabel: t.tab_map, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="🗺️" focused={focused} /> }}
       />
-      <Tab.Screen
+      <CustomerTab.Screen
         name="Bookings"
         component={BookingsScreen}
         options={{ tabBarLabel: t.tab_bookings, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="📋" focused={focused} /> }}
       />
-      <Tab.Screen
+      <CustomerTab.Screen
         name="Wallet"
         component={WalletScreen}
         options={{ tabBarLabel: t.tab_wallet, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="💳" focused={focused} /> }}
       />
-      <Tab.Screen
+      <CustomerTab.Screen
         name="Profile"
         component={ProfileScreen}
         options={{ tabBarLabel: t.tab_profile, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="👤" focused={focused} /> }}
       />
-    </Tab.Navigator>
+    </CustomerTab.Navigator>
   );
 }
 
-function MainNavigator() {
+function CustomerNavigator() {
   return (
-    <MainStack.Navigator screenOptions={{ headerShown: false }}>
-      <MainStack.Screen name="Tabs" component={MainTabs} />
-      <MainStack.Screen name="StationDetails" component={StationDetailsScreen} />
-      <MainStack.Screen name="Booking" component={BookingScreen} />
-      <MainStack.Screen name="ActiveBooking" component={ActiveBookingScreen} />
-      <MainStack.Screen name="Charging" component={ChargingScreen} />
-      <MainStack.Screen name="Investor" component={InvestorScreen} />
-    </MainStack.Navigator>
+    <CustomerStack.Navigator screenOptions={{ headerShown: false }}>
+      <CustomerStack.Screen name="Tabs" component={CustomerTabs} />
+      <CustomerStack.Screen name="StationDetails" component={StationDetailsScreen} />
+      <CustomerStack.Screen name="Booking" component={BookingScreen} />
+      <CustomerStack.Screen name="ActiveBooking" component={ActiveBookingScreen} />
+      <CustomerStack.Screen name="Charging" component={ChargingScreen} />
+      <CustomerStack.Screen name="Investor" component={InvestorScreen} />
+    </CustomerStack.Navigator>
   );
 }
+
+// ── HOST ──────────────────────────────────────────────────
+
+function HostTabs() {
+  const { t } = useLang();
+  return (
+    <HostTab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: COLORS.gold,
+        tabBarInactiveTintColor: COLORS.textSecondary,
+        tabBarStyle: {
+          backgroundColor: COLORS.card,
+          borderTopColor: COLORS.border,
+          height: 64,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+      }}
+    >
+      <HostTab.Screen
+        name="Dashboard"
+        component={HostDashboardScreen}
+        options={{ tabBarLabel: t.tab_dashboard, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="📊" focused={focused} /> }}
+      />
+      <HostTab.Screen
+        name="MyCharger"
+        component={HostChargerScreen}
+        options={{ tabBarLabel: t.tab_my_charger, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="🔌" focused={focused} /> }}
+      />
+      <HostTab.Screen
+        name="Earnings"
+        component={HostEarningsScreen}
+        options={{ tabBarLabel: t.tab_earnings, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="💰" focused={focused} /> }}
+      />
+      <HostTab.Screen
+        name="HostProfile"
+        component={ProfileScreen}
+        options={{ tabBarLabel: t.tab_profile, tabBarIcon: ({ focused }) => <TabEmojiIcon emoji="👤" focused={focused} /> }}
+      />
+    </HostTab.Navigator>
+  );
+}
+
+function HostNavigator() {
+  return (
+    <HostStack.Navigator screenOptions={{ headerShown: false }}>
+      <HostStack.Screen name="HostTabs" component={HostTabs} />
+    </HostStack.Navigator>
+  );
+}
+
+// ── ROOT ──────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { session, loading } = useAuth();
+  const { session, profile, loading } = useAuth();
 
   if (loading) {
     return (
@@ -106,18 +180,36 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {/* LOGIN COMMENTED OUT FOR DEVELOPMENT
         {!session ? (
+          // Auth flow
           <>
             <RootStack.Screen name="Splash" component={SplashScreen} />
-            <RootStack.Screen name="Phone" component={PhoneScreen} options={{ animation: 'slide_from_right' }} />
-            <RootStack.Screen name="OTP" component={OTPScreen} options={{ animation: 'slide_from_right' }} />
+            <RootStack.Screen
+              name="RoleSelect"
+              component={RoleSelectScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <RootStack.Screen
+              name="SignIn"
+              component={SignInScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <RootStack.Screen
+              name="SignUp"
+              component={SignUpScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
+            <RootStack.Screen
+              name="HostSetup"
+              component={HostSetupScreen}
+              options={{ animation: 'slide_from_right' }}
+            />
           </>
+        ) : profile?.role === 'host' ? (
+          <RootStack.Screen name="HostMain" component={HostNavigator} />
         ) : (
-          <RootStack.Screen name="Main" component={MainNavigator} />
+          <RootStack.Screen name="CustomerMain" component={CustomerNavigator} />
         )}
-        */}
-        <RootStack.Screen name="Main" component={MainNavigator} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

@@ -30,7 +30,7 @@ export default function SplashScreen() {
     if (activeIndex < slides.length - 1) {
       flatRef.current?.scrollToIndex({ index: activeIndex + 1 });
     } else {
-      navigation.navigate('Phone');
+      navigation.navigate('RoleSelect');
     }
   };
 
@@ -74,7 +74,7 @@ export default function SplashScreen() {
             {activeIndex < slides.length - 1 ? t.splash_next : t.splash_start}
           </Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => navigation.navigate('Phone')} style={styles.skip}>
+        <TouchableOpacity onPress={() => navigation.navigate('RoleSelect')} style={styles.skip}>
           <Text style={styles.skipText}>{t.splash_skip}</Text>
         </TouchableOpacity>
       </View>
