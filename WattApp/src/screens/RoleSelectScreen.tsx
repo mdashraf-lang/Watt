@@ -16,7 +16,7 @@ export default function RoleSelectScreen() {
   const { t } = useLang();
 
   const choose = (role: 'customer' | 'host') => {
-    navigation.navigate('SignIn', { role });
+    navigation.navigate('Phone', { role });
   };
 
   return (

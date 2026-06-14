@@ -16,8 +16,8 @@ const OTP_LENGTH = 6;
 export default function OTPScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { email } = route.params;
-  const { verifyOTP, signInWithEmail } = useAuth();
+  const { email, role, fullName } = route.params;
+  const { verifyEmailOTP, signInWithEmail } = useAuth();
   const { t } = useLang();
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
@@ -49,7 +49,8 @@ export default function OTPScreen() {
   const verifyCode = async (code: string) => {
     setLoading(true);
     try {
-      await verifyOTP(email, code);
+      await verifyEmailOTP(email, code, fullName, role);
+      // AppNavigator handles routing once session + profile are set
     } catch (e: any) {
       Alert.alert(t.otp_wrong_code, e.message || t.otp_wrong_code_msg);
       setOtp(Array(OTP_LENGTH).fill(''));

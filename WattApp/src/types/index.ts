@@ -1,6 +1,6 @@
 export interface Profile {
   id: string;
-  phone: string;
+  phone?: string;
   full_name: string;
   role: 'customer' | 'host';
   avatar_url?: string;
@@ -140,14 +140,13 @@ export interface InvestorApplication {
 export type RootStackParamList = {
   Splash: undefined;
   RoleSelect: undefined;
-  SignIn: { role: 'customer' | 'host' };
-  SignUp: { role: 'customer' | 'host' };
-  HostSetup: { phone: string; password: string; fullName: string };
+  Phone: { role: 'customer' | 'host' };
+  OTP: { email: string; role: 'customer' | 'host'; fullName: string };
   CustomerMain: undefined;
   HostMain: undefined;
-  // Legacy — PhoneScreen and OTPScreen still reference these
-  Phone: undefined;
-  OTP: { email: string };
+  // Kept so legacy SignIn/SignUp screens compile (no longer navigated to)
+  SignIn: { role: 'customer' | 'host' };
+  SignUp: { role: 'customer' | 'host' };
 };
 
 export type CustomerStackParamList = {
@@ -167,6 +166,7 @@ export type CustomerTabParamList = {
 };
 
 export type HostStackParamList = {
+  HostSetup: undefined;
   HostTabs: undefined;
 };
 

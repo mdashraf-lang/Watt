@@ -43,17 +43,8 @@ export default function SignUpScreen() {
 
     try {
       setLoading(true);
-      if (role === 'host') {
-        // Navigate to host setup — pass credentials so setup screen can create the account
-        navigation.navigate('HostSetup', {
-          phone: phone.trim(),
-          password,
-          fullName: fullName.trim(),
-        });
-      } else {
-        await signUp(phone.trim(), password, fullName.trim(), 'customer');
-        // Navigation handled by AppNavigator when session changes
-      }
+      await signUp(phone.trim(), password, fullName.trim(), role);
+      // Navigation handled by AppNavigator when session changes
     } catch (e: any) {
       Alert.alert(t.error, e?.message ?? t.auth_error_credentials);
     } finally {

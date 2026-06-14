@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from '../context/AuthContext';
+import { supabase } from '../lib/supabase';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 import type {
@@ -17,6 +18,8 @@ import type {
 // Auth screens
 import SplashScreen from '../screens/SplashScreen';
 import RoleSelectScreen from '../screens/RoleSelectScreen';
+import PhoneScreen from '../screens/PhoneScreen';
+import OTPScreen from '../screens/OTPScreen';
 import SignInScreen from '../screens/SignInScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import HostSetupScreen from '../screens/HostSetupScreen';
@@ -157,8 +160,31 @@ function HostTabs() {
 }
 
 function HostNavigator() {
+  const { session } = useAuth();
+  const [initialRoute, setInitialRoute] = React.useState<'HostSetup' | 'HostTabs' | null>(null);
+
+  React.useEffect(() => {
+    if (!session) return;
+    supabase
+      .from('charger_listings')
+      .select('id', { count: 'exact', head: true })
+      .eq('host_id', session.user.id)
+      .then(({ count }: { count: number | null }) => {
+        setInitialRoute((count ?? 0) > 0 ? 'HostTabs' : 'HostSetup');
+      });
+  }, [session]);
+
+  if (!initialRoute) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary }}>
+        <ActivityIndicator size="large" color={COLORS.gold} />
+      </View>
+    );
+  }
+
   return (
-    <HostStack.Navigator screenOptions={{ headerShown: false }}>
+    <HostStack.Navigator screenOptions={{ headerShown: false }} initialRouteName={initialRoute}>
+      <HostStack.Screen name="HostSetup" component={HostSetupScreen} />
       <HostStack.Screen name="HostTabs" component={HostTabs} />
     </HostStack.Navigator>
   );
@@ -190,20 +216,17 @@ export default function AppNavigator() {
               options={{ animation: 'slide_from_right' }}
             />
             <RootStack.Screen
-              name="SignIn"
-              component={SignInScreen}
+              name="Phone"
+              component={PhoneScreen}
               options={{ animation: 'slide_from_right' }}
             />
             <RootStack.Screen
-              name="SignUp"
-              component={SignUpScreen}
+              name="OTP"
+              component={OTPScreen}
               options={{ animation: 'slide_from_right' }}
             />
-            <RootStack.Screen
-              name="HostSetup"
-              component={HostSetupScreen}
-              options={{ animation: 'slide_from_right' }}
-            />
+            <RootStack.Screen name="SignIn" component={SignInScreen} options={{ animation: 'slide_from_right' }} />
+            <RootStack.Screen name="SignUp" component={SignUpScreen} options={{ animation: 'slide_from_right' }} />
           </>
         ) : profile?.role === 'host' ? (
           <RootStack.Screen name="HostMain" component={HostNavigator} />

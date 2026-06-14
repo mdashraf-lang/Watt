@@ -5,18 +5,15 @@ import {
 } from 'react-native';
 import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../types';
+import type { HostStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
-import { useAuth } from '../context/AuthContext';
 import { supabase } from '../lib/supabase';
 
 const { width, height } = Dimensions.get('window');
-type Nav = NativeStackNavigationProp<RootStackParamList, 'HostSetup'>;
-type Route = RouteProp<RootStackParamList, 'HostSetup'>;
+type Nav = NativeStackNavigationProp<HostStackParamList, 'HostSetup'>;
 
 const OMAN_REGION: Region = {
   latitude: 23.5880,
@@ -30,10 +27,7 @@ const HOURS = ['06:00', '07:00', '08:00', '09:00', '10:00', '18:00', '20:00', '2
 
 export default function HostSetupScreen() {
   const navigation = useNavigation<Nav>();
-  const route = useRoute<Route>();
   const { t } = useLang();
-  const { signUp } = useAuth();
-  const { phone, password, fullName } = route.params;
 
   const [step, setStep] = useState<1 | 2>(1);
   const [mapRegion, setMapRegion] = useState<Region>(OMAN_REGION);
@@ -91,14 +85,9 @@ export default function HostSetupScreen() {
 
     try {
       setSubmitting(true);
-      // 1. Create the auth user + profile
-      await signUp(phone, password, fullName, 'host');
-
-      // 2. Get the new user's session
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error('Session not found after sign up');
+      if (!session) throw new Error('Not logged in');
 
-      // 3. Create the charger listing
       const { error } = await supabase.from('charger_listings').insert({
         host_id: session.user.id,
         address: address.trim(),
@@ -116,7 +105,7 @@ export default function HostSetupScreen() {
         total_ratings: 0,
       });
       if (error) throw error;
-      // Navigation handled by AppNavigator on session/profile change
+      navigation.replace('HostTabs');
     } catch (e: any) {
       Alert.alert(t.error, e?.message ?? 'Setup failed. Please try again.');
     } finally {
