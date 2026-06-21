@@ -116,7 +116,7 @@ export default function BookingScreen() {
         t.booking_low_balance,
         `${t.booking_low_balance_msg} ${profile.wallet_balance.toFixed(3)} OMR. ${t.booking_low_balance_needed} ${estimatedCost.toFixed(3)} OMR`,
         [
-          { text: 'إلغاء', style: 'cancel' },
+          { text: t.cancel, style: 'cancel' },
           { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
         ]
       );

@@ -314,6 +314,8 @@ const ar = {
   profile_edit_title: 'تعديل المعلومات',
   profile_edit_name: 'الاسم الكامل',
   profile_edit_name_ph: 'أدخل اسمك',
+  profile_edit_phone: 'رقم الهاتف',
+  profile_edit_phone_ph: '+968 9xxx xxxx',
   profile_edit_car: 'موديل السيارة',
   profile_edit_car_ph: 'مثال: Tesla Model 3',
   profile_language_label: 'English',
@@ -437,6 +439,72 @@ const ar = {
   tab_bookings: 'حجوزاتي',
   tab_wallet: 'محفظتي',
   tab_profile: 'حسابي',
+
+  // Wallet filter — "all" chip
+  wallet_tx_all: 'الكل',
+
+  // Wallet top-up button (clean version without emoji)
+  wallet_top_up_clean: 'شحن الرصيد',
+
+  // Guest — locked screen
+  guest_locked_title: 'سجّل الدخول للمتابعة',
+  guest_locked_bookings_sub: 'سجّل دخولك لعرض حجوزاتك وإدارة مواعيد الشحن',
+  guest_locked_wallet_sub: 'سجّل دخولك لإدارة محفظتك وتتبع معاملاتك',
+  guest_feature_bookings_1: 'عرض الحجوزات وإدارتها',
+  guest_feature_bookings_2: 'تتبع جلسات الشحن النشطة',
+  guest_feature_bookings_3: 'الاطلاع على سجل الحجوزات',
+  guest_feature_wallet_1: 'شحن رصيد محفظتك',
+  guest_feature_wallet_2: 'تتبع الإنفاق والمستردات',
+  guest_feature_wallet_3: 'عرض جميع المعاملات',
+  guest_sign_in: 'تسجيل الدخول',
+  guest_create_account: 'إنشاء حساب جديد',
+
+  // Guest — profile screen
+  guest_profile_name: 'زائر واط',
+  guest_profile_tagline: 'سجّل للحصول على تجربة كاملة',
+  guest_feature_sessions: 'حجز جلسات الشحن وإدارتها',
+  guest_feature_stations: 'حفظ المحطات المفضلة',
+  guest_feature_spending: 'شحن الرصيد وتتبع الإنفاق',
+  guest_create_account_short: 'إنشاء حساب',
+
+  // Profile — investor application statuses (new)
+  profile_app_under_review: 'الطلب قيد المراجعة',
+  profile_app_under_review_sub: 'تم الإرسال · سيتواصل معك فريق واط خلال 48 ساعة',
+  profile_app_not_approved: 'لم يُقبل الطلب',
+  profile_app_not_approved_sub: 'اضغط لإرسال طلب جديد',
+  profile_app_needs_info_title: 'فريق واط يحتاج مزيداً من المعلومات',
+  profile_app_needs_info_default: 'راجع طلبك وأرسله مجدداً مع المعلومات المطلوبة.',
+  profile_app_reapply: 'إرسال طلب محدّث ←',
+  profile_app_become_investor: 'كن مستثمراً في Watt',
+  profile_app_become_investor_sub: 'أضف محطة في موقعك وأكسب دخلاً شهرياً',
+
+  // Profile — edit button (clean, no emoji)
+  profile_edit_clean: 'تعديل المعلومات',
+  profile_logout_clean: 'تسجيل الخروج',
+
+  // Bookings — active session (no emoji)
+  bookings_session_active_clean: 'جلسة الشحن نشطة',
+
+  // Membership progress
+  membership_progress_title_silver: 'التقدم نحو الفضي',
+  membership_progress_title_gold:   'التقدم نحو الذهبي',
+  membership_progress_sessions:     'جلسات',
+  membership_progress_more_silver:  'جلسة أخرى للوصول إلى الفضي',
+  membership_progress_more_gold:    'جلسة أخرى للوصول إلى الذهبي',
+  membership_progress_unlocked_silver: 'الفضي مفعّل!',
+  membership_progress_unlocked_gold:   'الذهبي مفعّل!',
+
+  // Session Summary
+  session_summary_title: 'اكتمل الشحن!',
+  session_summary_sub: 'شكراً على استخدام واط',
+  session_summary_kwh: 'الطاقة المُوصلة',
+  session_summary_cost: 'التكلفة الإجمالية',
+  session_summary_duration: 'مدة الجلسة',
+  session_summary_co2: 'CO₂ موفّر',
+  session_summary_co2_prefix: 'وفّرت سيارتك الكهربائية',
+  session_summary_co2_suffix: 'كجم CO₂ مقارنةً بسيارة بنزينية',
+  session_summary_share: 'مشاركة الملخص',
+  session_summary_done: 'العودة للرئيسية',
 };
 
 export default ar;

@@ -152,7 +152,7 @@ export default function ActiveBookingScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Tabs')} style={styles.back}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
           <Text style={styles.backText}>←</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t.active_header}</Text>

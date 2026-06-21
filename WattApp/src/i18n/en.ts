@@ -316,6 +316,8 @@ const en: Translations = {
   profile_edit_title: 'Edit Info',
   profile_edit_name: 'Full Name',
   profile_edit_name_ph: 'Enter your name',
+  profile_edit_phone: 'Phone Number',
+  profile_edit_phone_ph: '+968 9xxx xxxx',
   profile_edit_car: 'Car Model',
   profile_edit_car_ph: 'e.g. Tesla Model 3',
   profile_language_label: 'عربي',
@@ -439,6 +441,72 @@ const en: Translations = {
   tab_bookings: 'Bookings',
   tab_wallet: 'Wallet',
   tab_profile: 'Profile',
+
+  // Wallet filter — "all" chip
+  wallet_tx_all: 'All',
+
+  // Wallet top-up button (clean version without emoji)
+  wallet_top_up_clean: 'Top Up',
+
+  // Guest — locked screen
+  guest_locked_title: 'Sign In to Continue',
+  guest_locked_bookings_sub: 'Sign in to view your bookings and manage charging sessions',
+  guest_locked_wallet_sub: 'Sign in to manage your wallet and track transactions',
+  guest_feature_bookings_1: 'View & manage bookings',
+  guest_feature_bookings_2: 'Track active charging sessions',
+  guest_feature_bookings_3: 'Access booking history',
+  guest_feature_wallet_1: 'Top up your wallet',
+  guest_feature_wallet_2: 'Track spending & refunds',
+  guest_feature_wallet_3: 'View all transactions',
+  guest_sign_in: 'Sign In',
+  guest_create_account: 'Create an Account',
+
+  // Guest — profile screen
+  guest_profile_name: 'Watt Guest',
+  guest_profile_tagline: 'Sign up for the full experience',
+  guest_feature_sessions: 'Book & manage charging sessions',
+  guest_feature_stations: 'Save favourite stations',
+  guest_feature_spending: 'Top up & track spending',
+  guest_create_account_short: 'Create Account',
+
+  // Profile — investor application statuses (new)
+  profile_app_under_review: 'Application Under Review',
+  profile_app_under_review_sub: 'Submitted · Watt team will contact you within 48h',
+  profile_app_not_approved: 'Application Not Approved',
+  profile_app_not_approved_sub: 'Tap to submit a new application',
+  profile_app_needs_info_title: 'Watt Team Needs More Info',
+  profile_app_needs_info_default: 'The admin has reviewed your application and needs additional information.',
+  profile_app_reapply: 'Submit updated application →',
+  profile_app_become_investor: 'Become a Watt Investor',
+  profile_app_become_investor_sub: 'Add a station at your location and earn monthly income',
+
+  // Profile — edit button (clean, no emoji)
+  profile_edit_clean: 'Edit Info',
+  profile_logout_clean: 'Sign Out',
+
+  // Bookings — active session (no emoji)
+  bookings_session_active_clean: 'Charging Session Active',
+
+  // Membership progress
+  membership_progress_title_silver: 'Progress to Silver',
+  membership_progress_title_gold:   'Progress to Gold',
+  membership_progress_sessions:     'sessions',
+  membership_progress_more_silver:  'more sessions to reach Silver',
+  membership_progress_more_gold:    'more sessions to reach Gold',
+  membership_progress_unlocked_silver: 'Silver unlocked!',
+  membership_progress_unlocked_gold:   'Gold unlocked!',
+
+  // Session Summary
+  session_summary_title: 'Charging Complete!',
+  session_summary_sub: 'Thank you for using Watt',
+  session_summary_kwh: 'Energy Delivered',
+  session_summary_cost: 'Total Cost',
+  session_summary_duration: 'Duration',
+  session_summary_co2: 'CO₂ Saved',
+  session_summary_co2_prefix: 'Your EV saved',
+  session_summary_co2_suffix: 'kg CO₂ compared to a petrol car',
+  session_summary_share: 'Share Summary',
+  session_summary_done: 'Back to Home',
 };
 
 export default en;

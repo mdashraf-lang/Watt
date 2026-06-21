@@ -7,8 +7,9 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
+import { ChevronRightIcon, ZapIcon, HomeIcon, BatteryChargingIcon } from '../components/icons';
 
-const { width } = Dimensions.get('window');
+const { height } = Dimensions.get('window');
 type Nav = NativeStackNavigationProp<RootStackParamList, 'RoleSelect'>;
 
 export default function RoleSelectScreen() {
@@ -23,15 +24,22 @@ export default function RoleSelectScreen() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primary} />
 
+      {/* Background decorations */}
+      <View style={styles.decoBig} />
+      <View style={styles.decoSmall} />
+
+      {/* Header */}
       <View style={styles.header}>
-        <View style={styles.logoCircle}>
-          <Text style={styles.logoEmoji}>⚡</Text>
+        <View style={styles.logoRing}>
+          <ZapIcon size={40} color={COLORS.gold} strokeWidth={2} />
         </View>
         <Text style={styles.logo}>WATT</Text>
+        <View style={styles.divider} />
         <Text style={styles.title}>{t.auth_role_title}</Text>
         <Text style={styles.subtitle}>{t.auth_role_subtitle}</Text>
       </View>
 
+      {/* Role cards */}
       <View style={styles.cards}>
         {/* Customer card */}
         <TouchableOpacity
@@ -39,13 +47,19 @@ export default function RoleSelectScreen() {
           activeOpacity={0.88}
           onPress={() => choose('customer')}
         >
-          <View style={[styles.cardIcon, { backgroundColor: '#e0f2fe' }]}>
-            <Text style={styles.cardEmoji}>🔋</Text>
+          <View style={styles.cardTop}>
+            <View style={[styles.cardIconWrap, { backgroundColor: COLORS.primaryBg }]}>
+              <BatteryChargingIcon size={28} color={COLORS.primary} strokeWidth={2} />
+            </View>
+            <View style={[styles.cardBadge, { backgroundColor: COLORS.primaryBg }]}>
+              <Text style={[styles.cardBadgeText, { color: COLORS.primary }]}>Customer</Text>
+            </View>
           </View>
           <Text style={styles.cardTitle}>{t.auth_role_customer_title}</Text>
           <Text style={styles.cardSub}>{t.auth_role_customer_sub}</Text>
-          <View style={styles.cardArrow}>
-            <Text style={styles.cardArrowText}>→</Text>
+          <View style={[styles.cardAction, { backgroundColor: COLORS.primary }]}>
+            <Text style={styles.cardActionText}>{t.auth_role_customer_title}</Text>
+            <ChevronRightIcon size={16} color="#fff" strokeWidth={2.5} />
           </View>
         </TouchableOpacity>
 
@@ -55,13 +69,19 @@ export default function RoleSelectScreen() {
           activeOpacity={0.88}
           onPress={() => choose('host')}
         >
-          <View style={[styles.cardIcon, { backgroundColor: '#fef9c3' }]}>
-            <Text style={styles.cardEmoji}>🏠</Text>
+          <View style={styles.cardTop}>
+            <View style={[styles.cardIconWrap, { backgroundColor: COLORS.goldBg }]}>
+              <HomeIcon size={28} color={COLORS.goldDark} strokeWidth={2} />
+            </View>
+            <View style={[styles.cardBadge, { backgroundColor: COLORS.goldBg, borderColor: COLORS.gold }]}>
+              <Text style={[styles.cardBadgeText, { color: COLORS.goldLight }]}>Host</Text>
+            </View>
           </View>
           <Text style={styles.cardTitle}>{t.auth_role_host_title}</Text>
           <Text style={styles.cardSub}>{t.auth_role_host_sub}</Text>
-          <View style={[styles.cardArrow, { backgroundColor: COLORS.gold }]}>
-            <Text style={[styles.cardArrowText, { color: '#0F172A' }]}>→</Text>
+          <View style={[styles.cardAction, { backgroundColor: COLORS.goldDark }]}>
+            <Text style={[styles.cardActionText, { color: '#fff' }]}>{t.auth_role_host_title}</Text>
+            <ChevronRightIcon size={16} color="#fff" strokeWidth={2.5} />
           </View>
         </TouchableOpacity>
       </View>
@@ -74,34 +94,61 @@ export default function RoleSelectScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.primary,
+    backgroundColor: COLORS.primaryDark,
     alignItems: 'center',
     paddingHorizontal: 24,
+    overflow: 'hidden',
+  },
+  decoBig: {
+    position: 'absolute',
+    width: 360,
+    height: 360,
+    borderRadius: 180,
+    backgroundColor: 'rgba(16,185,129,0.1)',
+    top: -120,
+    right: -120,
+  },
+  decoSmall: {
+    position: 'absolute',
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    bottom: 60,
+    left: -80,
   },
   header: {
     alignItems: 'center',
-    paddingTop: 72,
-    paddingBottom: 40,
+    paddingTop: height > 700 ? 72 : 52,
+    paddingBottom: 32,
   },
-  logoCircle: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+  logoRing: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(16,185,129,0.35)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
-  logoEmoji: { fontSize: 36 },
   logo: {
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '800',
     color: '#FFFFFF',
-    letterSpacing: 6,
-    marginBottom: 20,
+    letterSpacing: 8,
+    marginBottom: 16,
+  },
+  divider: {
+    width: 40,
+    height: 2,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 1,
+    marginBottom: 16,
   },
   title: {
-    fontSize: 22,
+    fontSize: 20,
     fontWeight: '700',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -109,65 +156,78 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(255,255,255,0.65)',
     textAlign: 'center',
+    lineHeight: 20,
   },
   cards: {
     width: '100%',
-    gap: 16,
+    gap: 14,
   },
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 20,
     width: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 8,
+    gap: 10,
   },
   cardHost: {
     borderWidth: 2,
     borderColor: COLORS.gold,
   },
-  cardIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  cardTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  cardIconWrap: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 14,
   },
-  cardEmoji: { fontSize: 28 },
+  cardBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'transparent',
+  },
+  cardBadgeText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5 },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: COLORS.text,
-    marginBottom: 6,
   },
   cardSub: {
     fontSize: 13,
     color: COLORS.textSecondary,
-    lineHeight: 20,
-    marginBottom: 16,
+    lineHeight: 19,
   },
-  cardArrow: {
-    alignSelf: 'flex-start',
-    backgroundColor: COLORS.primary,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  cardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 14,
+    paddingVertical: 11,
+    marginTop: 4,
   },
-  cardArrowText: {
+  cardActionText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
   },
   footer: {
     position: 'absolute',
-    bottom: 32,
-    color: 'rgba(255,255,255,0.4)',
-    fontSize: 12,
+    bottom: 28,
+    color: 'rgba(255,255,255,0.35)',
+    fontSize: 11,
   },
 });

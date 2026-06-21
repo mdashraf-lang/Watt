@@ -137,7 +137,12 @@ export default function ChargingScreen() {
       });
 
       await refreshProfile();
-      navigation.navigate('Tabs');
+      navigation.replace('SessionSummary', {
+        kwhDelivered,
+        cost,
+        durationSeconds: elapsedSeconds,
+        stationName,
+      });
     } catch (e: any) {
       Alert.alert(t.error, e.message);
     } finally {

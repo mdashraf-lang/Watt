@@ -13,15 +13,14 @@ import {
 import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import type { CustomerStackParamList, Station, ChargerListing } from '../types';
+import type { Station, ChargerListing } from '../types';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
+import { useAuth } from '../context/AuthContext';
 import { translateGov } from '../i18n/govMap';
-
-type Nav = NativeStackNavigationProp<CustomerStackParamList, 'Tabs'>;
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon } from '../components/icons';
 
 function listingToStation(l: ChargerListing): Station {
   return {
@@ -65,7 +64,8 @@ export default function MapScreen() {
     fault: t.status_fault,
     offline: t.status_offline,
   };
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
+  const { session } = useAuth();
   const mapRef = useRef<MapView>(null);
   const [stations, setStations] = useState<Station[]>([]);
   const [listings, setListings] = useState<ChargerListing[]>([]);
@@ -80,8 +80,20 @@ export default function MapScreen() {
   useEffect(() => {
     fetchStations();
     fetchListings();
-    subscribeToStations();
     requestLocation();
+
+    const channel = supabase
+      .channel('stations-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, payload => {
+        if (payload.eventType === 'UPDATE') {
+          setStations(prev =>
+            prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s)
+          );
+        }
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   useEffect(() => {
@@ -116,18 +128,6 @@ export default function MapScreen() {
       })) as ChargerListing[];
       setListings(mapped);
     }
-  };
-
-  const subscribeToStations = () => {
-    const channel = supabase
-      .channel('stations-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, payload => {
-        if (payload.eventType === 'UPDATE') {
-          setStations(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
-        }
-      })
-      .subscribe();
-    return () => supabase.removeChannel(channel);
   };
 
   const requestLocation = async () => {
@@ -206,7 +206,7 @@ export default function MapScreen() {
             onPress={() => selectStation(station)}
           >
             <View style={[styles.pin, { backgroundColor: STATUS_COLOR[station.status] }]}>
-              <Text style={styles.pinText}>⚡</Text>
+              <ZapIcon size={16} color="#fff" strokeWidth={2.5} />
             </View>
           </Marker>
         ))}
@@ -217,7 +217,7 @@ export default function MapScreen() {
             onPress={() => selectListing(listing)}
           >
             <View style={[styles.pin, styles.pinHome]}>
-              <Text style={styles.pinText}>🏠</Text>
+              <HomeIcon size={16} color="#fff" strokeWidth={2} />
             </View>
           </Marker>
         ))}
@@ -226,7 +226,7 @@ export default function MapScreen() {
       {/* Search bar */}
       <SafeAreaView edges={['top']} style={styles.topOverlay}>
         <View style={styles.searchBar}>
-          <Text style={styles.searchIcon}>🔍</Text>
+          <SearchIcon size={17} color={COLORS.textSecondary} strokeWidth={2} />
           <TextInput
             style={styles.searchInput}
             placeholder={t.map_search}
@@ -236,14 +236,14 @@ export default function MapScreen() {
             onFocus={() => setShowList(true)}
           />
           {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')}>
-              <Text style={styles.clearBtn}>✕</Text>
+            <TouchableOpacity onPress={() => setSearch('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <CloseIcon size={16} color={COLORS.textSecondary} strokeWidth={2.5} />
             </TouchableOpacity>
           )}
         </View>
 
         <TouchableOpacity style={styles.myLocationBtn} onPress={requestLocation}>
-          <Text style={styles.myLocationIcon}>📍</Text>
+          <LocateIcon size={20} color={COLORS.primary} strokeWidth={2} />
         </TouchableOpacity>
       </SafeAreaView>
 
@@ -251,8 +251,9 @@ export default function MapScreen() {
       {!showList && !selected && (
         <View style={styles.pillRow}>
           <TouchableOpacity style={styles.pill} onPress={toggleList} activeOpacity={0.85}>
-            <Text style={styles.pillText}>{`⚡ ${t.map_nearby}`}</Text>
-            {loading && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
+            <ZapIcon size={14} color="#fff" strokeWidth={2.5} />
+            <Text style={styles.pillText}>{t.map_nearby}</Text>
+            {loading && <ActivityIndicator size="small" color="#fff" style={{ marginLeft: 4 }} />}
           </TouchableOpacity>
         </View>
       )}
@@ -305,10 +306,16 @@ export default function MapScreen() {
           <View style={styles.selectedBtnRow}>
             <TouchableOpacity
               style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
-              onPress={() => selectedListing.is_available && navigation.navigate('Booking', {
-                station: listingToStation(selectedListing),
-                listingId: selectedListing.id,
-              })}
+              onPress={() => {
+                if (!session) {
+                  navigation.navigate('DevLogin');
+                  return;
+                }
+                selectedListing.is_available && navigation.navigate('Booking', {
+                  station: listingToStation(selectedListing),
+                  listingId: selectedListing.id,
+                });
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.bookBtnText}>{selectedListing.is_available ? t.map_book : t.map_unavailable}</Text>
@@ -351,7 +358,13 @@ export default function MapScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.bookBtn, selected.status !== 'available' && styles.bookBtnDisabled]}
-              onPress={() => selected.status === 'available' && navigation.navigate('Booking', { station: selected })}
+              onPress={() => {
+                if (!session) {
+                  navigation.navigate('DevLogin');
+                  return;
+                }
+                selected.status === 'available' && navigation.navigate('Booking', { station: selected });
+              }}
               activeOpacity={0.85}
             >
               <Text style={styles.bookBtnText}>{t.map_book}</Text>
@@ -380,16 +393,13 @@ const styles = StyleSheet.create({
     gap: 8,
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },
-  searchIcon: { fontSize: 16 },
-  searchInput: { flex: 1, fontSize: 15, color: COLORS.text },
-  clearBtn: { fontSize: 14, color: COLORS.textSecondary, padding: 4 },
+  searchInput: { flex: 1, fontSize: 15, color: COLORS.text, marginLeft: 2 },
   myLocationBtn: {
     alignSelf: 'flex-end',
     backgroundColor: COLORS.card, borderRadius: 24, width: 44, height: 44,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, elevation: 3,
   },
-  myLocationIcon: { fontSize: 20 },
   pin: {
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
@@ -397,13 +407,12 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 }, elevation: 4,
   },
   pinHome: { backgroundColor: '#3b82f6' },
-  pinText: { fontSize: 16 },
   pillRow: {
     position: 'absolute', bottom: 100, left: 0, right: 0,
     alignItems: 'center',
   },
   pill: {
-    flexDirection: 'row', alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: COLORS.primary, borderRadius: 24,
     paddingHorizontal: 20, paddingVertical: 12,
     shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 4 }, elevation: 6,

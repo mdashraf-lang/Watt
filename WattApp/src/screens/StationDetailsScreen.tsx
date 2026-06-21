@@ -16,12 +16,16 @@ import { supabase } from '../lib/supabase';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
+import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon } from '../components/icons';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
 type Route = RouteProp<MainStackParamList, 'StationDetails'>;
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available, busy: COLORS.busy, fault: COLORS.fault, offline: COLORS.offline,
+};
+const STATUS_BG: Record<string, string> = {
+  available: COLORS.successBg, busy: COLORS.warningBg, fault: COLORS.errorBg, offline: COLORS.backgroundAlt,
 };
 
 const AMENITY_ICONS: Record<string, string> = {
@@ -36,12 +40,12 @@ export default function StationDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { stationId } = route.params;
-
   const { t, isRTL } = useLang();
   const locale = isRTL ? 'ar-OM' : 'en-GB';
 
   const STATUS_LABEL: Record<string, string> = {
-    available: t.status_available, busy: t.status_busy, fault: t.status_fault, offline: t.status_offline,
+    available: t.status_available, busy: t.status_busy,
+    fault: t.status_fault, offline: t.status_offline,
   };
 
   const [station, setStation] = useState<Station | null>(null);
@@ -51,13 +55,11 @@ export default function StationDetailsScreen() {
   useEffect(() => {
     fetchStation();
     fetchConnectors();
-
     const channel = supabase
       .channel(`station-${stationId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stations', filter: `id=eq.${stationId}` },
         payload => setStation(prev => prev ? { ...prev, ...payload.new } : null))
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [stationId]);
 
@@ -89,22 +91,25 @@ export default function StationDetailsScreen() {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-          <Text style={styles.backText}>←</Text>
+          <ArrowLeftIcon size={20} color={COLORS.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{station.name}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Hero section */}
+        {/* Hero */}
         <View style={styles.hero}>
-          <View style={styles.heroIcon}>
-            <Text style={styles.heroEmoji}>⚡</Text>
+          <View style={[styles.heroIconWrap, { backgroundColor: STATUS_BG[station.status] }]}>
+            <ZapIcon size={32} color={STATUS_COLOR[station.status]} strokeWidth={2} />
           </View>
-          <View style={styles.heroInfo}>
+          <View style={styles.heroContent}>
             <Text style={styles.heroName}>{stationDisplayName(station, isRTL)}</Text>
-            <Text style={styles.heroAddress}>{stationDisplayAddress(station, isRTL)}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: STATUS_COLOR[station.status] + '20' }]}>
+            <View style={styles.heroLocRow}>
+              <MapPinIcon size={12} color={COLORS.textTertiary} strokeWidth={2} />
+              <Text style={styles.heroAddress}>{stationDisplayAddress(station, isRTL)}</Text>
+            </View>
+            <View style={[styles.statusBadge, { backgroundColor: STATUS_BG[station.status] }]}>
               <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[station.status] }]} />
               <Text style={[styles.statusText, { color: STATUS_COLOR[station.status] }]}>
                 {STATUS_LABEL[station.status]}
@@ -115,10 +120,10 @@ export default function StationDetailsScreen() {
 
         {/* Stats grid */}
         <View style={styles.statsGrid}>
-          <StatCard label={t.station_price} value={`${station.price_per_kwh.toFixed(3)}`} unit="OMR/kWh" icon="💰" />
-          <StatCard label={t.station_power} value={`${station.power_kw}`} unit="kW" icon="⚡" />
-          <StatCard label={t.station_rating} value={`${station.rating}`} unit="★" icon="⭐" />
-          <StatCard label={t.station_available} value={`${station.available_connectors}/${station.total_connectors}`} unit={t.socket} icon="🔌" />
+          <StatCard label={t.station_price} value={station.price_per_kwh.toFixed(3)} unit="OMR/kWh" color={COLORS.primary} emoji="💰" />
+          <StatCard label={t.station_power} value={`${station.power_kw}`} unit="kW" color="#3b82f6" emoji="⚡" />
+          <StatCard label={t.station_rating} value={`${station.rating}`} unit="★" color={COLORS.gold} emoji="⭐" />
+          <StatCard label={t.station_available} value={`${station.available_connectors}/${station.total_connectors}`} unit={t.socket} color={COLORS.available} emoji="🔌" />
         </View>
 
         {/* Connectors */}
@@ -126,10 +131,12 @@ export default function StationDetailsScreen() {
           <Text style={styles.sectionTitle}>{t.station_connectors}</Text>
           {connectors.map(c => (
             <View key={c.id} style={styles.connectorRow}>
-              <View style={[styles.connectorStatus, { backgroundColor: c.status === 'available' ? COLORS.available : COLORS.busy }]} />
+              <View style={[styles.connectorBadge, { backgroundColor: c.status === 'available' ? COLORS.successBg : COLORS.warningBg }]}>
+                <View style={[styles.connectorDot, { backgroundColor: c.status === 'available' ? COLORS.available : COLORS.busy }]} />
+              </View>
               <Text style={styles.connectorType}>{c.connector_type}</Text>
               <Text style={styles.connectorPower}>{c.power_kw} kW</Text>
-              <Text style={[styles.connectorLabel, { color: c.status === 'available' ? COLORS.available : COLORS.busy }]}>
+              <Text style={[styles.connectorStatus, { color: c.status === 'available' ? COLORS.available : COLORS.busy }]}>
                 {c.status === 'available' ? t.status_available : t.status_busy}
               </Text>
             </View>
@@ -139,10 +146,10 @@ export default function StationDetailsScreen() {
         {/* Info */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.station_info}</Text>
-          <InfoRow icon="🕐" label={t.station_hours} value={station.operating_hours} />
-          <InfoRow icon="📍" label={t.station_area} value={`${translateGov(station.governorate, isRTL)}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
-          <InfoRow icon="🔧" label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString(locale) : t.station_maintenance_none} />
-          <InfoRow icon="⭐" label={t.ratings_label} value={`${station.total_ratings} ${t.station_ratings_count}`} />
+          <InfoRow Icon={ClockIcon} label={t.station_hours} value={station.operating_hours} />
+          <InfoRow Icon={MapPinIcon} label={t.station_area} value={`${translateGov(station.governorate, isRTL)}${station.wilayat ? ` · ${station.wilayat}` : ''}`} />
+          <InfoRow Icon={CheckIcon} label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString(locale) : t.station_maintenance_none} />
+          <InfoRow Icon={StarIcon} label={t.ratings_label} value={`${station.total_ratings} ${t.station_ratings_count}`} />
         </View>
 
         {/* Amenities */}
@@ -160,12 +167,12 @@ export default function StationDetailsScreen() {
           </View>
         )}
 
-        <View style={{ height: 120 }} />
+        <View style={{ height: 130 }} />
       </ScrollView>
 
-      {/* Book button */}
+      {/* Book bar */}
       <View style={styles.bookBar}>
-        <View style={styles.bookPriceCol}>
+        <View>
           <Text style={styles.bookPrice}>{station.price_per_kwh.toFixed(3)} OMR</Text>
           <Text style={styles.bookPriceUnit}>لكل kWh</Text>
         </View>
@@ -174,6 +181,7 @@ export default function StationDetailsScreen() {
           onPress={() => canBook && navigation.navigate('Booking', { station })}
           activeOpacity={0.85}
         >
+          <ZapIcon size={18} color="#fff" strokeWidth={2.5} />
           <Text style={styles.bookBtnText}>{canBook ? t.station_book : t.station_unavailable}</Text>
         </TouchableOpacity>
       </View>
@@ -181,21 +189,25 @@ export default function StationDetailsScreen() {
   );
 }
 
-function StatCard({ label, value, unit, icon }: { label: string; value: string; unit: string; icon: string }) {
+function StatCard({ label, value, unit, color, emoji }: {
+  label: string; value: string; unit: string; color: string; emoji: string;
+}) {
   return (
-    <View style={styles.statCard}>
-      <Text style={styles.statIcon}>{icon}</Text>
-      <Text style={styles.statValue}>{value}</Text>
+    <View style={[styles.statCard, { borderTopColor: color }]}>
+      <Text style={styles.statEmoji}>{emoji}</Text>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
       <Text style={styles.statUnit}>{unit}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+function InfoRow({ Icon, label, value }: { Icon: any; label: string; value: string }) {
   return (
     <View style={styles.infoRow}>
-      <Text style={styles.infoIcon}>{icon}</Text>
+      <View style={styles.infoIconWrap}>
+        <Icon size={14} color={COLORS.textSecondary} strokeWidth={2} />
+      </View>
       <Text style={styles.infoLabel}>{label}</Text>
       <Text style={styles.infoValue}>{value}</Text>
     </View>
@@ -205,74 +217,131 @@ function InfoRow({ icon, label, value }: { icon: string; label: string; value: s
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
   loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background },
+
+  // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12, backgroundColor: COLORS.card,
+    paddingHorizontal: 16, paddingVertical: 12,
+    backgroundColor: COLORS.card,
     borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
   back: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: COLORS.background,
+    width: 40, height: 40, borderRadius: 14,
+    backgroundColor: COLORS.background,
     alignItems: 'center', justifyContent: 'center',
   },
-  backText: { fontSize: 20, color: COLORS.text },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: COLORS.text },
+  headerTitle: {
+    flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700', color: COLORS.text,
+    marginHorizontal: 8,
+  },
+
+  // Hero
   hero: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: COLORS.card, padding: 20, margin: 16, borderRadius: 20,
-    shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+    backgroundColor: COLORS.card,
+    padding: 20, margin: 16, borderRadius: 22,
+    shadowColor: '#000', shadowOpacity: 0.07, shadowOffset: { width: 0, height: 3 }, shadowRadius: 10,
+    elevation: 3, borderWidth: 1, borderColor: COLORS.border,
   },
-  heroIcon: {
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center',
+  heroIconWrap: {
+    width: 64, height: 64, borderRadius: 20,
+    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  heroEmoji: { fontSize: 30 },
-  heroInfo: { flex: 1 },
-  heroName: { fontSize: 18, fontWeight: '800', color: COLORS.text, textAlign: 'right', marginBottom: 4 },
-  heroAddress: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'right', marginBottom: 8 },
-  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusDot: { width: 8, height: 8, borderRadius: 4 },
-  statusText: { fontSize: 12, fontWeight: '700' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 16, gap: 10, marginBottom: 8 },
+  heroContent: { flex: 1 },
+  heroName: { fontSize: 17, fontWeight: '800', color: COLORS.text, textAlign: 'right', marginBottom: 5 },
+  heroLocRow: { flexDirection: 'row', alignItems: 'center', gap: 4, justifyContent: 'flex-end', marginBottom: 8 },
+  heroAddress: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'right' },
+  statusBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    alignSelf: 'flex-end', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+  },
+  statusDot: { width: 7, height: 7, borderRadius: 3.5 },
+  statusText: { fontSize: 11, fontWeight: '700' },
+
+  // Stats grid
+  statsGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    paddingHorizontal: 16, gap: 10, marginBottom: 4,
+  },
   statCard: {
-    flex: 1, minWidth: '44%', backgroundColor: COLORS.card, borderRadius: 16, padding: 14, alignItems: 'center',
+    flex: 1, minWidth: '44%',
+    backgroundColor: COLORS.card, borderRadius: 18, padding: 14,
+    alignItems: 'center', gap: 3,
+    borderTopWidth: 3, borderWidth: 1, borderColor: COLORS.border,
     shadowColor: '#000', shadowOpacity: 0.04, shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
-  statIcon: { fontSize: 22, marginBottom: 6 },
-  statValue: { fontSize: 20, fontWeight: '800', color: COLORS.primary },
-  statUnit: { fontSize: 11, color: COLORS.textSecondary, marginBottom: 2 },
-  statLabel: { fontSize: 12, color: COLORS.textTertiary },
-  section: { backgroundColor: COLORS.card, borderRadius: 20, margin: 16, marginTop: 8, padding: 16 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: COLORS.text, textAlign: 'right', marginBottom: 12 },
+  statEmoji: { fontSize: 20, marginBottom: 2 },
+  statValue: { fontSize: 20, fontWeight: '800' },
+  statUnit: { fontSize: 10, color: COLORS.textTertiary },
+  statLabel: { fontSize: 11, color: COLORS.textSecondary },
+
+  // Section
+  section: {
+    backgroundColor: COLORS.card, borderRadius: 22,
+    margin: 16, marginTop: 4, padding: 16,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  sectionTitle: {
+    fontSize: 13, fontWeight: '700', color: COLORS.textTertiary,
+    textTransform: 'uppercase', letterSpacing: 0.8,
+    textAlign: 'right', marginBottom: 12,
+  },
+
+  // Connectors
   connectorRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border,
   },
-  connectorStatus: { width: 8, height: 8, borderRadius: 4 },
+  connectorBadge: {
+    width: 28, height: 28, borderRadius: 8,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  connectorDot: { width: 10, height: 10, borderRadius: 5 },
   connectorType: { flex: 1, fontSize: 14, fontWeight: '600', color: COLORS.text },
   connectorPower: { fontSize: 13, color: COLORS.textSecondary },
-  connectorLabel: { fontSize: 12, fontWeight: '700', minWidth: 48, textAlign: 'right' },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  infoIcon: { fontSize: 16, width: 24 },
+  connectorStatus: { fontSize: 12, fontWeight: '700', minWidth: 56, textAlign: 'right' },
+
+  // Info rows
+  infoRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  infoIconWrap: {
+    width: 28, height: 28, borderRadius: 8,
+    backgroundColor: COLORS.backgroundAlt,
+    alignItems: 'center', justifyContent: 'center',
+  },
   infoLabel: { flex: 1, fontSize: 13, color: COLORS.textSecondary },
   infoValue: { fontSize: 13, fontWeight: '600', color: COLORS.text, textAlign: 'right' },
+
+  // Amenities
   amenitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   amenityChip: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    backgroundColor: '#f0fdf4', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: COLORS.primaryBg, borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 6,
+    borderWidth: 1, borderColor: COLORS.primaryTint,
   },
-  amenityEmoji: { fontSize: 14 },
-  amenityLabel: { fontSize: 11, color: COLORS.primary, fontWeight: '600' },
+  amenityEmoji: { fontSize: 13 },
+  amenityLabel: { fontSize: 11, color: COLORS.primaryLight, fontWeight: '600' },
+
+  // Book bar
   bookBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    flexDirection: 'row', alignItems: 'center', gap: 16,
-    backgroundColor: COLORS.card, padding: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    gap: 16,
+    backgroundColor: COLORS.card, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 32,
     borderTopWidth: 1, borderTopColor: COLORS.border,
-    paddingBottom: 32,
+    shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: -3 }, shadowRadius: 12, elevation: 8,
   },
-  bookPriceCol: { flex: 1 },
-  bookPrice: { fontSize: 20, fontWeight: '800', color: COLORS.primary },
-  bookPriceUnit: { fontSize: 12, color: COLORS.textSecondary },
-  bookBtn: { flex: 2, backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
-  bookBtnDisabled: { backgroundColor: COLORS.textTertiary },
+  bookPrice: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
+  bookPriceUnit: { fontSize: 12, color: COLORS.textSecondary, marginTop: 1 },
+  bookBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: COLORS.primary, borderRadius: 16,
+    paddingVertical: 15,
+    shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 5,
+  },
+  bookBtnDisabled: { backgroundColor: COLORS.textTertiary, shadowOpacity: 0 },
   bookBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

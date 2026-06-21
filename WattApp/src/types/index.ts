@@ -2,7 +2,7 @@ export interface Profile {
   id: string;
   phone?: string;
   full_name: string;
-  role: 'customer' | 'host';
+  role: 'customer';
   avatar_url?: string;
   membership_level: 'standard' | 'silver' | 'gold';
   wallet_balance: number;
@@ -114,39 +114,29 @@ export interface WalletTransaction {
   created_at: string;
 }
 
-export interface InvestorApplication {
-  id: string;
-  user_id?: string;
-  full_name: string;
-  phone: string;
-  email?: string;
-  location_name: string;
-  location_type: 'mall' | 'hotel' | 'hospital' | 'university' | 'residential' | 'commercial' | 'fuel_station' | 'other';
-  governorate: string;
-  wilayat?: string;
-  charger_count: number;
-  charger_types?: string[];
-  energy_source?: 'grid' | 'solar' | 'hybrid';
-  availability_hours?: string;
-  suggested_price?: number;
-  description?: string;
-  package_type: 'basic' | 'pro';
-  watt_box_option?: 'buy' | 'subscribe' | 'none';
-  status: 'pending' | 'reviewing' | 'approved' | 'rejected';
-  created_at: string;
-}
-
 // Navigation param lists
 export type RootStackParamList = {
+  GuestMain: undefined;
+  CustomerMain: undefined;
+  // Auth screens (restore when needed)
   Splash: undefined;
   RoleSelect: undefined;
-  Phone: { role: 'customer' | 'host' };
-  OTP: { email: string; role: 'customer' | 'host'; fullName: string };
-  CustomerMain: undefined;
-  HostMain: undefined;
-  // Kept so legacy SignIn/SignUp screens compile (no longer navigated to)
-  SignIn: { role: 'customer' | 'host' };
-  SignUp: { role: 'customer' | 'host' };
+  Phone: { role: 'customer' };
+  OTP: { email: string; role: 'customer'; fullName: string };
+  SignIn: { role: 'customer' };
+  SignUp: { role: 'customer' };
+};
+
+export type GuestStackParamList = {
+  DevLogin: undefined;
+  GuestTabs: undefined;
+};
+
+export type GuestTabParamList = {
+  GuestMap: undefined;
+  GuestBookings: { feature: 'bookings' };
+  GuestWallet: { feature: 'wallet' };
+  GuestProfile: undefined;
 };
 
 export type CustomerStackParamList = {
@@ -155,7 +145,7 @@ export type CustomerStackParamList = {
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
-  Investor: undefined;
+  SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string };
 };
 
 export type CustomerTabParamList = {
@@ -165,19 +155,6 @@ export type CustomerTabParamList = {
   Profile: undefined;
 };
 
-export type HostStackParamList = {
-  HostSetup: undefined;
-  HostTabs: undefined;
-};
-
-export type HostTabParamList = {
-  Dashboard: undefined;
-  MyCharger: undefined;
-  Earnings: undefined;
-  HostProfile: undefined;
-};
-
-// Keep these for backward-compat in screens not yet migrated
-export type RootStackParamList_Legacy = RootStackParamList;
+// Backwards-compat aliases
 export type MainStackParamList = CustomerStackParamList;
 export type TabParamList = CustomerTabParamList;
