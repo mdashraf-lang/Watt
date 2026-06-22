@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
@@ -95,10 +95,10 @@ export default function ProfileScreen() {
   const [sessions,         setSessions]         = useState<ChargingSession[]>([]);
   const [sessionsLoading,  setSessionsLoading]  = useState(false);
 
-  // Investor application
-  const [application,     setApplication]     = useState<ChargerApplication | null | undefined>(undefined);
+  // Investor application — refetch every time screen is focused
+  const [application, setApplication] = useState<ChargerApplication | null | undefined>(undefined);
 
-  useEffect(() => {
+  const fetchApplication = useCallback(() => {
     if (!profile) return;
     supabase
       .from('charger_applications')
@@ -109,6 +109,8 @@ export default function ProfileScreen() {
       .maybeSingle()
       .then(({ data }) => setApplication(data as ChargerApplication | null));
   }, [profile?.id]);
+
+  useFocusEffect(fetchApplication);
 
   const vehicle = parseVehicle(profile?.car_model);
 
