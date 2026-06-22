@@ -2,13 +2,12 @@ export interface Profile {
   id: string;
   phone?: string;
   full_name: string;
-  role: 'customer';
+  role: 'customer' | 'host' | 'investor' | 'admin';
+  is_active: boolean;
   avatar_url?: string;
-  membership_level: 'standard' | 'silver' | 'gold';
   wallet_balance: number;
   total_sessions: number;
   total_kwh: number;
-  rating: number;
   car_model?: string;
   created_at: string;
   updated_at: string;
@@ -128,7 +127,8 @@ export type RootStackParamList = {
 };
 
 export type GuestStackParamList = {
-  DevLogin: undefined;
+  SignIn: undefined;
+  SignUp: undefined;
   GuestTabs: undefined;
 };
 
@@ -146,6 +146,7 @@ export type CustomerStackParamList = {
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
   SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string };
+  InvestorApplication: { reapply?: boolean };
 };
 
 export type CustomerTabParamList = {
@@ -154,6 +155,57 @@ export type CustomerTabParamList = {
   Wallet: undefined;
   Profile: undefined;
 };
+
+export type AdminTabParamList = {
+  AdminMap: undefined;
+  AdminCustomers: undefined;
+  AdminInvestors: undefined;
+  AdminProfile: undefined;
+};
+
+export type AdminStackParamList = {
+  AdminTabs: undefined;
+  AdminApplicationDetail: { applicationId: string };
+};
+
+export type InvestorTabParamList = {
+  Map: undefined;
+  Bookings: undefined;
+  InvestorCharger: undefined;
+  Wallet: undefined;
+  Profile: undefined;
+};
+
+export type InvestorStackParamList = {
+  InvestorTabs: undefined;
+  StationDetails: { stationId: string };
+  Booking: { station: Station; listingId?: string };
+  ActiveBooking: { bookingId: string };
+  Charging: { sessionId: string; stationName: string };
+  SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string };
+  InvestorApplication: { reapply?: boolean };
+};
+
+export interface ChargerApplication {
+  id: string;
+  user_id: string;
+  full_name: string;
+  phone: string;
+  governorate: string;
+  city: string;
+  latitude?: number;
+  longitude?: number;
+  charger_type: 'Type2' | 'CCS' | 'CHAdeMO' | 'GBT';
+  power_kw?: number;
+  electricity_form_name: string;
+  commercial_registration: string;
+  id_card_number: string;
+  status: 'pending' | 'under_review' | 'approved' | 'rejected' | 'needs_info';
+  admin_comment?: string;
+  created_at: string;
+  updated_at: string;
+  profile?: { full_name: string; phone?: string };
+}
 
 // Backwards-compat aliases
 export type MainStackParamList = CustomerStackParamList;

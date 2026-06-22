@@ -11,36 +11,57 @@ import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 import {
   MapPinIcon, CalendarIcon, WalletIcon, UserIcon,
+  ZapIcon, UsersIcon, TrendingUpIcon, ShieldIcon,
 } from '../components/icons';
 import type {
   GuestStackParamList,
   GuestTabParamList,
   CustomerStackParamList,
   CustomerTabParamList,
+  AdminTabParamList,
+  AdminStackParamList,
+  InvestorTabParamList,
+  InvestorStackParamList,
 } from '../types';
 
-// Guest screens
-import DevLoginScreen   from '../screens/DevLoginScreen';
+// Auth screens
+import SignInScreen       from '../screens/SignInScreen';
+import SignUpScreen       from '../screens/SignUpScreen';
 import GuestProfileScreen from '../screens/GuestProfileScreen';
 import GuestLockedScreen  from '../screens/GuestLockedScreen';
 
 // Customer screens
-import MapScreen            from '../screens/MapScreen';
-import StationDetailsScreen from '../screens/StationDetailsScreen';
-import BookingScreen        from '../screens/BookingScreen';
-import ActiveBookingScreen  from '../screens/ActiveBookingScreen';
-import ChargingScreen       from '../screens/ChargingScreen';
-import SessionSummaryScreen from '../screens/SessionSummaryScreen';
-import BookingsScreen       from '../screens/BookingsScreen';
-import WalletScreen         from '../screens/WalletScreen';
-import ProfileScreen        from '../screens/ProfileScreen';
+import MapScreen                  from '../screens/MapScreen';
+import StationDetailsScreen       from '../screens/StationDetailsScreen';
+import BookingScreen              from '../screens/BookingScreen';
+import ActiveBookingScreen        from '../screens/ActiveBookingScreen';
+import ChargingScreen             from '../screens/ChargingScreen';
+import SessionSummaryScreen       from '../screens/SessionSummaryScreen';
+import BookingsScreen             from '../screens/BookingsScreen';
+import WalletScreen               from '../screens/WalletScreen';
+import ProfileScreen              from '../screens/ProfileScreen';
+import InvestorApplicationScreen  from '../screens/InvestorApplicationScreen';
 
-// Root navigator — switches between Guest and Customer
-const RootStack     = createNativeStackNavigator();
-const GuestStack    = createNativeStackNavigator<GuestStackParamList>();
-const GuestTab      = createBottomTabNavigator<GuestTabParamList>();
-const CustomerStack = createNativeStackNavigator<CustomerStackParamList>();
-const CustomerTab   = createBottomTabNavigator<CustomerTabParamList>();
+// Admin screens
+import AdminMapScreen       from '../screens/admin/AdminMapScreen';
+import AdminUsersScreen     from '../screens/admin/AdminUsersScreen';
+import AdminInvestorsScreen from '../screens/admin/AdminInvestorsScreen';
+import AdminProfileScreen   from '../screens/admin/AdminProfileScreen';
+
+// Investor screens
+import InvestorChargerScreen  from '../screens/investor/InvestorChargerScreen';
+import InvestorEarningsScreen from '../screens/investor/InvestorEarningsScreen';
+
+// Root navigator — switches between Guest, Customer, and Admin
+const RootStack      = createNativeStackNavigator();
+const GuestStack     = createNativeStackNavigator<GuestStackParamList>();
+const GuestTab       = createBottomTabNavigator<GuestTabParamList>();
+const CustomerStack  = createNativeStackNavigator<CustomerStackParamList>();
+const CustomerTab    = createBottomTabNavigator<CustomerTabParamList>();
+const AdminStack     = createNativeStackNavigator<AdminStackParamList>();
+const AdminTab       = createBottomTabNavigator<AdminTabParamList>();
+const InvestorStack  = createNativeStackNavigator<InvestorStackParamList>();
+const InvestorTab    = createBottomTabNavigator<InvestorTabParamList>();
 
 // ── Tab Bar ────────────────────────────────────────────────────
 
@@ -155,8 +176,9 @@ function GuestTabs() {
 function GuestNavigator() {
   return (
     <GuestStack.Navigator screenOptions={{ headerShown: false }}>
-      <GuestStack.Screen name="DevLogin" component={DevLoginScreen} />
-      <GuestStack.Screen name="GuestTabs" component={GuestTabs} options={{ animation: 'slide_from_right' }} />
+      <GuestStack.Screen name="SignIn"    component={SignInScreen} />
+      <GuestStack.Screen name="SignUp"    component={SignUpScreen} />
+      <GuestStack.Screen name="GuestTabs" component={GuestTabs} options={{ animation: 'fade' }} />
     </GuestStack.Navigator>
   );
 }
@@ -223,16 +245,159 @@ function CustomerNavigator() {
       <CustomerStack.Screen name="ActiveBooking" component={ActiveBookingScreen} />
       <CustomerStack.Screen name="Charging" component={ChargingScreen} />
       <CustomerStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
+      <CustomerStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
     </CustomerStack.Navigator>
+  );
+}
+
+// ── INVESTOR ──────────────────────────────────────────────────
+
+function InvestorTabs() {
+  const { t } = useLang();
+  return (
+    <InvestorTab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} accentColor={COLORS.primary} />}
+      screenOptions={{ headerShown: false }}
+    >
+      <InvestorTab.Screen
+        name="Map"
+        component={MapScreen}
+        options={{
+          tabBarLabel: t.tab_map,
+          tabBarIcon: ({ focused, color }) => (
+            <MapPinIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <InvestorTab.Screen
+        name="Bookings"
+        component={BookingsScreen}
+        options={{
+          tabBarLabel: t.tab_bookings,
+          tabBarIcon: ({ focused, color }) => (
+            <CalendarIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <InvestorTab.Screen
+        name="InvestorCharger"
+        component={InvestorChargerScreen}
+        options={{
+          tabBarLabel: t.inv_tab_my_charger,
+          tabBarIcon: ({ focused, color }) => (
+            <ZapIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <InvestorTab.Screen
+        name="Wallet"
+        component={InvestorEarningsScreen}
+        options={{
+          tabBarLabel: t.inv_earnings_tab,
+          tabBarIcon: ({ focused, color }) => (
+            <WalletIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <InvestorTab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarLabel: t.tab_profile,
+          tabBarIcon: ({ focused, color }) => (
+            <UserIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+    </InvestorTab.Navigator>
+  );
+}
+
+function InvestorNavigator() {
+  return (
+    <InvestorStack.Navigator screenOptions={{ headerShown: false }}>
+      <InvestorStack.Screen name="InvestorTabs" component={InvestorTabs} />
+      <InvestorStack.Screen name="StationDetails" component={StationDetailsScreen} />
+      <InvestorStack.Screen name="Booking" component={BookingScreen} />
+      <InvestorStack.Screen name="ActiveBooking" component={ActiveBookingScreen} />
+      <InvestorStack.Screen name="Charging" component={ChargingScreen} />
+      <InvestorStack.Screen name="SessionSummary" component={SessionSummaryScreen} options={{ gestureEnabled: false }} />
+      <InvestorStack.Screen name="InvestorApplication" component={InvestorApplicationScreen} />
+    </InvestorStack.Navigator>
+  );
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────
+
+function AdminTabs() {
+  const { t } = useLang();
+  return (
+    <AdminTab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} accentColor="#7C3AED" />}
+      screenOptions={{ headerShown: false }}
+    >
+      <AdminTab.Screen
+        name="AdminMap"
+        component={AdminMapScreen}
+        options={{
+          tabBarLabel: t.tab_admin_stations,
+          tabBarIcon: ({ focused, color }) => (
+            <ZapIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="AdminCustomers"
+        component={AdminUsersScreen}
+        options={{
+          tabBarLabel: t.tab_admin_customers,
+          tabBarIcon: ({ focused, color }) => (
+            <UsersIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="AdminInvestors"
+        component={AdminInvestorsScreen}
+        options={{
+          tabBarLabel: t.tab_admin_investors,
+          tabBarIcon: ({ focused, color }) => (
+            <TrendingUpIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+      <AdminTab.Screen
+        name="AdminProfile"
+        component={AdminProfileScreen}
+        options={{
+          tabBarLabel: t.tab_profile,
+          tabBarIcon: ({ focused, color }) => (
+            <ShieldIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+          ),
+        }}
+      />
+    </AdminTab.Navigator>
+  );
+}
+
+function AdminNavigator() {
+  return (
+    <AdminStack.Navigator screenOptions={{ headerShown: false }}>
+      <AdminStack.Screen name="AdminTabs" component={AdminTabs} />
+    </AdminStack.Navigator>
   );
 }
 
 // ── ROOT ──────────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { session, profile, loading } = useAuth();
+  const { session, profile, devProfile, loading } = useAuth();
 
-  if (loading || (session && !profile)) {
+  // isLoggedIn: real Supabase session OR dev bypass profile
+  const isLoggedIn    = !!session || !!devProfile;
+  const activeProfile = profile ?? devProfile;
+
+  if (loading || (session && !profile && !devProfile)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primaryDark }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
@@ -243,8 +408,12 @@ export default function AppNavigator() {
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
-        {!session ? (
+        {!isLoggedIn ? (
           <RootStack.Screen name="GuestMain" component={GuestNavigator} />
+        ) : activeProfile?.role === 'admin' ? (
+          <RootStack.Screen name="AdminMain" component={AdminNavigator} />
+        ) : activeProfile?.role === 'investor' || activeProfile?.role === 'host' ? (
+          <RootStack.Screen name="InvestorMain" component={InvestorNavigator} />
         ) : (
           <RootStack.Screen name="CustomerMain" component={CustomerNavigator} />
         )}
