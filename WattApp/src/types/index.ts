@@ -9,6 +9,7 @@ export interface Profile {
   total_sessions: number;
   total_kwh: number;
   car_model?: string;
+  investor_welcomed?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -26,10 +27,13 @@ export interface ChargerListing {
   is_available: boolean;
   availability_start?: string;
   availability_end?: string;
-  description?: string;
+  description?: string | null;
   total_bookings: number;
   rating: number;
   total_ratings: number;
+  tuya_device_id?: string | null;
+  switch_status?: boolean;
+  tuya_verified?: boolean;
   created_at: string;
 }
 
@@ -70,6 +74,7 @@ export interface Booking {
   user_id: string;
   station_id: string;
   connector_id?: string;
+  listing_id?: string | null;
   status: 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled' | 'no_show';
   booked_at: string;
   duration_minutes: number;

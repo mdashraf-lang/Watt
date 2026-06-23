@@ -723,7 +723,50 @@ const ar = {
   membership_progress_unlocked_silver: 'الفضي مفعّل!',
   membership_progress_unlocked_gold:   'الذهبي مفعّل!',
 
-  // Session Summary
+  // Investor toggle + Tuya
+  inv_charger_turning_on:  'جارٍ تشغيل الشاحن…',
+  inv_charger_turning_off: 'جارٍ إيقاف الشاحن…',
+
+  // Tuya device — investor charger screen
+  tuya_device_id_label:  'معرّف الجهاز (Tuya)',
+  tuya_device_id_ph:     'مثال: bf3a8c0e12345678',
+  tuya_status_label:     'حالة الجهاز',
+  tuya_not_linked:       'لم يُربط بعد',
+  tuya_pending_verify:   'بانتظار توثيق الإدارة',
+  tuya_verified_ok:      'موثّق ✓',
+  tuya_switch_on:        'الشاحن مفعّل',
+  tuya_switch_off:       'الشاحن متوقف',
+
+  // Tuya device — admin screen
+  admin_tuya_section:         'جهاز الشاحن',
+  admin_tuya_device_id:       'معرّف الجهاز',
+  admin_tuya_not_set:         'لم يُحدد من المستثمر بعد',
+  admin_tuya_verified:        'موثّق ✓',
+  admin_tuya_not_verified:    'غير موثّق',
+  admin_tuya_verify_btn:      'توثيق الجهاز',
+  admin_tuya_verify_confirm:  'هل تريد توثيق هذا الجهاز؟ سيسمح هذا للعملاء بالشحن.',
+  admin_tuya_verify_done:     'تم توثيق الجهاز بنجاح',
+
+  // Active booking — Tuya switch activation
+  active_activating:       'جارٍ تفعيل الشاحن…',
+  active_charger_err_title:'تعذّر تفعيل الشاحن',
+
+  // Charging — minimize / background session
+  charging_minimize: 'العودة للرئيسية',
+  charging_session_running: '⚡ جلسة نشطة',
+  charging_tap_resume: 'اضغط لعرض الجلسة',
+
+  // Map — investor's own charger label
+  map_my_charger_label: 'شاحني',
+
+  // Investor welcome modal (shown once after admin approval)
+  inv_welcome_title: '🎉 تمت الموافقة على طلبك!',
+  inv_welcome_subtitle: 'أصبحت مستثمراً في واط',
+  inv_welcome_body: 'تم تثبيت موقع شاحنك على الخريطة. أكمل الإعداد لتبدأ باستقبال الحجوزات وتحقيق الدخل.',
+  inv_welcome_charger_label: 'موقع شاحنك',
+  inv_welcome_btn: 'متابعة',
+
+  // Session Summary / Receipt
   session_summary_title: 'اكتمل الشحن!',
   session_summary_sub: 'شكراً على استخدام واط',
   session_summary_kwh: 'الطاقة المُوصلة',
@@ -734,6 +777,14 @@ const ar = {
   session_summary_co2_suffix: 'كجم CO₂ مقارنةً بسيارة بنزينية',
   session_summary_share: 'مشاركة الملخص',
   session_summary_done: 'العودة للرئيسية',
+  session_receipt_header: 'فاتورة الشحن',
+  session_receipt_station: 'المحطة',
+  session_receipt_energy: 'الطاقة',
+  session_receipt_duration_label: 'المدة',
+  session_receipt_rate: 'السعر/kWh',
+  session_receipt_total: 'الإجمالي',
+  session_receipt_co2: 'CO₂ موفّر',
+  session_receipt_date: 'التاريخ',
 };
 
 export default ar;

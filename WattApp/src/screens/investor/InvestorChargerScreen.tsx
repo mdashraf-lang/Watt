@@ -32,6 +32,7 @@ export default function InvestorChargerScreen() {
   const [editStart,     setEditStart]     = useState('08:00');
   const [editEnd,       setEditEnd]       = useState('22:00');
   const [editDesc,      setEditDesc]      = useState('');
+  const [editDeviceId,  setEditDeviceId]  = useState('');
 
   const fetchListing = useCallback(async () => {
     if (!profile) return;
@@ -68,6 +69,7 @@ export default function InvestorChargerScreen() {
       setEditStart(listing.availability_start ?? '08:00');
       setEditEnd(listing.availability_end ?? '22:00');
       setEditDesc(listing.description ?? '');
+      setEditDeviceId(listing.tuya_device_id ?? '');
     }
     setEditModal(true);
   };
@@ -80,16 +82,17 @@ export default function InvestorChargerScreen() {
     setSaving(true);
     try {
       const updates = {
-        address: editAddress.trim(),
-        power_kw: parseFloat(editPowerKw) || listing.power_kw,
-        price_per_kwh: parseFloat(editPrice) || listing.price_per_kwh,
+        address:            editAddress.trim(),
+        power_kw:           parseFloat(editPowerKw) || listing.power_kw,
+        price_per_kwh:      parseFloat(editPrice) || listing.price_per_kwh,
         availability_start: editStart,
-        availability_end: editEnd,
-        description: editDesc.trim() || undefined,
+        availability_end:   editEnd,
+        description:        editDesc.trim() || null,
+        tuya_device_id:     editDeviceId.trim() || null,
       };
       const { error } = await supabase
         .from('charger_listings')
-        .update({ ...updates, description: editDesc.trim() || null })
+        .update(updates)
         .eq('id', listing.id);
       if (error) throw error;
       setListing(prev => prev ? { ...prev, ...updates } : prev);
@@ -119,8 +122,8 @@ export default function InvestorChargerScreen() {
         .insert({
           host_id: profile.id,
           address: app ? `${app.city}, ${app.governorate}` : '',
-          latitude: 0,
-          longitude: 0,
+          latitude: app?.latitude ?? 23.588,
+          longitude: app?.longitude ?? 58.383,
           charger_type: app?.charger_type ?? 'Type2',
           power_kw: app?.power_kw ?? 7.4,
           price_per_kwh: 0.025,
@@ -145,15 +148,30 @@ export default function InvestorChargerScreen() {
       openEdit();
       return;
     }
+
+    const newVal = !listing.is_available;
     setToggling(true);
     try {
-      const newVal = !listing.is_available;
+      // If Tuya device is configured, control the physical switch
+      if (listing.tuya_device_id) {
+        const { data, error: tuyaErr } = await supabase.functions.invoke(
+          'control-tuya-switch',
+          { body: { action: newVal ? 'on' : 'off', listing_id: listing.id } },
+        );
+        if (tuyaErr || data?.error) {
+          // Warn but don't block — still update availability in DB
+          console.warn('[InvestorCharger] Tuya toggle failed:', tuyaErr?.message ?? data?.error);
+        }
+      }
+
+      // Update both is_available AND switch_status together
       const { error } = await supabase
         .from('charger_listings')
-        .update({ is_available: newVal })
+        .update({ is_available: newVal, switch_status: newVal })
         .eq('id', listing.id);
       if (error) throw error;
-      setListing(prev => prev ? { ...prev, is_available: newVal } : prev);
+
+      setListing(prev => prev ? { ...prev, is_available: newVal, switch_status: newVal } : prev);
     } catch (e: any) {
       Alert.alert(t.error, e.message);
     } finally {
@@ -227,6 +245,28 @@ export default function InvestorChargerScreen() {
                 {isOnline ? t.inv_charger_status_online : t.inv_charger_status_offline}
               </Text>
               <Text style={styles.heroType}>{listing.charger_type} · {listing.power_kw} kW</Text>
+              <View style={styles.tuyaBadgeRow}>
+                {!listing.tuya_device_id ? (
+                  <View style={[styles.tuyaBadge, styles.tuyaBadgeGray]}>
+                    <Text style={styles.tuyaBadgeText}>🔌 {t.tuya_not_linked}</Text>
+                  </View>
+                ) : listing.tuya_verified ? (
+                  <View style={[styles.tuyaBadge, styles.tuyaBadgeGreen]}>
+                    <Text style={styles.tuyaBadgeText}>⚡ {t.tuya_verified_ok}</Text>
+                  </View>
+                ) : (
+                  <View style={[styles.tuyaBadge, styles.tuyaBadgeAmber]}>
+                    <Text style={styles.tuyaBadgeText}>⏳ {t.tuya_pending_verify}</Text>
+                  </View>
+                )}
+                {listing.tuya_verified && (
+                  <View style={[styles.tuyaBadge, listing.switch_status ? styles.tuyaBadgeGreen : styles.tuyaBadgeGray]}>
+                    <Text style={styles.tuyaBadgeText}>
+                      {listing.switch_status ? t.tuya_switch_on : t.tuya_switch_off}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
           </View>
           <View style={styles.heroToggleWrap}>
@@ -348,10 +388,21 @@ export default function InvestorChargerScreen() {
                   </View>
                 </View>
 
-                <EditField label={t.inv_charger_desc} last>
+                <EditField label={t.inv_charger_desc}>
                   <TextInput style={[styles.input, { minHeight: 64 }]} value={editDesc} onChangeText={setEditDesc}
                     placeholder={t.inv_charger_desc_ph} placeholderTextColor={COLORS.textTertiary}
-                    multiline textAlignVertical="top" returnKeyType="done" />
+                    multiline textAlignVertical="top" returnKeyType="next" />
+                </EditField>
+
+                <EditField label={t.tuya_device_id_label} last>
+                  <TextInput style={styles.input} value={editDeviceId} onChangeText={setEditDeviceId}
+                    placeholder={t.tuya_device_id_ph} placeholderTextColor={COLORS.textTertiary}
+                    autoCapitalize="none" autoCorrect={false} returnKeyType="done" />
+                  <Text style={styles.tuyaHint}>
+                    {t.tuya_status_label}: {editDeviceId.trim()
+                      ? (listing?.tuya_verified ? t.tuya_verified_ok : t.tuya_pending_verify)
+                      : t.tuya_not_linked}
+                  </Text>
                 </EditField>
 
                 <TouchableOpacity
@@ -424,6 +475,15 @@ const styles = StyleSheet.create({
   emptySub:   { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
   setupBtn:   { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 40, alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4 },
   setupBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+
+  // Tuya status badges
+  tuyaBadgeRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
+  tuyaBadge:      { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
+  tuyaBadgeGray:  { backgroundColor: COLORS.backgroundAlt },
+  tuyaBadgeGreen: { backgroundColor: COLORS.successBg },
+  tuyaBadgeAmber: { backgroundColor: COLORS.goldBg },
+  tuyaBadgeText:  { fontSize: 10, fontWeight: '700', color: COLORS.text },
+  tuyaHint:       { fontSize: 11, color: COLORS.textTertiary, marginTop: 4 },
 
   // Hero card
   heroCard: { marginHorizontal: 16, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderWidth: 1 },

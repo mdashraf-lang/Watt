@@ -226,9 +226,48 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
   onUpdate: (a: ChargerApplication) => void;
   t: any;
 }) {
-  const [comment, setComment] = useState(app.admin_comment ?? '');
-  const [saving, setSaving]   = useState(false);
+  const [comment,  setComment]  = useState(app.admin_comment ?? '');
+  const [saving,   setSaving]   = useState(false);
+  const [listing,  setListing]  = useState<{ id: string; tuya_device_id: string | null; tuya_verified: boolean } | null>(null);
   const sc = statusColors[app.status] ?? statusColors.pending;
+
+  // Fetch the charger listing if application is approved
+  useEffect(() => {
+    if (app.status === 'approved') {
+      supabase
+        .from('charger_listings')
+        .select('id, tuya_device_id, tuya_verified')
+        .eq('host_id', app.user_id)
+        .maybeSingle()
+        .then(({ data }) => { if (data) setListing(data as any); });
+    }
+  }, [app.user_id, app.status]);
+
+  const handleVerifyDevice = () => {
+    if (!listing) return;
+    Alert.alert(t.admin_tuya_verify_btn, t.admin_tuya_verify_confirm, [
+      { text: t.cancel, style: 'cancel' },
+      {
+        text: t.admin_tuya_verify_btn,
+        onPress: async () => {
+          setSaving(true);
+          try {
+            const { error } = await supabase
+              .from('charger_listings')
+              .update({ tuya_verified: true })
+              .eq('id', listing.id);
+            if (error) throw error;
+            setListing(prev => prev ? { ...prev, tuya_verified: true } : prev);
+            Alert.alert('✓', t.admin_tuya_verify_done);
+          } catch (e: any) {
+            Alert.alert(t.error, e.message);
+          } finally {
+            setSaving(false);
+          }
+        },
+      },
+    ]);
+  };
 
   const handleCall = () => {
     Linking.openURL(`tel:${app.phone.replace(/\s/g, '')}`);
@@ -380,6 +419,37 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
               onPress={() => handleAction('reject')}
             />
           </View>
+
+          {/* ── Charger Device (only for approved applications) ── */}
+          {app.status === 'approved' && (
+            <>
+              <SectionLabel icon={<ZapIcon size={14} color={COLORS.primary} strokeWidth={2} />} title={t.admin_tuya_section} />
+              <InfoCard>
+                <InfoRow
+                  label={t.admin_tuya_device_id}
+                  value={listing?.tuya_device_id ?? t.admin_tuya_not_set}
+                />
+                <InfoRow
+                  label={t.tuya_status_label}
+                  value={listing?.tuya_verified ? t.admin_tuya_verified : t.admin_tuya_not_verified}
+                  last
+                />
+              </InfoCard>
+              {listing && !listing.tuya_verified && listing.tuya_device_id && (
+                <TouchableOpacity
+                  style={[detail.verifyBtn, saving && detail.saveBtnDisabled]}
+                  onPress={handleVerifyDevice}
+                  disabled={saving}
+                  activeOpacity={0.85}
+                >
+                  {saving
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={detail.saveBtnText}>✓ {t.admin_tuya_verify_btn}</Text>
+                  }
+                </TouchableOpacity>
+              )}
+            </>
+          )}
 
           {/* ── Comment ── */}
           <SectionLabel icon={<PhoneIcon size={14} color={COLORS.primary} strokeWidth={2} />} title={t.admin_inv_add_comment} />
@@ -584,6 +654,7 @@ const detail = StyleSheet.create({
     textAlignVertical: 'top',
   },
   saveBtn:         { backgroundColor: COLORS.primaryDark, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
+  verifyBtn:       { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
   saveBtnDisabled: { opacity: 0.55 },
   saveBtnText:     { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

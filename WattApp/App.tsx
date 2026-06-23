@@ -6,6 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from './src/context/AuthContext';
 import { LanguageProvider } from './src/context/LanguageContext';
+import { ChargingProvider } from './src/context/ChargingContext';
 import AppNavigator from './src/navigation';
 
 const queryClient = new QueryClient({
@@ -21,8 +22,10 @@ export default function App() {
         <QueryClientProvider client={queryClient}>
           <LanguageProvider>
             <AuthProvider>
-              <StatusBar style="auto" />
-              <AppNavigator />
+              <ChargingProvider>
+                <StatusBar style="auto" />
+                <AppNavigator />
+              </ChargingProvider>
             </AuthProvider>
           </LanguageProvider>
         </QueryClientProvider>

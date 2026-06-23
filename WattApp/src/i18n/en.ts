@@ -725,7 +725,50 @@ const en: Translations = {
   membership_progress_unlocked_silver: 'Silver unlocked!',
   membership_progress_unlocked_gold:   'Gold unlocked!',
 
-  // Session Summary
+  // Investor toggle + Tuya
+  inv_charger_turning_on:  'Turning charger ON…',
+  inv_charger_turning_off: 'Turning charger OFF…',
+
+  // Tuya device — investor charger screen
+  tuya_device_id_label:  'Tuya Device ID',
+  tuya_device_id_ph:     'e.g. bf3a8c0e12345678',
+  tuya_status_label:     'Device Status',
+  tuya_not_linked:       'Not linked yet',
+  tuya_pending_verify:   'Pending admin verification',
+  tuya_verified_ok:      'Verified ✓',
+  tuya_switch_on:        'Switch ON',
+  tuya_switch_off:       'Switch OFF',
+
+  // Tuya device — admin screen
+  admin_tuya_section:         'Charger Device',
+  admin_tuya_device_id:       'Device ID',
+  admin_tuya_not_set:         'Not set by investor yet',
+  admin_tuya_verified:        'Verified ✓',
+  admin_tuya_not_verified:    'Not verified',
+  admin_tuya_verify_btn:      'Verify Device',
+  admin_tuya_verify_confirm:  'Mark this device as verified? This allows customers to start charging.',
+  admin_tuya_verify_done:     'Device verified successfully',
+
+  // Active booking — Tuya switch activation
+  active_activating:       'Activating charger…',
+  active_charger_err_title:'Could Not Activate Charger',
+
+  // Charging — minimize / background session
+  charging_minimize: 'Back to Home',
+  charging_session_running: '⚡ Session Active',
+  charging_tap_resume: 'Tap to view session',
+
+  // Map — investor's own charger label
+  map_my_charger_label: 'My Charger',
+
+  // Investor welcome modal (shown once after admin approval)
+  inv_welcome_title: 'Application Approved! 🎉',
+  inv_welcome_subtitle: 'You are now a Watt Investor',
+  inv_welcome_body: 'Your charger location is pinned on the map. Complete the setup to start accepting bookings and earning income.',
+  inv_welcome_charger_label: 'Your Charger Location',
+  inv_welcome_btn: 'Continue',
+
+  // Session Summary / Receipt
   session_summary_title: 'Charging Complete!',
   session_summary_sub: 'Thank you for using Watt',
   session_summary_kwh: 'Energy Delivered',
@@ -736,6 +779,14 @@ const en: Translations = {
   session_summary_co2_suffix: 'kg CO₂ compared to a petrol car',
   session_summary_share: 'Share Summary',
   session_summary_done: 'Back to Home',
+  session_receipt_header: 'Charging Receipt',
+  session_receipt_station: 'Station',
+  session_receipt_energy: 'Energy',
+  session_receipt_duration_label: 'Duration',
+  session_receipt_rate: 'Rate',
+  session_receipt_total: 'Total',
+  session_receipt_co2: 'CO₂ Saved',
+  session_receipt_date: 'Date',
 };
 
 export default en;

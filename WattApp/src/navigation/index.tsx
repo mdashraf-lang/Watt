@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Text, TouchableOpacity, View, StyleSheet, Platform,
+  ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet, Platform,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -11,8 +11,10 @@ import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 import {
   MapPinIcon, CalendarIcon, WalletIcon, UserIcon,
-  ZapIcon, UsersIcon, TrendingUpIcon, ShieldIcon,
+  ZapIcon, UsersIcon, TrendingUpIcon, ShieldIcon, StarIcon, CheckIcon,
 } from '../components/icons';
+import { supabase } from '../lib/supabase';
+import type { ChargerListing } from '../types';
 import type {
   GuestStackParamList,
   GuestTabParamList,
@@ -250,66 +252,173 @@ function CustomerNavigator() {
   );
 }
 
+// ── Investor Welcome Modal ─────────────────────────────────────
+
+function InvestorWelcomeModal() {
+  const { profile, updateProfile } = useAuth();
+  const { t, isRTL } = useLang();
+  const [visible, setVisible] = useState(false);
+  const [listing, setListing] = useState<ChargerListing | null>(null);
+
+  useEffect(() => {
+    if (profile?.role === 'investor' && profile?.investor_welcomed === false) {
+      fetchListingAndShow();
+    }
+  }, [profile?.id, profile?.investor_welcomed]);
+
+  const fetchListingAndShow = async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('charger_listings')
+      .select('*')
+      .eq('host_id', profile.id)
+      .maybeSingle();
+    if (data) setListing(data as ChargerListing);
+    // Show after brief delay for UI to settle
+    setTimeout(() => setVisible(true), 600);
+  };
+
+  const handleContinue = async () => {
+    setVisible(false);
+    try { await updateProfile({ investor_welcomed: true }); } catch {}
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" statusBarTranslucent>
+      <View style={wStyles.overlay}>
+        <View style={wStyles.card}>
+          {/* Celebration icon */}
+          <View style={wStyles.iconCircle}>
+            <CheckIcon size={36} color={COLORS.primary} strokeWidth={2.5} />
+          </View>
+
+          <Text style={[wStyles.title, { textAlign: isRTL ? 'right' : 'center' }]}>
+            {t.inv_welcome_title}
+          </Text>
+          <Text style={[wStyles.subtitle, { textAlign: isRTL ? 'right' : 'center' }]}>
+            {t.inv_welcome_subtitle}
+          </Text>
+
+          {/* Charger location box */}
+          {listing && listing.address ? (
+            <View style={wStyles.locationBox}>
+              <StarIcon size={16} color={COLORS.gold} strokeWidth={2} filled />
+              <View style={{ flex: 1 }}>
+                <Text style={wStyles.locationLabel}>{t.inv_welcome_charger_label}</Text>
+                <Text style={wStyles.locationAddress} numberOfLines={2}>{listing.address}</Text>
+              </View>
+            </View>
+          ) : null}
+
+          <Text style={[wStyles.body, { textAlign: isRTL ? 'right' : 'center' }]}>
+            {t.inv_welcome_body}
+          </Text>
+
+          <TouchableOpacity style={wStyles.btn} onPress={handleContinue} activeOpacity={0.85}>
+            <Text style={wStyles.btnText}>{t.inv_welcome_btn}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const wStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: {
+    backgroundColor: COLORS.card, borderRadius: 28, padding: 28, width: '100%',
+    alignItems: 'center', gap: 12,
+    shadowColor: '#000', shadowOpacity: 0.2, shadowOffset: { width: 0, height: 8 }, elevation: 12,
+  },
+  iconCircle: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: COLORS.primaryBg, borderWidth: 2, borderColor: COLORS.primaryTint,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  title:    { fontSize: 22, fontWeight: '800', color: COLORS.text },
+  subtitle: { fontSize: 14, color: COLORS.textSecondary, fontWeight: '500' },
+  body:     { fontSize: 14, color: COLORS.textSecondary, lineHeight: 21, textAlign: 'center' },
+  locationBox: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: COLORS.goldBg, borderRadius: 14, borderWidth: 1, borderColor: COLORS.goldTint,
+    padding: 12, width: '100%',
+  },
+  locationLabel:   { fontSize: 10, fontWeight: '700', color: COLORS.gold, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  locationAddress: { fontSize: 13, fontWeight: '600', color: COLORS.text, lineHeight: 19 },
+  btn: {
+    backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15,
+    width: '100%', alignItems: 'center',
+    shadowColor: COLORS.primary, shadowOpacity: 0.35, shadowOffset: { width: 0, height: 4 }, elevation: 5,
+    marginTop: 4,
+  },
+  btnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+});
+
 // ── INVESTOR ──────────────────────────────────────────────────
 
 function InvestorTabs() {
   const { t } = useLang();
   return (
-    <InvestorTab.Navigator
-      tabBar={(props) => <CustomTabBar {...props} accentColor={COLORS.primary} />}
-      screenOptions={{ headerShown: false }}
-    >
-      <InvestorTab.Screen
-        name="Map"
-        component={MapScreen}
-        options={{
-          tabBarLabel: t.tab_map,
-          tabBarIcon: ({ focused, color }) => (
-            <MapPinIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-      <InvestorTab.Screen
-        name="Bookings"
-        component={BookingsScreen}
-        options={{
-          tabBarLabel: t.tab_bookings,
-          tabBarIcon: ({ focused, color }) => (
-            <CalendarIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-      <InvestorTab.Screen
-        name="InvestorCharger"
-        component={InvestorChargerScreen}
-        options={{
-          tabBarLabel: t.inv_tab_my_charger,
-          tabBarIcon: ({ focused, color }) => (
-            <ZapIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-      <InvestorTab.Screen
-        name="Wallet"
-        component={InvestorEarningsScreen}
-        options={{
-          tabBarLabel: t.inv_earnings_tab,
-          tabBarIcon: ({ focused, color }) => (
-            <WalletIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-      <InvestorTab.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          tabBarLabel: t.tab_profile,
-          tabBarIcon: ({ focused, color }) => (
-            <UserIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
-          ),
-        }}
-      />
-    </InvestorTab.Navigator>
+    <>
+      <InvestorWelcomeModal />
+      <InvestorTab.Navigator
+        tabBar={(props) => <CustomTabBar {...props} accentColor={COLORS.primary} />}
+        screenOptions={{ headerShown: false }}
+      >
+        <InvestorTab.Screen
+          name="Map"
+          component={MapScreen}
+          options={{
+            tabBarLabel: t.tab_map,
+            tabBarIcon: ({ focused, color }) => (
+              <MapPinIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+            ),
+          }}
+        />
+        <InvestorTab.Screen
+          name="Bookings"
+          component={BookingsScreen}
+          options={{
+            tabBarLabel: t.tab_bookings,
+            tabBarIcon: ({ focused, color }) => (
+              <CalendarIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+            ),
+          }}
+        />
+        <InvestorTab.Screen
+          name="InvestorCharger"
+          component={InvestorChargerScreen}
+          options={{
+            tabBarLabel: t.inv_tab_my_charger,
+            tabBarIcon: ({ focused, color }) => (
+              <ZapIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+            ),
+          }}
+        />
+        <InvestorTab.Screen
+          name="Wallet"
+          component={InvestorEarningsScreen}
+          options={{
+            tabBarLabel: t.inv_earnings_tab,
+            tabBarIcon: ({ focused, color }) => (
+              <WalletIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+            ),
+          }}
+        />
+        <InvestorTab.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{
+            tabBarLabel: t.tab_profile,
+            tabBarIcon: ({ focused, color }) => (
+              <UserIcon size={22} color={color} strokeWidth={focused ? 2.5 : 1.8} />
+            ),
+          }}
+        />
+      </InvestorTab.Navigator>
+    </>
   );
 }
 

@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   Animated,
   FlatList,
+  PanResponder,
   StyleSheet,
   Text,
   TextInput,
@@ -19,8 +20,9 @@ import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { translateGov } from '../i18n/govMap';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon } from '../components/icons';
+import { useCharging } from '../context/ChargingContext';
+import { translateGov, stationDisplayName } from '../i18n/govMap';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon } from '../components/icons';
 
 function listingToStation(l: ChargerListing): Station {
   return {
@@ -65,17 +67,41 @@ export default function MapScreen() {
     offline: t.status_offline,
   };
   const navigation = useNavigation<any>();
-  const { session } = useAuth();
+  const { session, devProfile, profile } = useAuth();
+  const { activeSessionId, activeStationName } = useCharging();
+  const isAuthenticated = !!session || !!devProfile;
   const mapRef = useRef<MapView>(null);
-  const [stations, setStations] = useState<Station[]>([]);
-  const [listings, setListings] = useState<ChargerListing[]>([]);
-  const [filtered, setFiltered] = useState<Station[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState<Station | null>(null);
+
+  const [stations, setStations]         = useState<Station[]>([]);
+  const [listings, setListings]         = useState<ChargerListing[]>([]);
+  const [myListing, setMyListing]       = useState<ChargerListing | null>(null);
+  const [filtered, setFiltered]         = useState<Station[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState('');
+  const [selected, setSelected]         = useState<Station | null>(null);
   const [selectedListing, setSelectedListing] = useState<ChargerListing | null>(null);
-  const [showList, setShowList] = useState(false);
-  const listAnim = useRef(new Animated.Value(0)).current;
+  const [showList, setShowList]         = useState(false);
+
+  const listAnim       = useRef(new Animated.Value(0)).current;
+  const sheetTranslateY = useRef(new Animated.Value(0)).current;
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, { dy }) => dy > 4,
+      onPanResponderMove: (_, { dy }) => { if (dy > 0) sheetTranslateY.setValue(dy); },
+      onPanResponderRelease: (_, { dy }) => {
+        if (dy > 80) {
+          Animated.timing(sheetTranslateY, {
+            toValue: Dimensions.get('window').height * 0.6,
+            duration: 220, useNativeDriver: true,
+          }).start(() => { setShowList(false); sheetTranslateY.setValue(0); });
+        } else {
+          Animated.spring(sheetTranslateY, { toValue: 0, useNativeDriver: true, tension: 60, friction: 8 }).start();
+        }
+      },
+    })
+  ).current;
 
   useEffect(() => {
     fetchStations();
@@ -86,15 +112,20 @@ export default function MapScreen() {
       .channel('stations-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, payload => {
         if (payload.eventType === 'UPDATE') {
-          setStations(prev =>
-            prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s)
-          );
+          setStations(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
         }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Fetch investor's own charger listing (even when offline)
+  useEffect(() => {
+    if (profile?.role === 'investor' || profile?.role === 'host') {
+      fetchMyListing();
+    }
+  }, [profile?.id, profile?.role]);
 
   useEffect(() => {
     const q = search.toLowerCase();
@@ -109,10 +140,7 @@ export default function MapScreen() {
 
   const fetchStations = async () => {
     const { data, error } = await supabase.from('stations').select('*').order('name');
-    if (!error && data) {
-      setStations(data as Station[]);
-      setFiltered(data as Station[]);
-    }
+    if (!error && data) { setStations(data as Station[]); setFiltered(data as Station[]); }
     setLoading(false);
   };
 
@@ -122,11 +150,20 @@ export default function MapScreen() {
       .select('*, profiles(full_name)')
       .eq('is_available', true);
     if (data) {
-      const mapped = data.map((d: any) => ({
-        ...d,
-        host_name: d.profiles?.full_name ?? null,
-      })) as ChargerListing[];
+      const mapped = data.map((d: any) => ({ ...d, host_name: d.profiles?.full_name ?? null })) as ChargerListing[];
       setListings(mapped);
+    }
+  };
+
+  const fetchMyListing = async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('charger_listings')
+      .select('*, profiles(full_name)')
+      .eq('host_id', profile.id)
+      .maybeSingle();
+    if (data && data.latitude && data.latitude !== 0) {
+      setMyListing({ ...data, host_name: data.profiles?.full_name ?? null } as ChargerListing);
     }
   };
 
@@ -145,6 +182,7 @@ export default function MapScreen() {
 
   const toggleList = () => {
     const toValue = showList ? 0 : 1;
+    if (!showList) sheetTranslateY.setValue(0);
     setShowList(!showList);
     Animated.spring(listAnim, { toValue, useNativeDriver: true }).start();
   };
@@ -153,40 +191,32 @@ export default function MapScreen() {
     setSelected(station);
     setSelectedListing(null);
     setShowList(false);
-    mapRef.current?.animateToRegion({
-      latitude: station.latitude,
-      longitude: station.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    }, 600);
+    mapRef.current?.animateToRegion({ latitude: station.latitude, longitude: station.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 600);
   };
 
   const selectListing = (listing: ChargerListing) => {
     setSelectedListing(listing);
     setSelected(null);
     setShowList(false);
-    mapRef.current?.animateToRegion({
-      latitude: listing.latitude,
-      longitude: listing.longitude,
-      latitudeDelta: 0.02,
-      longitudeDelta: 0.02,
-    }, 600);
+    mapRef.current?.animateToRegion({ latitude: listing.latitude, longitude: listing.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 600);
   };
 
   const renderStationCard = useCallback(({ item }: { item: Station }) => (
-    <TouchableOpacity
-      style={styles.listCard}
-      onPress={() => selectStation(item)}
-      activeOpacity={0.8}
-    >
+    <TouchableOpacity style={styles.listCard} onPress={() => selectStation(item)} activeOpacity={0.8}>
       <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.status] }]} />
       <View style={styles.listCardInfo}>
-        <Text style={styles.listCardName} numberOfLines={1}>{item.name}</Text>
-        <Text style={styles.listCardSub}>{translateGov(item.governorate, isRTL)} • {item.available_connectors}/{item.total_connectors} {t.map_available}</Text>
+        <Text style={[styles.listCardName, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+          {stationDisplayName(item, isRTL)}
+        </Text>
+        <Text style={[styles.listCardSub, { textAlign: isRTL ? 'right' : 'left' }]}>
+          {translateGov(item.governorate, isRTL)} • {item.available_connectors}/{item.total_connectors} {t.map_available}
+        </Text>
       </View>
       <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
     </TouchableOpacity>
-  ), []);
+  ), [isRTL, t]);
+
+  const isInvestor = profile?.role === 'investor' || profile?.role === 'host';
 
   return (
     <View style={styles.container}>
@@ -199,6 +229,7 @@ export default function MapScreen() {
         showsUserLocation
         showsMyLocationButton={false}
       >
+        {/* Official station pins */}
         {stations.map(station => (
           <Marker
             key={station.id}
@@ -210,17 +241,34 @@ export default function MapScreen() {
             </View>
           </Marker>
         ))}
-        {listings.map(listing => (
+
+        {/* Other home charger listings (blue) */}
+        {listings
+          .filter(l => !myListing || l.id !== myListing.id)
+          .map(listing => (
+            <Marker
+              key={`listing-${listing.id}`}
+              coordinate={{ latitude: listing.latitude, longitude: listing.longitude }}
+              onPress={() => selectListing(listing)}
+            >
+              <View style={[styles.pin, styles.pinHome]}>
+                <HomeIcon size={16} color="#fff" strokeWidth={2} />
+              </View>
+            </Marker>
+          ))}
+
+        {/* Investor's own charger (gold star) */}
+        {myListing && (
           <Marker
-            key={`listing-${listing.id}`}
-            coordinate={{ latitude: listing.latitude, longitude: listing.longitude }}
-            onPress={() => selectListing(listing)}
+            key="my-listing"
+            coordinate={{ latitude: myListing.latitude, longitude: myListing.longitude }}
+            onPress={() => selectListing(myListing)}
           >
-            <View style={[styles.pin, styles.pinHome]}>
-              <HomeIcon size={16} color="#fff" strokeWidth={2} />
+            <View style={styles.myPin}>
+              <StarIcon size={16} color="#fff" strokeWidth={2} filled />
             </View>
           </Marker>
-        ))}
+        )}
       </MapView>
 
       {/* Search bar */}
@@ -245,10 +293,28 @@ export default function MapScreen() {
         <TouchableOpacity style={styles.myLocationBtn} onPress={requestLocation}>
           <LocateIcon size={20} color={COLORS.primary} strokeWidth={2} />
         </TouchableOpacity>
+
+        {/* Active session banner — just below search */}
+        {activeSessionId && !showList && (
+          <TouchableOpacity
+            style={styles.sessionBanner}
+            onPress={() => navigation.navigate('Charging', { sessionId: activeSessionId, stationName: activeStationName ?? '' })}
+            activeOpacity={0.88}
+          >
+            <View style={styles.sessionPulseDot} />
+            <View style={styles.sessionBannerContent}>
+              <Text style={styles.sessionBannerTitle}>{t.charging_session_running}</Text>
+              <Text style={styles.sessionBannerSub} numberOfLines={1}>
+                {activeStationName} · {t.charging_tap_resume}
+              </Text>
+            </View>
+            <ZapIcon size={18} color="#fff" strokeWidth={2.5} />
+          </TouchableOpacity>
+        )}
       </SafeAreaView>
 
       {/* Nearby stations pill */}
-      {!showList && !selected && (
+      {!showList && !selected && !selectedListing && (
         <View style={styles.pillRow}>
           <TouchableOpacity style={styles.pill} onPress={toggleList} activeOpacity={0.85}>
             <ZapIcon size={14} color="#fff" strokeWidth={2.5} />
@@ -260,11 +326,13 @@ export default function MapScreen() {
 
       {/* Station list sheet */}
       {showList && (
-        <View style={styles.listSheet}>
-          <View style={styles.listHandle} />
-          <Text style={styles.listTitle}>
-            {t.map_stations} ({filtered.length}) {search ? `• "${search}"` : ''}
-          </Text>
+        <Animated.View style={[styles.listSheet, { transform: [{ translateY: sheetTranslateY }] }]}>
+          <View style={styles.listHandleWrap} {...panResponder.panHandlers}>
+            <View style={styles.listHandle} />
+            <Text style={[styles.listTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
+              {t.map_stations} ({filtered.length}){search ? ` • "${search}"` : ''}
+            </Text>
+          </View>
           {loading ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : (
@@ -273,16 +341,13 @@ export default function MapScreen() {
               keyExtractor={item => item.id}
               renderItem={renderStationCard}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 24 }}
+              contentContainerStyle={{ paddingBottom: 32 }}
             />
           )}
-          <TouchableOpacity style={styles.closeListBtn} onPress={() => setShowList(false)}>
-            <Text style={styles.closeListText}>{t.close}</Text>
-          </TouchableOpacity>
-        </View>
+        </Animated.View>
       )}
 
-      {/* Selected listing card (private home charger) */}
+      {/* Selected listing card (other home charger) */}
       {selectedListing && !showList && (
         <View style={styles.selectedCard}>
           <View style={styles.selectedCardRow}>
@@ -290,7 +355,9 @@ export default function MapScreen() {
               <View style={styles.selectedNameRow}>
                 <View style={[styles.statusDot, { backgroundColor: selectedListing.is_available ? COLORS.available : COLORS.offline }]} />
                 <Text style={styles.selectedName} numberOfLines={1}>
-                  🏠 {selectedListing.host_name ?? 'Private Charger'}
+                  {myListing?.id === selectedListing.id
+                    ? `⭐ ${t.map_my_charger_label}`
+                    : `🏠 ${selectedListing.host_name ?? 'Private Charger'}`}
                 </Text>
               </View>
               <Text style={styles.selectedSub}>{selectedListing.address}</Text>
@@ -304,22 +371,29 @@ export default function MapScreen() {
             </View>
           </View>
           <View style={styles.selectedBtnRow}>
-            <TouchableOpacity
-              style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
-              onPress={() => {
-                if (!session) {
-                  navigation.navigate('DevLogin');
-                  return;
-                }
-                selectedListing.is_available && navigation.navigate('Booking', {
-                  station: listingToStation(selectedListing),
-                  listingId: selectedListing.id,
-                });
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.bookBtnText}>{selectedListing.is_available ? t.map_book : t.map_unavailable}</Text>
-            </TouchableOpacity>
+            {myListing?.id === selectedListing.id ? (
+              <TouchableOpacity
+                style={[styles.bookBtn, { backgroundColor: COLORS.gold }]}
+                onPress={() => navigation.navigate('InvestorCharger')}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.bookBtnText}>{t.inv_charger_tab}</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.bookBtn, !selectedListing.is_available && styles.bookBtnDisabled]}
+                onPress={() => {
+                  if (!isAuthenticated) { navigation.getParent()?.navigate('SignIn'); return; }
+                  selectedListing.is_available && navigation.navigate('Booking', {
+                    station: listingToStation(selectedListing),
+                    listingId: selectedListing.id,
+                  });
+                }}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.bookBtnText}>{selectedListing.is_available ? t.map_book : t.map_unavailable}</Text>
+              </TouchableOpacity>
+            )}
           </View>
           <TouchableOpacity style={styles.dismissBtn} onPress={() => setSelectedListing(null)}>
             <Text style={styles.dismissText}>✕</Text>
@@ -344,14 +418,10 @@ export default function MapScreen() {
               <Text style={styles.selectedPriceUnit}>OMR/kWh</Text>
             </View>
           </View>
-
           <View style={styles.selectedBtnRow}>
             <TouchableOpacity
               style={styles.detailsBtn}
-              onPress={() => {
-                setSelected(null);
-                navigation.navigate('StationDetails', { stationId: selected.id });
-              }}
+              onPress={() => { setSelected(null); navigation.navigate('StationDetails', { stationId: selected.id }); }}
               activeOpacity={0.85}
             >
               <Text style={styles.detailsBtnText}>{t.map_details}</Text>
@@ -359,10 +429,7 @@ export default function MapScreen() {
             <TouchableOpacity
               style={[styles.bookBtn, selected.status !== 'available' && styles.bookBtnDisabled]}
               onPress={() => {
-                if (!session) {
-                  navigation.navigate('DevLogin');
-                  return;
-                }
+                if (!isAuthenticated) { navigation.getParent()?.navigate('SignIn'); return; }
                 selected.status === 'available' && navigation.navigate('Booking', { station: selected });
               }}
               activeOpacity={0.85}
@@ -370,7 +437,6 @@ export default function MapScreen() {
               <Text style={styles.bookBtnText}>{t.map_book}</Text>
             </TouchableOpacity>
           </View>
-
           <TouchableOpacity style={styles.dismissBtn} onPress={() => setSelected(null)}>
             <Text style={styles.dismissText}>✕</Text>
           </TouchableOpacity>
@@ -389,8 +455,7 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.card, borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 10,
-    gap: 8,
+    paddingHorizontal: 14, paddingVertical: 10, gap: 8,
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 3 }, elevation: 4,
   },
   searchInput: { flex: 1, fontSize: 15, color: COLORS.text, marginLeft: 2 },
@@ -400,6 +465,23 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 2 }, elevation: 3,
   },
+
+  // Active session banner
+  sessionBanner: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: COLORS.primaryDark, borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 11,
+    shadowColor: COLORS.primaryDark, shadowOpacity: 0.4, shadowOffset: { width: 0, height: 3 }, elevation: 6,
+  },
+  sessionPulseDot: {
+    width: 9, height: 9, borderRadius: 5,
+    backgroundColor: COLORS.primaryLight,
+  },
+  sessionBannerContent: { flex: 1 },
+  sessionBannerTitle: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  sessionBannerSub:   { fontSize: 11, color: 'rgba(255,255,255,0.65)', marginTop: 1 },
+
+  // Map pins
   pin: {
     width: 36, height: 36, borderRadius: 18,
     alignItems: 'center', justifyContent: 'center',
@@ -407,10 +489,14 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.3, shadowOffset: { width: 0, height: 2 }, elevation: 4,
   },
   pinHome: { backgroundColor: '#3b82f6' },
-  pillRow: {
-    position: 'absolute', bottom: 100, left: 0, right: 0,
-    alignItems: 'center',
+  myPin: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: COLORS.gold, alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2.5, borderColor: '#fff',
+    shadowColor: COLORS.gold, shadowOpacity: 0.5, shadowOffset: { width: 0, height: 2 }, elevation: 5,
   },
+
+  pillRow: { position: 'absolute', bottom: 100, left: 0, right: 0, alignItems: 'center' },
   pill: {
     flexDirection: 'row', alignItems: 'center', gap: 7,
     backgroundColor: COLORS.primary, borderRadius: 24,
@@ -418,6 +504,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
   pillText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
   listSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     height: Dimensions.get('window').height * 0.55,
@@ -425,11 +512,9 @@ const styles = StyleSheet.create({
     paddingTop: 12, paddingHorizontal: 16,
     shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: -4 }, elevation: 10,
   },
-  listHandle: {
-    width: 40, height: 4, backgroundColor: COLORS.border,
-    borderRadius: 2, alignSelf: 'center', marginBottom: 12,
-  },
-  listTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, textAlign: 'right', marginBottom: 12 },
+  listHandleWrap: { paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, marginBottom: 10 },
+  listHandle: { width: 40, height: 4, backgroundColor: COLORS.borderStrong, borderRadius: 2, alignSelf: 'center', marginBottom: 12 },
+  listTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 0 },
   listCard: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: COLORS.background, borderRadius: 12,
@@ -437,42 +522,32 @@ const styles = StyleSheet.create({
   },
   statusDot: { width: 10, height: 10, borderRadius: 5, flexShrink: 0 },
   listCardInfo: { flex: 1 },
-  listCardName: { fontSize: 14, fontWeight: '600', color: COLORS.text, textAlign: 'right' },
-  listCardSub: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'right', marginTop: 2 },
-  listCardPrice: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
-  closeListBtn: {
-    alignItems: 'center', paddingVertical: 12,
-    borderTopWidth: 1, borderTopColor: COLORS.border, marginTop: 4,
-  },
-  closeListText: { color: COLORS.primary, fontWeight: '700', fontSize: 15 },
+  listCardName: { fontSize: 14, fontWeight: '600', color: COLORS.text },
+  listCardSub:  { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  listCardPrice:{ fontSize: 12, fontWeight: '700', color: COLORS.primary },
+
   selectedCard: {
     position: 'absolute', bottom: 80, left: 16, right: 16,
     backgroundColor: COLORS.card, borderRadius: 20, padding: 16,
     shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 4 }, elevation: 8,
   },
-  selectedCardRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
-  selectedInfo: { flex: 1 },
-  selectedNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  selectedName: { fontSize: 16, fontWeight: '700', color: COLORS.text, flex: 1, textAlign: 'right' },
-  selectedSub: { fontSize: 13, color: COLORS.textSecondary, textAlign: 'right', marginBottom: 4 },
-  selectedStatus: { fontSize: 12, color: COLORS.textSecondary, textAlign: 'right' },
-  selectedRight: { alignItems: 'flex-end' },
-  selectedPrice: { fontSize: 20, fontWeight: '800', color: COLORS.primary },
-  selectedPriceUnit: { fontSize: 11, color: COLORS.textSecondary },
-  selectedBtnRow: { flexDirection: 'row', gap: 10 },
-  detailsBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: COLORS.primary, alignItems: 'center',
-  },
+  selectedCardRow:  { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 14 },
+  selectedInfo:     { flex: 1 },
+  selectedNameRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  selectedName:     { fontSize: 16, fontWeight: '700', color: COLORS.text, flex: 1 },
+  selectedSub:      { fontSize: 13, color: COLORS.textSecondary, marginBottom: 4 },
+  selectedStatus:   { fontSize: 12, color: COLORS.textSecondary },
+  selectedRight:    { alignItems: 'flex-end' },
+  selectedPrice:    { fontSize: 20, fontWeight: '800', color: COLORS.primary },
+  selectedPriceUnit:{ fontSize: 11, color: COLORS.textSecondary },
+  selectedBtnRow:   { flexDirection: 'row', gap: 10 },
+  detailsBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: COLORS.primary, alignItems: 'center' },
   detailsBtnText: { color: COLORS.primary, fontWeight: '700', fontSize: 15 },
-  bookBtn: {
-    flex: 2, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: COLORS.primary, alignItems: 'center',
-  },
+  bookBtn: { flex: 2, paddingVertical: 12, borderRadius: 12, backgroundColor: COLORS.primary, alignItems: 'center' },
   bookBtnDisabled: { backgroundColor: COLORS.textTertiary },
   bookBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   dismissBtn: {
-    position: 'absolute', top: 12, left: 12,
+    position: 'absolute', top: 12, right: 12,
     width: 28, height: 28, borderRadius: 14,
     backgroundColor: COLORS.background, alignItems: 'center', justifyContent: 'center',
   },
