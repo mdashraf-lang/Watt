@@ -86,7 +86,7 @@ export default function RoleSelectScreen() {
         </TouchableOpacity>
       </View>
 
-      <Text style={styles.footer}>© 2025 Watt EV — Oman</Text>
+      <Text style={styles.footer}>© 2025 Watt — Oman</Text>
     </View>
   );
 }

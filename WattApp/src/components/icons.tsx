@@ -503,3 +503,47 @@ export function SunIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProp
     </Svg>
   );
 }
+
+export function CameraIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <Circle cx={12} cy={13} r={4} />
+    </Svg>
+  );
+}
+
+export function HistoryIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Polyline points="1 4 1 10 7 10" />
+      <Path d="M3.51 15a9 9 0 1 0 .49-3.51" />
+      <Polyline points="12 7 12 12 15 15" />
+    </Svg>
+  );
+}
+
+export function MailIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+      <Path d="m22 6-10 7L2 6" />
+    </Svg>
+  );
+}
+
+export function PlugZapIcon({ size = 24, color = '#000', strokeWidth = 2 }: IconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none"
+      stroke={color} strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round">
+      <Path d="M6.3 20.3a2.4 2.4 0 0 0 3.4 0L12 18l-6-6-2.3 2.3a2.4 2.4 0 0 0 0 3.4z" />
+      <Path d="m2 22 3-3" />
+      <Path d="M7.5 13.5 10 11" />
+      <Path d="M10.5 16.5 13 14" />
+      <Path d="m18 3-4 4h6l-4 4" />
+    </Svg>
+  );
+}

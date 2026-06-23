@@ -143,7 +143,7 @@ export default function TermsScreen({ visible, onClose }: Props) {
           ))}
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>© 2025 Watt EV. All rights reserved.</Text>
+            <Text style={styles.footerText}>© 2025 Watt. All rights reserved.</Text>
           </View>
         </ScrollView>
       </SafeAreaView>

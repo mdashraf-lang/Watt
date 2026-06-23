@@ -66,7 +66,7 @@ export default function GuestLockedScreen() {
       {/* Actions */}
       <TouchableOpacity
         style={styles.signInBtn}
-        onPress={() => navigation.navigate('DevLogin')}
+        onPress={() => navigation.getParent()?.navigate('SignIn')}
         activeOpacity={0.85}
       >
         <Text style={styles.signInBtnText}>{t.guest_sign_in}</Text>
@@ -74,7 +74,7 @@ export default function GuestLockedScreen() {
 
       <TouchableOpacity
         style={styles.signUpBtn}
-        onPress={() => navigation.navigate('DevLogin')}
+        onPress={() => navigation.getParent()?.navigate('SignIn')}
         activeOpacity={0.85}
       >
         <Text style={styles.signUpBtnText}>{t.guest_create_account}</Text>

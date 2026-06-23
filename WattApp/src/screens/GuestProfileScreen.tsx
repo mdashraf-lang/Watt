@@ -61,7 +61,7 @@ export default function GuestProfileScreen() {
       {/* Sign In */}
       <TouchableOpacity
         style={styles.signInBtn}
-        onPress={() => navigation.navigate('DevLogin')}
+        onPress={() => navigation.getParent()?.navigate('SignIn')}
         activeOpacity={0.85}
       >
         <Text style={styles.signInBtnText}>{t.guest_sign_in}</Text>
@@ -70,7 +70,7 @@ export default function GuestProfileScreen() {
       {/* Create Account */}
       <TouchableOpacity
         style={styles.signUpBtn}
-        onPress={() => navigation.navigate('DevLogin')}
+        onPress={() => navigation.getParent()?.navigate('SignIn')}
         activeOpacity={0.85}
       >
         <Text style={styles.signUpBtnText}>{t.guest_create_account_short}</Text>

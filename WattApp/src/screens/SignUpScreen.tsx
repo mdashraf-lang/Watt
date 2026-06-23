@@ -3,48 +3,47 @@ import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, Alert,
 } from 'react-native';
-import { useNavigation, useRoute } from '@react-navigation/native';
-import type { RouteProp } from '@react-navigation/native';
+import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../types';
+import type { GuestStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
+import { ZapIcon, EyeIcon, EyeOffIcon } from '../components/icons';
 
-type Nav = NativeStackNavigationProp<RootStackParamList, 'SignUp'>;
-type Route = RouteProp<RootStackParamList, 'SignUp'>;
+type Nav = NativeStackNavigationProp<GuestStackParamList, 'SignUp'>;
 
 export default function SignUpScreen() {
   const navigation = useNavigation<Nav>();
-  const route = useRoute<Route>();
   const { t } = useLang();
   const { signUp } = useAuth();
-  const role = route.params?.role ?? 'customer';
 
-  const [fullName, setFullName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [fullName,  setFullName]  = useState('');
+  const [email,     setEmail]     = useState('');
+  const [password,  setPassword]  = useState('');
+  const [showPass,  setShowPass]  = useState(false);
+  const [loading,   setLoading]   = useState(false);
+  const [nameFocus, setNameFocus] = useState(false);
+  const [emailFocus,setEmailFocus]= useState(false);
+  const [passFocus, setPassFocus] = useState(false);
 
   const handleSignUp = async () => {
     if (!fullName.trim()) {
       Alert.alert(t.error, t.auth_error_name);
       return;
     }
-    if (!phone.trim()) {
-      Alert.alert(t.error, t.auth_error_phone);
+    if (!email.trim()) {
+      Alert.alert(t.error, t.auth_error_email);
       return;
     }
     if (password.length < 6) {
       Alert.alert(t.error, t.auth_error_password);
       return;
     }
-
     try {
       setLoading(true);
-      await signUp(phone.trim(), password, fullName.trim(), role);
-      // Navigation handled by AppNavigator when session changes
+      await signUp(email.trim().toLowerCase(), password, fullName.trim());
+      // AppNavigator auto-routes on session change
     } catch (e: any) {
       Alert.alert(t.error, e?.message ?? t.auth_error_credentials);
     } finally {
@@ -57,71 +56,95 @@ export default function SignUpScreen() {
       style={styles.root}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-            <Text style={styles.backText}>←</Text>
-          </TouchableOpacity>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerEmoji}>{role === 'host' ? '🏠' : '🔋'}</Text>
+          <View style={styles.heroDeco1} />
+          <View style={styles.heroDeco2} />
+          <View style={styles.logoBadge}>
+            <ZapIcon size={34} color={COLORS.gold} strokeWidth={2} />
           </View>
+          <Text style={styles.logoText}>WATT</Text>
           <Text style={styles.title}>{t.auth_signup_title}</Text>
           <Text style={styles.subtitle}>{t.auth_signup_subtitle}</Text>
         </View>
 
+        {/* Form */}
         <View style={styles.form}>
-          {role === 'host' && (
-            <View style={styles.roleBanner}>
-              <Text style={styles.roleBannerText}>🏠 {t.auth_role_host_sub}</Text>
-            </View>
-          )}
-
+          {/* Full Name */}
           <View style={styles.field}>
             <Text style={styles.label}>{t.auth_name_label}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t.auth_name_ph}
-              placeholderTextColor={COLORS.textTertiary}
-              value={fullName}
-              onChangeText={setFullName}
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t.auth_phone_label}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={t.auth_phone_ph}
-              placeholderTextColor={COLORS.textTertiary}
-              keyboardType="phone-pad"
-              value={phone}
-              onChangeText={setPhone}
-              autoCorrect={false}
-            />
-          </View>
-
-          <View style={styles.field}>
-            <Text style={styles.label}>{t.auth_password_label}</Text>
-            <View>
+            <View style={[styles.inputWrap, nameFocus && styles.inputWrapFocused]}>
               <TextInput
                 style={styles.input}
+                placeholder={t.auth_name_ph}
+                placeholderTextColor={COLORS.textTertiary}
+                value={fullName}
+                onChangeText={setFullName}
+                autoCapitalize="words"
+                autoCorrect={false}
+                returnKeyType="next"
+                onFocus={() => setNameFocus(true)}
+                onBlur={() => setNameFocus(false)}
+              />
+            </View>
+          </View>
+
+          {/* Email */}
+          <View style={styles.field}>
+            <Text style={styles.label}>{t.auth_email_label}</Text>
+            <View style={[styles.inputWrap, emailFocus && styles.inputWrapFocused]}>
+              <TextInput
+                style={styles.input}
+                placeholder={t.auth_email_ph}
+                placeholderTextColor={COLORS.textTertiary}
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoCorrect={false}
+                returnKeyType="next"
+                onFocus={() => setEmailFocus(true)}
+                onBlur={() => setEmailFocus(false)}
+              />
+            </View>
+          </View>
+
+          {/* Password */}
+          <View style={styles.field}>
+            <Text style={styles.label}>{t.auth_password_label}</Text>
+            <View style={[styles.inputWrap, styles.inputWrapRow, passFocus && styles.inputWrapFocused]}>
+              <TextInput
+                style={[styles.input, { flex: 1 }]}
                 placeholder={t.auth_password_ph}
                 placeholderTextColor={COLORS.textTertiary}
-                secureTextEntry={!showPassword}
+                secureTextEntry={!showPass}
                 value={password}
                 onChangeText={setPassword}
                 autoCorrect={false}
+                returnKeyType="done"
+                onSubmitEditing={handleSignUp}
+                onFocus={() => setPassFocus(true)}
+                onBlur={() => setPassFocus(false)}
               />
               <TouchableOpacity
-                onPress={() => setShowPassword(p => !p)}
+                onPress={() => setShowPass(p => !p)}
                 style={styles.eyeBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.eyeText}>{showPassword ? '🙈' : '👁️'}</Text>
+                {showPass
+                  ? <EyeOffIcon size={20} color={COLORS.textTertiary} strokeWidth={2} />
+                  : <EyeIcon    size={20} color={COLORS.textTertiary} strokeWidth={2} />
+                }
               </TouchableOpacity>
             </View>
           </View>
 
+          {/* Create Account button */}
           <TouchableOpacity
             style={[styles.btn, loading && styles.btnDisabled]}
             onPress={handleSignUp}
@@ -129,13 +152,14 @@ export default function SignUpScreen() {
             activeOpacity={0.85}
           >
             <Text style={styles.btnText}>
-              {loading ? t.auth_signing_up : (role === 'host' ? t.splash_next : t.auth_signup_btn)}
+              {loading ? t.auth_signing_up : t.auth_signup_btn}
             </Text>
           </TouchableOpacity>
 
+          {/* Switch to Sign In */}
           <View style={styles.switchRow}>
             <Text style={styles.switchText}>{t.auth_have_account}</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('SignIn', { role })}>
+            <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
               <Text style={styles.switchLink}> {t.auth_signin_link}</Text>
             </TouchableOpacity>
           </View>
@@ -146,69 +170,62 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: COLORS.background },
-  scroll: { flexGrow: 1, paddingBottom: 40 },
+  root:   { flex: 1, backgroundColor: COLORS.background },
+  scroll: { flexGrow: 1, paddingBottom: 48 },
+
   header: {
-    backgroundColor: COLORS.primary,
-    paddingTop: 56,
-    paddingBottom: 40,
+    backgroundColor: COLORS.primaryDark,
+    paddingTop: 64, paddingBottom: 48,
     paddingHorizontal: 24,
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    alignItems: 'center', gap: 8,
+    overflow: 'hidden',
   },
-  back: { marginBottom: 20 },
-  backText: { color: 'rgba(255,255,255,0.8)', fontSize: 22 },
-  headerBadge: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
+  heroDeco1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -50 },
+  heroDeco2: { position: 'absolute', width: 150, height: 150, borderRadius: 75,  backgroundColor: 'rgba(255,255,255,0.04)', bottom: -30, left: -20 },
+  logoBadge: {
+    width: 72, height: 72, borderRadius: 22,
+    backgroundColor: 'rgba(16,185,129,0.18)',
+    borderWidth: 1.5, borderColor: 'rgba(16,185,129,0.35)',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 6,
   },
-  headerEmoji: { fontSize: 30 },
-  title: { fontSize: 26, fontWeight: '800', color: '#FFFFFF', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.7)' },
-  form: { paddingHorizontal: 24, paddingTop: 28, gap: 20 },
-  roleBanner: {
-    backgroundColor: '#fef9c3',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderLeftWidth: 4,
-    borderLeftColor: COLORS.gold,
-  },
-  roleBannerText: { color: '#78350f', fontSize: 13, fontWeight: '600' },
+  logoText: { fontSize: 30, fontWeight: '800', color: '#fff', letterSpacing: 8 },
+  title:    { fontSize: 26, fontWeight: '800', color: '#fff', marginTop: 4 },
+  subtitle: { fontSize: 14, color: 'rgba(255,255,255,0.65)' },
+
+  form: { paddingHorizontal: 24, paddingTop: 32, gap: 20 },
+
   field: { gap: 8 },
-  label: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  input: {
+  label: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+
+  inputWrap: {
     backgroundColor: COLORS.card,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: COLORS.text,
+    borderWidth: 1.5, borderColor: COLORS.border,
+    borderRadius: 16, paddingHorizontal: 16,
+    shadowColor: '#000', shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 1 }, elevation: 1,
   },
-  eyeBtn: { position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' },
-  eyeText: { fontSize: 18 },
+  inputWrapRow:     { flexDirection: 'row', alignItems: 'center' },
+  inputWrapFocused: {
+    borderColor: COLORS.primary,
+    shadowColor: COLORS.primary,
+    shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
+  },
+  input:  { paddingVertical: 15, fontSize: 15, color: COLORS.text, flex: 1 },
+  eyeBtn: { paddingHorizontal: 4, paddingVertical: 15 },
+
   btn: {
     backgroundColor: COLORS.primary,
-    borderRadius: 16,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
+    borderRadius: 18, paddingVertical: 17,
+    alignItems: 'center', marginTop: 4,
     shadowColor: COLORS.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.3, shadowRadius: 10, elevation: 5,
   },
-  btnDisabled: { opacity: 0.6 },
-  btnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
-  switchText: { color: COLORS.textSecondary, fontSize: 14 },
-  switchLink: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
+  btnDisabled: { opacity: 0.55 },
+  btnText:     { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+
+  switchRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 2 },
+  switchText:{ color: COLORS.textSecondary, fontSize: 14 },
+  switchLink:{ color: COLORS.primary, fontSize: 14, fontWeight: '700' },
 });
