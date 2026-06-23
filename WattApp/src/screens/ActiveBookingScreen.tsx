@@ -33,6 +33,13 @@ export default function ActiveBookingScreen() {
   const [loading,       setLoading]       = useState(true);
   const [startLoading,  setStartLoading]  = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [now,           setNow]           = useState(Date.now());
+
+  // Tick every second so the countdown and button state stay live
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Fetch booking + real-time updates
   useEffect(() => {
@@ -62,6 +69,26 @@ export default function ActiveBookingScreen() {
 
   const handleStartCharging = async () => {
     if (!booking || !profile) return;
+
+    // Client-side time guard — prevents calling the edge function too early
+    const bookedAt = new Date(booking.booked_at).getTime();
+    const bookingEnd = bookedAt + booking.duration_minutes * 60_000;
+    if (now < bookedAt) {
+      const secsLeft = Math.ceil((bookedAt - now) / 1000);
+      const minsLeft = Math.ceil(secsLeft / 60);
+      Alert.alert(
+        t.active_time_expired,
+        isRTL
+          ? `الحجز يبدأ بعد ${minsLeft} دقيقة`
+          : `Booking starts in ${minsLeft} minute${minsLeft !== 1 ? 's' : ''}`,
+      );
+      return;
+    }
+    if (now > bookingEnd) {
+      Alert.alert(t.error, isRTL ? 'انتهت نافذة الحجز' : 'Booking window has expired');
+      return;
+    }
+
     setStartLoading(true);
     try {
       // Private charger booking — activate Tuya switch before creating the session
@@ -70,9 +97,17 @@ export default function ActiveBookingScreen() {
           'control-tuya-switch',
           { body: { action: 'on', booking_id: booking.id } },
         );
-        if (switchError || switchResult?.error) {
-          const msg = switchResult?.error ?? switchError?.message ?? 'Unknown error';
-          Alert.alert(t.active_charger_err_title, msg);
+        // Extract the real error message from the response body when possible
+        let errMsg: string | null = null;
+        if (switchResult?.error) errMsg = switchResult.error;
+        else if (switchError) {
+          try {
+            const raw = await (switchError as any)?.context?.json?.();
+            errMsg = raw?.error ?? switchError.message;
+          } catch { errMsg = switchError.message; }
+        }
+        if (errMsg) {
+          Alert.alert(t.active_charger_err_title, errMsg);
           return;
         }
       }
@@ -221,10 +256,32 @@ export default function ActiveBookingScreen() {
 
       {/* ── Footer buttons ── */}
       <View style={styles.footer}>
+        {/* Countdown badge — visible before booking time */}
+        {booking && now < new Date(booking.booked_at).getTime() && (() => {
+          const secsLeft = Math.max(0, Math.ceil((new Date(booking.booked_at).getTime() - now) / 1000));
+          const h = Math.floor(secsLeft / 3600);
+          const m = Math.floor((secsLeft % 3600) / 60);
+          const s = secsLeft % 60;
+          const label = h > 0
+            ? `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`
+            : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+          return (
+            <View style={styles.countdownBadge}>
+              <ClockIcon size={14} color={COLORS.gold} strokeWidth={2} />
+              <Text style={styles.countdownText}>
+                {isRTL ? `يبدأ الحجز خلال  ${label}` : `Booking starts in  ${label}`}
+              </Text>
+            </View>
+          );
+        })()}
+
         <TouchableOpacity
-          style={[styles.startBtn, startLoading && styles.btnDisabled]}
+          style={[
+            styles.startBtn,
+            (startLoading || (booking && now < new Date(booking.booked_at).getTime())) && styles.btnDisabled,
+          ]}
           onPress={handleStartCharging}
-          disabled={startLoading}
+          disabled={startLoading || (!!booking && now < new Date(booking.booked_at).getTime())}
           activeOpacity={0.85}
         >
           {startLoading ? (
@@ -327,6 +384,12 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.card,
     borderTopWidth: 1, borderTopColor: COLORS.border,
   },
+  countdownBadge: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
+    backgroundColor: COLORS.goldBg, borderRadius: 12, paddingVertical: 8, paddingHorizontal: 14,
+    borderWidth: 1, borderColor: COLORS.goldTint, marginBottom: 4,
+  },
+  countdownText: { fontSize: 13, fontWeight: '700', color: COLORS.goldDark, fontVariant: ['tabular-nums'] as any },
   startBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     backgroundColor: COLORS.primary, borderRadius: 18, paddingVertical: 17,
