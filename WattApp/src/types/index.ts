@@ -72,7 +72,7 @@ export interface Connector {
 export interface Booking {
   id: string;
   user_id: string;
-  station_id: string;
+  station_id: string | null;
   connector_id?: string;
   listing_id?: string | null;
   status: 'pending' | 'confirmed' | 'active' | 'completed' | 'cancelled' | 'no_show';

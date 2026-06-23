@@ -150,7 +150,9 @@ export default function BookingScreen() {
         .from('bookings')
         .insert({
           user_id:          profile.id,
-          station_id:       station.id,
+          // Private charger bookings use listing_id — station_id must be null
+          // to avoid FK violation (listing IDs are not in the stations table).
+          station_id:       listingId ? null : station.id,
           listing_id:       listingId ?? null,
           status:           'confirmed',
           booked_at:        bookedAt.toISOString(),
