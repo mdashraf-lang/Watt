@@ -48,8 +48,11 @@ export default function InvestorChargerScreen() {
       setListing(listData as ChargerListing | null);
       if (listData) {
         const { data: bData } = await supabase
-          .from('bookings').select('*').eq('listing_id', listData.id)
-          .order('booked_at', { ascending: false }).limit(5);
+          .from('bookings')
+          .select('*, customer:profiles(full_name, phone)')
+          .eq('listing_id', listData.id)
+          .order('booked_at', { ascending: false })
+          .limit(50);
         setBookings((bData ?? []) as Booking[]);
       }
     } finally { setLoading(false); }
@@ -396,34 +399,8 @@ export default function InvestorChargerScreen() {
           )}
         </View>
 
-        {/* ── Recent bookings ── */}
-        <View style={s.card}>
-          <Text style={s.cardTitle}>{t.inv_charger_recent_bookings}</Text>
-          {bookings.length === 0 ? (
-            <View style={s.emptyBookings}>
-              <CalendarIcon size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
-              <Text style={s.emptyBookingsTitle}>{t.inv_charger_no_bookings}</Text>
-              <Text style={s.emptyBookingsSub}>{t.inv_charger_no_bookings_sub}</Text>
-            </View>
-          ) : bookings.map((b, i) => (
-            <View key={b.id} style={[s.bookingRow, i === bookings.length - 1 && { borderBottomWidth: 0 }]}>
-              <View style={s.bookingIcon}>
-                <CalendarIcon size={15} color={COLORS.primary} strokeWidth={2} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={s.bookingDate}>
-                  {new Date(b.booked_at).toLocaleDateString()} · {new Date(b.booked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </Text>
-                <Text style={s.bookingMeta}>{b.duration_minutes} min · {b.estimated_cost?.toFixed(3) ?? '—'} OMR</Text>
-              </View>
-              <View style={[s.bookingBadge, b.status === 'completed' ? s.badgeDone : s.badgePending]}>
-                <Text style={[s.bookingBadgeText, { color: b.status === 'completed' ? COLORS.success : COLORS.gold }]}>
-                  {b.status}
-                </Text>
-              </View>
-            </View>
-          ))}
-        </View>
+        {/* ── Customer Bookings ── */}
+        <BookingsSection bookings={bookings} t={t} />
 
       </ScrollView>
 
@@ -519,6 +496,121 @@ export default function InvestorChargerScreen() {
     </SafeAreaView>
   );
 }
+
+// ── BookingsSection ────────────────────────────────────────────
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; text: string }> = {
+  active:    { label: 'Active',    bg: '#dcfce7', text: '#16a34a' },
+  confirmed: { label: 'Confirmed', bg: '#dbeafe', text: '#2563eb' },
+  pending:   { label: 'Pending',   bg: '#fef9c3', text: '#ca8a04' },
+  completed: { label: 'Done',      bg: '#f0fdf4', text: '#15803d' },
+  cancelled: { label: 'Cancelled', bg: '#fee2e2', text: '#dc2626' },
+  no_show:   { label: 'No Show',   bg: '#f3f4f6', text: '#6b7280' },
+};
+
+function BookingCard({ b, last }: { b: any; last: boolean }) {
+  const cfg = STATUS_CONFIG[b.status] ?? STATUS_CONFIG.pending;
+  const customer = (b as any).customer;
+  const date = new Date(b.booked_at);
+  const dateStr = date.toLocaleDateString([], { day: 'numeric', month: 'short' });
+  const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return (
+    <View style={[bs.row, last && { borderBottomWidth: 0 }]}>
+      <View style={bs.iconWrap}>
+        <CalendarIcon size={15} color={COLORS.primary} strokeWidth={2} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={bs.customer} numberOfLines={1}>
+          {customer?.full_name ?? '—'}
+        </Text>
+        <Text style={bs.meta}>
+          {dateStr} · {timeStr} · {b.duration_minutes} min
+        </Text>
+        <Text style={bs.cost}>
+          {b.estimated_cost?.toFixed(3) ?? '—'} OMR
+        </Text>
+      </View>
+      <View style={[bs.badge, { backgroundColor: cfg.bg }]}>
+        <Text style={[bs.badgeText, { color: cfg.text }]}>{cfg.label}</Text>
+      </View>
+    </View>
+  );
+}
+
+function BookingsSection({ bookings, t }: { bookings: Booking[]; t: any }) {
+  const active   = bookings.filter(b => b.status === 'active');
+  const upcoming = bookings.filter(b => b.status === 'confirmed' || b.status === 'pending');
+  const past     = bookings.filter(b => b.status === 'completed' || b.status === 'cancelled' || b.status === 'no_show');
+
+  if (bookings.length === 0) {
+    return (
+      <View style={s.card}>
+        <Text style={s.cardTitle}>{t.inv_charger_recent_bookings}</Text>
+        <View style={s.emptyBookings}>
+          <CalendarIcon size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
+          <Text style={s.emptyBookingsTitle}>{t.inv_charger_no_bookings}</Text>
+          <Text style={s.emptyBookingsSub}>{t.inv_charger_no_bookings_sub}</Text>
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={s.card}>
+      <Text style={s.cardTitle}>{t.inv_charger_recent_bookings} ({bookings.length})</Text>
+
+      {active.length > 0 && (
+        <>
+          <View style={bs.groupHeader}>
+            <View style={bs.activeDot} />
+            <Text style={[bs.groupLabel, { color: '#16a34a' }]}>{t.inv_charger_active_now}</Text>
+          </View>
+          {active.map((b, i) => <BookingCard key={b.id} b={b} last={i === active.length - 1 && upcoming.length === 0 && past.length === 0} />)}
+        </>
+      )}
+
+      {upcoming.length > 0 && (
+        <>
+          <View style={bs.groupHeader}>
+            <Text style={[bs.groupLabel, { color: COLORS.primary }]}>{t.inv_charger_upcoming} ({upcoming.length})</Text>
+          </View>
+          {upcoming.map((b, i) => <BookingCard key={b.id} b={b} last={i === upcoming.length - 1 && past.length === 0} />)}
+        </>
+      )}
+
+      {past.length > 0 && (
+        <>
+          <View style={bs.groupHeader}>
+            <Text style={[bs.groupLabel, { color: COLORS.textSecondary }]}>{t.inv_charger_past} ({past.length})</Text>
+          </View>
+          {past.map((b, i) => <BookingCard key={b.id} b={b} last={i === past.length - 1} />)}
+        </>
+      )}
+    </View>
+  );
+}
+
+const bs = StyleSheet.create({
+  row: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: COLORS.border,
+  },
+  iconWrap: {
+    width: 32, height: 32, borderRadius: 10,
+    backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center',
+  },
+  customer:  { fontSize: 13, fontWeight: '700', color: COLORS.text },
+  meta:      { fontSize: 11, color: COLORS.textSecondary },
+  cost:      { fontSize: 12, fontWeight: '600', color: COLORS.primary },
+  badge:     { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  badgeText: { fontSize: 10, fontWeight: '700' },
+  groupHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingTop: 12, paddingBottom: 4,
+  },
+  groupLabel: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  activeDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#16a34a' },
+});
 
 // ── Sub-components ─────────────────────────────────────────────
 
