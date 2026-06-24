@@ -47,6 +47,7 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
   // Form state
   const [fullName, setFullName]               = useState(profile?.full_name ?? '');
   const [phone, setPhone]                     = useState(profile?.phone ?? '');
+  const [stationName, setStationName]         = useState('');
   const [location, setLocation]               = useState<PickedLocation | null>(null);
   const [chargerType, setChargerType]         = useState<ChargerType | ''>('');
   const [powerKw, setPowerKw]                 = useState('');
@@ -82,6 +83,7 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
             address: `${data.city}, ${data.governorate}`,
           });
         }
+        setStationName(data.station_name ?? '');
         setChargerType(data.charger_type as ChargerType);
         setPowerKw(data.power_kw ? String(data.power_kw) : '');
         setElectricityForm(data.electricity_form_name);
@@ -112,6 +114,7 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
         user_id: profile.id,
         full_name: fullName.trim(),
         phone: phone.trim(),
+        station_name: stationName.trim() || null,
         governorate: location.governorate,
         city: location.city,
         latitude: location.latitude,
@@ -261,6 +264,16 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
                 </View>
               )}
             </TouchableOpacity>
+          </View>
+
+          {/* ── Station Name ─────────────────────────────────────── */}
+          <SectionHeader icon={<ZapIcon size={16} color={COLORS.primary} strokeWidth={2} />} title={t.inv_app_station_name} />
+          <View style={styles.card}>
+            <FormField label={t.inv_app_station_name} last>
+              <TextInput style={styles.input} value={stationName} onChangeText={setStationName}
+                placeholder={t.inv_app_station_name_ph} placeholderTextColor={COLORS.textTertiary}
+                autoCapitalize="words" returnKeyType="next" />
+            </FormField>
           </View>
 
           {/* ── Charger Details ──────────────────────────────────── */}

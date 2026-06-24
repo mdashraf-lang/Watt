@@ -27,7 +27,7 @@ import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon
 function listingToStation(l: ChargerListing): Station {
   return {
     id: l.id,
-    name: `🏠 ${l.host_name ?? 'Private Charger'}`,
+    name: l.station_name ? `🏠 ${l.station_name}` : `🏠 ${l.host_name ?? 'Private Charger'}`,
     address: l.address,
     latitude: l.latitude,
     longitude: l.longitude,
@@ -379,8 +379,8 @@ export default function MapScreen() {
                 <View style={[styles.statusDot, { backgroundColor: selectedListing.is_available ? COLORS.available : COLORS.offline }]} />
                 <Text style={styles.selectedName} numberOfLines={1}>
                   {myListing?.id === selectedListing.id
-                    ? `⭐ ${t.map_my_charger_label}`
-                    : `🏠 ${selectedListing.host_name ?? 'Private Charger'}`}
+                    ? `⭐ ${selectedListing.station_name ?? t.map_my_charger_label}`
+                    : `🏠 ${selectedListing.station_name ?? selectedListing.host_name ?? 'Private Charger'}`}
                 </Text>
               </View>
               <Text style={styles.selectedSub}>{selectedListing.address}</Text>

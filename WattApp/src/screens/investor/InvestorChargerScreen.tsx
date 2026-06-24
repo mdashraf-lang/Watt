@@ -1,67 +1,63 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  ActivityIndicator, Alert, Modal, Platform, ScrollView,
-  StyleSheet, Switch, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform,
+  ScrollView, StyleSheet, Switch, Text, TextInput,
+  TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
 import type { ChargerListing, Booking } from '../../types';
 import {
-  ZapIcon, MapPinIcon, CheckIcon, XIcon, StarIcon,
-  CalendarIcon, ClockIcon, ChevronRightIcon,
+  ZapIcon, XIcon, CalendarIcon, CheckIcon,
 } from '../../components/icons';
+
 
 export default function InvestorChargerScreen() {
   const { profile } = useAuth();
   const { t } = useLang();
+  const navigation = useNavigation<any>();
 
-  const [listing, setListing]         = useState<ChargerListing | null | undefined>(undefined);
-  const [bookings, setBookings]       = useState<Booking[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [toggling, setToggling]       = useState(false);
-  const [editModal, setEditModal]     = useState(false);
-  const [saving, setSaving]           = useState(false);
+  const [listing,  setListing]  = useState<ChargerListing | null | undefined>(undefined);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading,  setLoading]  = useState(true);
+  const [toggling,     setToggling]     = useState(false);
+  const [editModal,    setEditModal]    = useState(false);
+  const [saving,       setSaving]       = useState(false);
+  const [selfCharging, setSelfCharging] = useState(false);
+  const deviceRef = useRef<TextInput>(null);
 
   // Edit form
-  const [editAddress,   setEditAddress]   = useState('');
-  const [editPowerKw,   setEditPowerKw]   = useState('');
-  const [editPrice,     setEditPrice]     = useState('');
-  const [editStart,     setEditStart]     = useState('08:00');
-  const [editEnd,       setEditEnd]       = useState('22:00');
-  const [editDesc,      setEditDesc]      = useState('');
-  const [editDeviceId,  setEditDeviceId]  = useState('');
+  const [editAddress,  setEditAddress]  = useState('');
+  const [editPowerKw,  setEditPowerKw]  = useState('');
+  const [editPrice,    setEditPrice]    = useState('');
+  const [editStart,    setEditStart]    = useState('08:00');
+  const [editEnd,      setEditEnd]      = useState('22:00');
+  const [editDesc,     setEditDesc]     = useState('');
+  const [editDeviceId, setEditDeviceId] = useState('');
 
   const fetchListing = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     try {
       const { data: listData } = await supabase
-        .from('charger_listings')
-        .select('*')
-        .eq('host_id', profile.id)
-        .maybeSingle();
+        .from('charger_listings').select('*').eq('host_id', profile.id).maybeSingle();
       setListing(listData as ChargerListing | null);
-
       if (listData) {
         const { data: bData } = await supabase
-          .from('bookings')
-          .select('*, station:stations(name)')
-          .eq('listing_id', listData.id)
-          .order('booked_at', { ascending: false })
-          .limit(5);
+          .from('bookings').select('*').eq('listing_id', listData.id)
+          .order('booked_at', { ascending: false }).limit(5);
         setBookings((bData ?? []) as Booking[]);
       }
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [profile]);
 
   useEffect(() => { fetchListing(); }, [fetchListing]);
 
-  const openEdit = () => {
+  const openEdit = (focusDevice = false) => {
     if (listing) {
       setEditAddress(listing.address);
       setEditPowerKw(String(listing.power_kw));
@@ -72,36 +68,33 @@ export default function InvestorChargerScreen() {
       setEditDeviceId(listing.tuya_device_id ?? '');
     }
     setEditModal(true);
+    if (focusDevice) {
+      setTimeout(() => deviceRef.current?.focus(), 400);
+    }
   };
 
   const handleSave = async () => {
     if (!listing || !editAddress.trim()) {
-      Alert.alert(t.error, t.inv_charger_address);
-      return;
+      Alert.alert(t.error, t.inv_charger_address); return;
     }
     setSaving(true);
     try {
       const updates = {
         address:            editAddress.trim(),
         power_kw:           parseFloat(editPowerKw) || listing.power_kw,
-        price_per_kwh:      parseFloat(editPrice) || listing.price_per_kwh,
+        price_per_kwh:      parseFloat(editPrice)   || listing.price_per_kwh,
         availability_start: editStart,
         availability_end:   editEnd,
         description:        editDesc.trim() || null,
         tuya_device_id:     editDeviceId.trim() || null,
       };
-      const { error } = await supabase
-        .from('charger_listings')
-        .update(updates)
-        .eq('id', listing.id);
+      const { error } = await supabase.from('charger_listings').update(updates).eq('id', listing.id);
       if (error) throw error;
       setListing(prev => prev ? { ...prev, ...updates } : prev);
       setEditModal(false);
     } catch (e: any) {
       Alert.alert(t.error, e.message);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
   const handleCreateListing = async () => {
@@ -109,315 +102,419 @@ export default function InvestorChargerScreen() {
     setSaving(true);
     try {
       const { data: app } = await supabase
-        .from('charger_applications')
-        .select('*')
-        .eq('user_id', profile.id)
-        .eq('status', 'approved')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      const { data, error } = await supabase
-        .from('charger_listings')
-        .insert({
-          host_id: profile.id,
-          address: app ? `${app.city}, ${app.governorate}` : '',
-          latitude: app?.latitude ?? 23.588,
-          longitude: app?.longitude ?? 58.383,
-          charger_type: app?.charger_type ?? 'Type2',
-          power_kw: app?.power_kw ?? 7.4,
-          price_per_kwh: 0.025,
-          is_available: false,
-        })
-        .select()
-        .single();
+        .from('charger_applications').select('*')
+        .eq('user_id', profile.id).eq('status', 'approved')
+        .order('created_at', { ascending: false }).limit(1).maybeSingle();
+      const { data, error } = await supabase.from('charger_listings').insert({
+        host_id:       profile.id,
+        station_name:  app?.station_name ?? null,
+        address:       app ? `${app.city}, ${app.governorate}` : '',
+        latitude:      app?.latitude  ?? 23.588,
+        longitude:     app?.longitude ?? 58.383,
+        charger_type:  app?.charger_type ?? 'Type2',
+        power_kw:      app?.power_kw  ?? 7.4,
+        price_per_kwh: 0.025,
+        is_available:  false,
+      }).select().single();
       if (error) throw error;
       setListing(data as ChargerListing);
       openEdit();
     } catch (e: any) {
       Alert.alert(t.error, e.message);
-    } finally {
-      setSaving(false);
-    }
+    } finally { setSaving(false); }
   };
 
-  const handleToggleAvailability = async () => {
+  const handleToggle = async () => {
     if (!listing) return;
-    if (!listing.address || listing.address === '' || listing.price_per_kwh === 0) {
-      Alert.alert(t.warning, t.inv_charger_no_listing_sub);
-      openEdit();
+    if (!listing.tuya_verified) {
+      Alert.alert(
+        t.warning,
+        listing.tuya_device_id ? t.inv_device_pending : t.inv_device_not_linked,
+        [
+          { text: t.cancel, style: 'cancel' },
+          { text: t.inv_setup_step2_cta, onPress: () => openEdit(true) },
+        ],
+      );
       return;
     }
-
     const newVal = !listing.is_available;
     setToggling(true);
     try {
-      // If Tuya device is configured, control the physical switch
       if (listing.tuya_device_id) {
         const { data, error: tuyaErr } = await supabase.functions.invoke(
           'control-tuya-switch',
           { body: { action: newVal ? 'on' : 'off', listing_id: listing.id } },
         );
-        if (tuyaErr || data?.error) {
-          // Warn but don't block — still update availability in DB
+        if (tuyaErr || data?.error)
           console.warn('[InvestorCharger] Tuya toggle failed:', tuyaErr?.message ?? data?.error);
-        }
       }
-
-      // Update both is_available AND switch_status together
-      const { error } = await supabase
-        .from('charger_listings')
-        .update({ is_available: newVal, switch_status: newVal })
-        .eq('id', listing.id);
+      const { error } = await supabase.from('charger_listings')
+        .update({ is_available: newVal, switch_status: newVal }).eq('id', listing.id);
       if (error) throw error;
-
       setListing(prev => prev ? { ...prev, is_available: newVal, switch_status: newVal } : prev);
     } catch (e: any) {
       Alert.alert(t.error, e.message);
+    } finally { setToggling(false); }
+  };
+
+  // ── Self-charge ──────────────────────────────────────────────
+  const handleSelfCharge = () => {
+    if (!listing || !profile) return;
+    if (!listing.tuya_device_id) {
+      Alert.alert(t.warning, t.inv_charge_no_device, [
+        { text: t.cancel, style: 'cancel' },
+        { text: t.inv_setup_step2_cta, onPress: () => openEdit(true) },
+      ]);
+      return;
+    }
+    if (!listing.tuya_verified) {
+      Alert.alert(t.warning, t.inv_charge_not_verified);
+      return;
+    }
+    Alert.alert(t.inv_charge_confirm_title, t.inv_charge_confirm_msg, [
+      { text: t.cancel, style: 'cancel' },
+      { text: t.inv_charge_my_car, onPress: doSelfCharge },
+    ]);
+  };
+
+  const doSelfCharge = async () => {
+    if (!listing || !profile) return;
+    setSelfCharging(true);
+    try {
+      // 1. Turn on the physical switch
+      const { data: switchData, error: switchErr } = await supabase.functions.invoke(
+        'control-tuya-switch',
+        { body: { action: 'on', listing_id: listing.id } },
+      );
+      const switchErrMsg = switchData?.error ?? switchErr?.message;
+      if (switchErrMsg) throw new Error(switchErrMsg);
+
+      // 2. Create a charging session directly (no booking)
+      const { data: session, error: sessionErr } = await supabase
+        .from('charging_sessions')
+        .insert({
+          user_id:           profile.id,
+          listing_id:        listing.id,
+          status:            'active',
+          battery_start_pct: 20,
+          kwh_delivered:     0,
+          cost:              0,
+        })
+        .select()
+        .single();
+      if (sessionErr) throw sessionErr;
+
+      // 3. Navigate to the live charging screen
+      navigation.navigate('Charging', {
+        sessionId:   session.id,
+        stationName: listing.station_name || listing.address || t.inv_charger_tab,
+      });
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
     } finally {
-      setToggling(false);
+      setSelfCharging(false);
     }
   };
 
-  // ── Loading ────────────────────────────────────────────────────
-  if (loading) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingWrap}>
-          <ActivityIndicator color={COLORS.primary} size="large" />
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // ── Loading ──────────────────────────────────────────────────
+  if (loading) return (
+    <SafeAreaView style={s.root} edges={['top']}>
+      <View style={s.loadingWrap}><ActivityIndicator color={COLORS.primary} size="large" /></View>
+    </SafeAreaView>
+  );
 
-  // ── No listing yet ─────────────────────────────────────────────
-  if (!listing) {
-    return (
-      <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t.inv_charger_tab}</Text>
-          <View style={styles.headerIcon}>
-            <ZapIcon size={22} color={COLORS.primary} strokeWidth={2} />
-          </View>
-        </View>
-        <View style={styles.emptyWrap}>
-          <View style={styles.emptyIconWrap}>
-            <ZapIcon size={40} color={COLORS.primary} strokeWidth={1.5} />
-          </View>
-          <Text style={styles.emptyTitle}>{t.inv_congratulations}</Text>
-          <Text style={styles.emptySub}>{t.inv_congratulations_sub}</Text>
-          <TouchableOpacity
-            style={[styles.setupBtn, saving && { opacity: 0.6 }]}
-            onPress={handleCreateListing}
-            disabled={saving}
-            activeOpacity={0.85}
-          >
-            {saving
-              ? <ActivityIndicator color="#fff" size="small" />
-              : <Text style={styles.setupBtnText}>{t.inv_charger_setup_btn}</Text>
-            }
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
+  // ── Setup states ─────────────────────────────────────────────
+  const hasDevice   = !!listing?.tuya_device_id;
+  const isVerified  = !!listing?.tuya_verified;
+  const isOnline    = !!listing?.is_available;
+  const setupDone   = hasDevice && isVerified;
 
-  // ── Full charger management ────────────────────────────────────
-  const isOnline = listing.is_available;
+  // ── No listing: welcome + guide ───────────────────────────────
+  if (!listing) return (
+    <SafeAreaView style={s.root} edges={['top']}>
+      <View style={s.welcomeHero}>
+        <View style={s.heroDeco1} /><View style={s.heroDeco2} />
+        <View style={s.welcomeIconWrap}>
+          <ZapIcon size={36} color={COLORS.gold} strokeWidth={2} />
+        </View>
+        <Text style={s.welcomeTitle}>{t.inv_congratulations}</Text>
+        <Text style={s.welcomeSub}>{t.inv_congratulations_sub}</Text>
+      </View>
 
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }} showsVerticalScrollIndicator={false}>
+        <SetupStep num={1} title={t.inv_setup_step1_title} sub={t.inv_setup_step1_sub} done />
+        <SetupStep num={2} title={t.inv_setup_step2_title} sub={t.inv_setup_step2_sub} active />
+        <SetupStep num={3} title={t.inv_setup_step3_title} sub={t.inv_setup_step3_sub} />
+        <SetupStep num={4} title={t.inv_setup_step4_title} sub={t.inv_setup_step4_sub} />
+
+        <TouchableOpacity
+          style={[s.cta, saving && s.ctaOff]}
+          onPress={handleCreateListing} disabled={saving} activeOpacity={0.85}
+        >
+          {saving
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={s.ctaText}>{t.inv_charger_setup_btn}</Text>
+          }
+        </TouchableOpacity>
+      </ScrollView>
+    </SafeAreaView>
+  );
+
+  // ── Full management view ──────────────────────────────────────
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>{t.inv_charger_tab}</Text>
-          <TouchableOpacity style={styles.editHeaderBtn} onPress={openEdit} activeOpacity={0.8}>
-            <Text style={styles.editHeaderBtnText}>Edit</Text>
-          </TouchableOpacity>
-        </View>
+    <SafeAreaView style={s.root} edges={['top']}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
 
-        {/* Status hero card */}
-        <View style={[styles.heroCard, isOnline ? styles.heroOnline : styles.heroOffline]}>
-          <View style={styles.heroLeft}>
-            <View style={[styles.heroStatusDot, { backgroundColor: isOnline ? COLORS.success : COLORS.textTertiary }]} />
+        {/* ── Hero status card ── */}
+        <View style={[s.hero, isOnline ? s.heroOn : s.heroOff]}>
+          <View style={s.heroDeco1} /><View style={s.heroDeco2} />
+          <View style={s.heroTop}>
             <View>
-              <Text style={styles.heroStatusText}>
-                {isOnline ? t.inv_charger_status_online : t.inv_charger_status_offline}
+              <View style={s.heroStatusRow}>
+                <View style={[s.statusDot, { backgroundColor: isOnline ? COLORS.success : COLORS.textTertiary }]} />
+                <Text style={s.heroStatus}>
+                  {isOnline ? t.inv_charger_status_online : t.inv_charger_status_offline}
+                </Text>
+              </View>
+              <Text style={s.heroChargerName}>
+                {listing.charger_type} · {listing.power_kw} kW
               </Text>
-              <Text style={styles.heroType}>{listing.charger_type} · {listing.power_kw} kW</Text>
-              <View style={styles.tuyaBadgeRow}>
-                {!listing.tuya_device_id ? (
-                  <View style={[styles.tuyaBadge, styles.tuyaBadgeGray]}>
-                    <Text style={styles.tuyaBadgeText}>🔌 {t.tuya_not_linked}</Text>
-                  </View>
-                ) : listing.tuya_verified ? (
-                  <View style={[styles.tuyaBadge, styles.tuyaBadgeGreen]}>
-                    <Text style={styles.tuyaBadgeText}>⚡ {t.tuya_verified_ok}</Text>
-                  </View>
-                ) : (
-                  <View style={[styles.tuyaBadge, styles.tuyaBadgeAmber]}>
-                    <Text style={styles.tuyaBadgeText}>⏳ {t.tuya_pending_verify}</Text>
-                  </View>
-                )}
-                {listing.tuya_verified && (
-                  <View style={[styles.tuyaBadge, listing.switch_status ? styles.tuyaBadgeGreen : styles.tuyaBadgeGray]}>
-                    <Text style={styles.tuyaBadgeText}>
-                      {listing.switch_status ? t.tuya_switch_on : t.tuya_switch_off}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              <Text style={s.heroAddress} numberOfLines={1}>📍 {listing.address}</Text>
+            </View>
+
+            {/* Big toggle */}
+            <View style={s.toggleWrap}>
+              {toggling
+                ? <ActivityIndicator color={COLORS.primary} />
+                : <Switch
+                    value={isOnline}
+                    onValueChange={handleToggle}
+                    trackColor={{ false: COLORS.border, true: COLORS.primary }}
+                    thumbColor="#fff"
+                    style={{ transform: [{ scaleX: 1.3 }, { scaleY: 1.3 }] }}
+                  />
+              }
             </View>
           </View>
-          <View style={styles.heroToggleWrap}>
-            {toggling ? (
-              <ActivityIndicator color={COLORS.primary} size="small" />
+
+          {/* Tuya device badge */}
+          <View style={s.deviceBadgeRow}>
+            {!hasDevice ? (
+              <TouchableOpacity style={[s.deviceBadge, s.deviceBadgeWarn]} onPress={() => openEdit(true)} activeOpacity={0.8}>
+                <Text style={s.deviceBadgeText}>⚠ {t.inv_device_not_linked} — {t.inv_setup_step2_cta}</Text>
+              </TouchableOpacity>
+            ) : !isVerified ? (
+              <View style={[s.deviceBadge, s.deviceBadgeAmber]}>
+                <Text style={s.deviceBadgeText}>⏳ {t.inv_device_pending}</Text>
+              </View>
             ) : (
-              <Switch
-                value={isOnline}
-                onValueChange={handleToggleAvailability}
-                trackColor={{ false: COLORS.border, true: COLORS.primary }}
-                thumbColor="#fff"
-              />
-            )}
-          </View>
-        </View>
-
-        {/* Stats row */}
-        <View style={styles.statsRow}>
-          <StatBox value={String(listing.total_bookings)} label={t.host_today_bookings} color={COLORS.primary} />
-          <StatBox value={`${listing.price_per_kwh} OMR`} label={t.host_charger_price} color={COLORS.gold} />
-          <StatBox
-            value={listing.rating > 0 ? listing.rating.toFixed(1) : '—'}
-            label={t.host_rating_label}
-            color="#F59E0B"
-          />
-        </View>
-
-        {/* Charger info card */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.host_charger_info}</Text>
-          <InfoRow icon="⚡" label={t.host_charger_type}  value={listing.charger_type} />
-          <InfoRow icon="🔋" label={t.host_charger_power} value={`${listing.power_kw} kW`} />
-          <InfoRow icon="💰" label={t.host_charger_price} value={`${listing.price_per_kwh} OMR/kWh`} />
-          <InfoRow icon="🕐" label={t.host_charger_hours} value={`${listing.availability_start ?? '08:00'} – ${listing.availability_end ?? '22:00'}`} />
-          <InfoRow icon="📍" label={t.host_location_label} value={listing.address} last />
-        </View>
-
-        {/* Description */}
-        {listing.description ? (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t.inv_charger_desc}</Text>
-            <Text style={styles.descText}>{listing.description}</Text>
-          </View>
-        ) : null}
-
-        {/* Recent bookings */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.inv_charger_recent_bookings}</Text>
-          {bookings.length === 0 ? (
-            <View style={styles.noBookingsWrap}>
-              <CalendarIcon size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
-              <Text style={styles.noBookingsTitle}>{t.inv_charger_no_bookings}</Text>
-              <Text style={styles.noBookingsSub}>{t.inv_charger_no_bookings_sub}</Text>
-            </View>
-          ) : (
-            bookings.map(b => (
-              <View key={b.id} style={styles.bookingRow}>
-                <View style={styles.bookingIconWrap}>
-                  <CalendarIcon size={16} color={COLORS.primary} strokeWidth={2} />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.bookingDate}>{new Date(b.booked_at).toLocaleDateString()} · {new Date(b.booked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</Text>
-                  <Text style={styles.bookingMeta}>{b.duration_minutes} min · {b.estimated_cost?.toFixed(3) ?? '—'} OMR</Text>
-                </View>
-                <View style={[styles.bookingBadge, b.status === 'completed' ? styles.badgeDone : styles.badgePending]}>
-                  <Text style={[styles.bookingBadgeText, b.status === 'completed' ? styles.badgeDoneText : styles.badgePendingText]}>
-                    {b.status}
-                  </Text>
-                </View>
+              <View style={[s.deviceBadge, s.deviceBadgeGreen]}>
+                <Text style={s.deviceBadgeText}>⚡ {t.inv_device_verified}</Text>
               </View>
-            ))
+            )}
+            <TouchableOpacity style={s.editBadge} onPress={() => openEdit()} activeOpacity={0.8}>
+              <Text style={s.editBadgeText}>✎ Edit</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Charge My Car button — only shown when device is verified */}
+          {isVerified && (
+            <TouchableOpacity
+              style={[s.selfChargeBtn, selfCharging && s.selfChargeBtnOff]}
+              onPress={handleSelfCharge}
+              disabled={selfCharging}
+              activeOpacity={0.85}
+            >
+              {selfCharging
+                ? <ActivityIndicator color="#fff" size="small" />
+                : <Text style={s.selfChargeBtnText}>⚡ {t.inv_charge_my_car}</Text>
+              }
+            </TouchableOpacity>
+          )}
+
+          {isVerified && (
+            <Text style={s.heroTip}>{t.inv_online_tip}</Text>
           )}
         </View>
 
-        <View style={{ height: 32 }} />
+        {/* ── Setup progress (only when not fully configured) ── */}
+        {!setupDone && (
+          <View style={s.setupCard}>
+            <Text style={s.setupCardTitle}>Setup Progress</Text>
+            <SetupStep num={1} title={t.inv_setup_step1_title} sub={t.inv_setup_step1_sub} done compact />
+            <SetupStep num={2} title={t.inv_setup_step2_title} sub={t.inv_setup_step2_sub}
+              done={hasDevice} active={!hasDevice} compact
+              cta={!hasDevice ? t.inv_setup_step2_cta : undefined}
+              onCta={() => openEdit(true)}
+            />
+            <SetupStep num={3} title={t.inv_setup_step3_title} sub={t.inv_setup_step3_sub}
+              done={isVerified} active={hasDevice && !isVerified} compact
+            />
+            <SetupStep num={4} title={t.inv_setup_step4_title} sub={t.inv_setup_step4_sub}
+              active={setupDone && !isOnline} compact
+            />
+          </View>
+        )}
+
+        {/* ── Stats ── */}
+        <View style={s.statsRow}>
+          <StatCard value={String(listing.total_bookings)} label={t.host_today_bookings} color={COLORS.primary} emoji="📅" />
+          <StatCard value={`${listing.price_per_kwh}\nOMR`} label={t.host_charger_price} color={COLORS.gold} emoji="💰" />
+          <StatCard
+            value={listing.rating > 0 ? listing.rating.toFixed(1) : '—'}
+            label={t.host_rating_label} color="#F59E0B" emoji="⭐"
+          />
+        </View>
+
+        {/* ── Charger info ── */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>{t.host_charger_info}</Text>
+          <InfoRow icon="⚡" label={t.host_charger_type}  value={listing.charger_type} />
+          <InfoRow icon="🔋" label={t.host_charger_power} value={`${listing.power_kw} kW`} />
+          <InfoRow icon="💰" label={t.host_charger_price} value={`${listing.price_per_kwh} OMR/kWh`} />
+          <InfoRow icon="🕐" label={t.host_charger_hours}
+            value={`${listing.availability_start ?? '08:00'} – ${listing.availability_end ?? '22:00'}`} />
+          {listing.description ? (
+            <InfoRow icon="📝" label={t.inv_charger_desc} value={listing.description} last />
+          ) : null}
+        </View>
+
+        {/* ── Device section ── */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>{t.inv_device_section}</Text>
+          <InfoRow icon="🔌" label={t.tuya_device_id_label}
+            value={listing.tuya_device_id ? `••••${listing.tuya_device_id.slice(-6)}` : '—'} />
+          <InfoRow icon={isVerified ? '✅' : '⏳'} label={t.tuya_status_label}
+            value={!hasDevice ? t.inv_device_not_linked : isVerified ? t.inv_device_verified : t.inv_device_pending}
+            last
+            valueColor={isVerified ? COLORS.success : hasDevice ? COLORS.gold : COLORS.error}
+          />
+          {!hasDevice && (
+            <TouchableOpacity style={s.addDeviceBtn} onPress={() => openEdit(true)} activeOpacity={0.85}>
+              <Text style={s.addDeviceBtnText}>+ {t.inv_setup_step2_cta}</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* ── Recent bookings ── */}
+        <View style={s.card}>
+          <Text style={s.cardTitle}>{t.inv_charger_recent_bookings}</Text>
+          {bookings.length === 0 ? (
+            <View style={s.emptyBookings}>
+              <CalendarIcon size={28} color={COLORS.textTertiary} strokeWidth={1.5} />
+              <Text style={s.emptyBookingsTitle}>{t.inv_charger_no_bookings}</Text>
+              <Text style={s.emptyBookingsSub}>{t.inv_charger_no_bookings_sub}</Text>
+            </View>
+          ) : bookings.map((b, i) => (
+            <View key={b.id} style={[s.bookingRow, i === bookings.length - 1 && { borderBottomWidth: 0 }]}>
+              <View style={s.bookingIcon}>
+                <CalendarIcon size={15} color={COLORS.primary} strokeWidth={2} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.bookingDate}>
+                  {new Date(b.booked_at).toLocaleDateString()} · {new Date(b.booked_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </Text>
+                <Text style={s.bookingMeta}>{b.duration_minutes} min · {b.estimated_cost?.toFixed(3) ?? '—'} OMR</Text>
+              </View>
+              <View style={[s.bookingBadge, b.status === 'completed' ? s.badgeDone : s.badgePending]}>
+                <Text style={[s.bookingBadgeText, { color: b.status === 'completed' ? COLORS.success : COLORS.gold }]}>
+                  {b.status}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+
       </ScrollView>
 
-      {/* Edit Modal */}
+      {/* ── Edit Modal ── */}
       <Modal visible={editModal} transparent animationType="slide" onRequestClose={() => setEditModal(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setEditModal(false)}>
-          <ScrollView style={{ width: '100%' }} contentContainerStyle={{ justifyContent: 'flex-end', flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-            <TouchableOpacity activeOpacity={1}>
-              <View style={styles.modalSheet}>
-                <View style={styles.modalHandle} />
-                <View style={styles.modalTitleRow}>
-                  <Text style={styles.modalTitle}>{t.inv_charger_edit_modal}</Text>
-                  <TouchableOpacity onPress={() => setEditModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                    <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
-                  </TouchableOpacity>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <TouchableOpacity style={s.modalOverlay} activeOpacity={1} onPress={() => setEditModal(false)} />
+          <View style={s.modalSheet}>
+            <View style={s.modalHandle} />
+            <View style={s.modalHeader}>
+              <Text style={s.modalTitle}>{t.inv_charger_edit_modal}</Text>
+              <TouchableOpacity onPress={() => setEditModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <EditField label={t.inv_charger_address} required>
+                <TextInput style={s.input} value={editAddress} onChangeText={setEditAddress}
+                  placeholder={t.inv_charger_address_ph} placeholderTextColor={COLORS.textTertiary} returnKeyType="next" />
+              </EditField>
+
+              <EditField label={t.host_charger_power}>
+                <TextInput style={s.input} value={editPowerKw} onChangeText={setEditPowerKw}
+                  placeholder={t.inv_charger_power_ph} placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="decimal-pad" returnKeyType="next" />
+              </EditField>
+
+              <EditField label={t.host_charger_price}>
+                <TextInput style={s.input} value={editPrice} onChangeText={setEditPrice}
+                  placeholder={t.inv_charger_price_ph} placeholderTextColor={COLORS.textTertiary}
+                  keyboardType="decimal-pad" returnKeyType="next" />
+              </EditField>
+
+              <View style={s.timeRow}>
+                <View style={[s.field, { flex: 1 }]}>
+                  <Text style={s.fieldLabel}>{t.inv_charger_avail_start}</Text>
+                  <TextInput style={s.input} value={editStart} onChangeText={setEditStart}
+                    placeholder="08:00" placeholderTextColor={COLORS.textTertiary} returnKeyType="next" />
                 </View>
-
-                <EditField label={t.inv_charger_address} required>
-                  <TextInput style={styles.input} value={editAddress} onChangeText={setEditAddress}
-                    placeholder={t.inv_charger_address_ph} placeholderTextColor={COLORS.textTertiary} returnKeyType="next" />
-                </EditField>
-
-                <EditField label={t.host_charger_power}>
-                  <TextInput style={styles.input} value={editPowerKw} onChangeText={setEditPowerKw}
-                    placeholder={t.inv_charger_power_ph} placeholderTextColor={COLORS.textTertiary}
-                    keyboardType="decimal-pad" returnKeyType="next" />
-                </EditField>
-
-                <EditField label={t.host_charger_price}>
-                  <TextInput style={styles.input} value={editPrice} onChangeText={setEditPrice}
-                    placeholder={t.inv_charger_price_ph} placeholderTextColor={COLORS.textTertiary}
-                    keyboardType="decimal-pad" returnKeyType="next" />
-                </EditField>
-
-                <View style={styles.timeRow}>
-                  <View style={[styles.editField, { flex: 1 }]}>
-                    <Text style={styles.editFieldLabel}>{t.inv_charger_avail_start}</Text>
-                    <TextInput style={styles.input} value={editStart} onChangeText={setEditStart}
-                      placeholder="08:00" placeholderTextColor={COLORS.textTertiary} returnKeyType="next" />
-                  </View>
-                  <View style={[styles.editField, { flex: 1 }]}>
-                    <Text style={styles.editFieldLabel}>{t.inv_charger_avail_end}</Text>
-                    <TextInput style={styles.input} value={editEnd} onChangeText={setEditEnd}
-                      placeholder="22:00" placeholderTextColor={COLORS.textTertiary} returnKeyType="next" />
-                  </View>
+                <View style={[s.field, { flex: 1 }]}>
+                  <Text style={s.fieldLabel}>{t.inv_charger_avail_end}</Text>
+                  <TextInput style={s.input} value={editEnd} onChangeText={setEditEnd}
+                    placeholder="22:00" placeholderTextColor={COLORS.textTertiary} returnKeyType="next" />
                 </View>
-
-                <EditField label={t.inv_charger_desc}>
-                  <TextInput style={[styles.input, { minHeight: 64 }]} value={editDesc} onChangeText={setEditDesc}
-                    placeholder={t.inv_charger_desc_ph} placeholderTextColor={COLORS.textTertiary}
-                    multiline textAlignVertical="top" returnKeyType="next" />
-                </EditField>
-
-                <EditField label={t.tuya_device_id_label} last>
-                  <TextInput style={styles.input} value={editDeviceId} onChangeText={setEditDeviceId}
-                    placeholder={t.tuya_device_id_ph} placeholderTextColor={COLORS.textTertiary}
-                    autoCapitalize="none" autoCorrect={false} returnKeyType="done" />
-                  <Text style={styles.tuyaHint}>
-                    {t.tuya_status_label}: {editDeviceId.trim()
-                      ? (listing?.tuya_verified ? t.tuya_verified_ok : t.tuya_pending_verify)
-                      : t.tuya_not_linked}
-                  </Text>
-                </EditField>
-
-                <TouchableOpacity
-                  style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                  onPress={handleSave} disabled={saving}
-                >
-                  {saving
-                    ? <ActivityIndicator color="#fff" size="small" />
-                    : <Text style={styles.saveBtnText}>{t.inv_charger_save}</Text>
-                  }
-                </TouchableOpacity>
               </View>
-            </TouchableOpacity>
-          </ScrollView>
-        </TouchableOpacity>
+
+              <EditField label={t.inv_charger_desc}>
+                <TextInput style={[s.input, { minHeight: 60 }]} value={editDesc} onChangeText={setEditDesc}
+                  placeholder={t.inv_charger_desc_ph} placeholderTextColor={COLORS.textTertiary}
+                  multiline textAlignVertical="top" returnKeyType="next" />
+              </EditField>
+
+              {/* Tuya device — highlighted section */}
+              <View style={s.deviceSection}>
+                <Text style={s.deviceSectionTitle}>🔌 {t.inv_device_section}</Text>
+                <Text style={s.deviceSectionSub}>
+                  {listing?.tuya_verified
+                    ? `✅ ${t.inv_device_verified}`
+                    : listing?.tuya_device_id
+                      ? `⏳ ${t.inv_device_pending}`
+                      : `⚠ ${t.inv_device_not_linked}`}
+                </Text>
+                <TextInput
+                  ref={deviceRef}
+                  style={[s.input, s.deviceInput]}
+                  value={editDeviceId}
+                  onChangeText={setEditDeviceId}
+                  placeholder={t.tuya_device_id_ph}
+                  placeholderTextColor={COLORS.textTertiary}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="done"
+                />
+                <Text style={s.deviceHintText}>
+                  Find your device ID in the Tuya / Smart Life app under Device Info.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={[s.saveBtn, saving && s.saveBtnOff]}
+                onPress={handleSave} disabled={saving} activeOpacity={0.85}
+              >
+                {saving
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.saveBtnText}>{t.inv_charger_save}</Text>}
+              </TouchableOpacity>
+              <View style={{ height: 20 }} />
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
@@ -425,121 +522,216 @@ export default function InvestorChargerScreen() {
 
 // ── Sub-components ─────────────────────────────────────────────
 
-function StatBox({ value, label, color }: { value: string; label: string; color: string }) {
+function SetupStep({ num, title, sub, done, active, cta, onCta, compact }: {
+  num: number; title: string; sub: string;
+  done?: boolean; active?: boolean; cta?: string; onCta?: () => void; compact?: boolean;
+}) {
   return (
-    <View style={styles.statBox}>
-      <Text style={[styles.statValue, { color }]}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
+    <View style={[ss.row, compact && ss.rowCompact]}>
+      <View style={[ss.circle,
+        done   && ss.circleDone,
+        active && ss.circleActive,
+      ]}>
+        {done
+          ? <CheckIcon size={14} color="#fff" strokeWidth={3} />
+          : <Text style={[ss.num, (done || active) && ss.numActive]}>{num}</Text>
+        }
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text style={[ss.title, done && ss.titleDone, active && ss.titleActive]}>{title}</Text>
+        <Text style={ss.sub}>{sub}</Text>
+        {cta && onCta && (
+          <TouchableOpacity onPress={onCta} style={ss.ctaBtn} activeOpacity={0.8}>
+            <Text style={ss.ctaBtnText}>{cta} →</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
 
-function InfoRow({ icon, label, value, last }: { icon: string; label: string; value: string; last?: boolean }) {
+const ss = StyleSheet.create({
+  row:        { flexDirection: 'row', gap: 14, alignItems: 'flex-start', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  rowCompact: { paddingVertical: 10 },
+  circle:     { width: 32, height: 32, borderRadius: 16, backgroundColor: COLORS.backgroundAlt, borderWidth: 1.5, borderColor: COLORS.border, alignItems: 'center', justifyContent: 'center', marginTop: 1, flexShrink: 0 },
+  circleDone: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+  circleActive:{ backgroundColor: COLORS.primaryBg, borderColor: COLORS.primary },
+  num:        { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary },
+  numActive:  { color: COLORS.primary },
+  title:      { fontSize: 14, fontWeight: '700', color: COLORS.textSecondary },
+  titleDone:  { color: COLORS.text },
+  titleActive:{ color: COLORS.primary },
+  sub:        { fontSize: 12, color: COLORS.textTertiary, lineHeight: 17 },
+  ctaBtn:     { marginTop: 6, alignSelf: 'flex-start', backgroundColor: COLORS.primaryBg, paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10, borderWidth: 1, borderColor: COLORS.primaryTint },
+  ctaBtnText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+});
+
+function StatCard({ value, label, color, emoji }: { value: string; label: string; color: string; emoji: string }) {
   return (
-    <View style={[styles.infoRow, last && styles.infoRowLast]}>
-      <Text style={styles.infoIcon}>{icon}</Text>
-      <Text style={styles.infoLabel}>{label}</Text>
-      <Text style={styles.infoValue} numberOfLines={1}>{value}</Text>
+    <View style={s.statCard}>
+      <Text style={s.statEmoji}>{emoji}</Text>
+      <Text style={[s.statValue, { color }]}>{value}</Text>
+      <Text style={s.statLabel}>{label}</Text>
     </View>
   );
 }
 
-function EditField({ label, required, last, children }: { label: string; required?: boolean; last?: boolean; children: React.ReactNode }) {
+function InfoRow({ icon, label, value, last, valueColor }: {
+  icon: string; label: string; value: string; last?: boolean; valueColor?: string;
+}) {
   return (
-    <View style={[styles.editField, last && styles.editFieldLast]}>
-      <Text style={styles.editFieldLabel}>{label}{required ? ' *' : ''}</Text>
+    <View style={[s.infoRow, last && s.infoRowLast]}>
+      <Text style={s.infoIcon}>{icon}</Text>
+      <Text style={s.infoLabel}>{label}</Text>
+      <Text style={[s.infoValue, valueColor ? { color: valueColor } : null]} numberOfLines={2}>{value}</Text>
+    </View>
+  );
+}
+
+function EditField({ label, required, children }: { label: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <View style={s.field}>
+      <Text style={s.fieldLabel}>{label}{required ? ' *' : ''}</Text>
       {children}
     </View>
   );
 }
 
 // ── Styles ─────────────────────────────────────────────────────
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: COLORS.background },
+const s = StyleSheet.create({
+  root:        { flex: 1, backgroundColor: COLORS.background },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
 
-  header: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
+  // ── Welcome screen ──
+  welcomeHero: {
+    backgroundColor: COLORS.primaryDark, alignItems: 'center',
+    paddingTop: Platform.OS === 'ios' ? 24 : 16,
+    paddingBottom: 32, paddingHorizontal: 24,
+    gap: 10, overflow: 'hidden',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
-  headerIcon:  { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center' },
-  editHeaderBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 12, backgroundColor: COLORS.primaryBg, borderWidth: 1, borderColor: COLORS.primaryTint },
-  editHeaderBtnText: { fontSize: 13, fontWeight: '700', color: COLORS.primary },
+  welcomeIconWrap: {
+    width: 72, height: 72, borderRadius: 24,
+    backgroundColor: 'rgba(245,158,11,0.18)',
+    borderWidth: 1.5, borderColor: 'rgba(245,158,11,0.35)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  },
+  welcomeTitle: { fontSize: 26, fontWeight: '800', color: '#fff', textAlign: 'center' },
+  welcomeSub:   { fontSize: 14, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 21 },
 
-  // Empty / setup state
-  emptyWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 14 },
-  emptyIconWrap: { width: 96, height: 96, borderRadius: 32, backgroundColor: COLORS.primaryBg, borderWidth: 2, borderColor: COLORS.primaryTint, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  emptyTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text, textAlign: 'center' },
-  emptySub:   { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 22 },
-  setupBtn:   { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 14, paddingHorizontal: 40, alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4 },
-  setupBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  cta:    { backgroundColor: COLORS.primary, borderRadius: 18, paddingVertical: 16, alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 5, marginTop: 4 },
+  ctaOff: { opacity: 0.55 },
+  ctaText:{ color: '#fff', fontSize: 16, fontWeight: '700' },
 
-  // Tuya status badges
-  tuyaBadgeRow:   { flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginTop: 5 },
-  tuyaBadge:      { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 3 },
-  tuyaBadgeGray:  { backgroundColor: COLORS.backgroundAlt },
-  tuyaBadgeGreen: { backgroundColor: COLORS.successBg },
-  tuyaBadgeAmber: { backgroundColor: COLORS.goldBg },
-  tuyaBadgeText:  { fontSize: 10, fontWeight: '700', color: COLORS.text },
-  tuyaHint:       { fontSize: 11, color: COLORS.textTertiary, marginTop: 4 },
+  // ── Hero card ──
+  hero: {
+    marginHorizontal: 16, marginTop: 14, marginBottom: 12,
+    borderRadius: 24, padding: 20, overflow: 'hidden',
+    borderWidth: 1,
+  },
+  heroOn:  { backgroundColor: COLORS.primaryDark, borderColor: '#065f46' },
+  heroOff: { backgroundColor: '#1f2937', borderColor: '#374151' },
+  heroDeco1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.04)', top: -60, right: -40 },
+  heroDeco2: { position: 'absolute', width: 130, height: 130, borderRadius: 65,  backgroundColor: 'rgba(255,255,255,0.03)', bottom: -40, left: -30 },
 
-  // Hero card
-  heroCard: { marginHorizontal: 16, borderRadius: 20, padding: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, borderWidth: 1 },
-  heroOnline:  { backgroundColor: COLORS.primaryBg, borderColor: COLORS.primaryTint },
-  heroOffline: { backgroundColor: COLORS.backgroundAlt, borderColor: COLORS.border },
-  heroLeft:    { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  heroStatusDot: { width: 12, height: 12, borderRadius: 6 },
-  heroStatusText: { fontSize: 16, fontWeight: '800', color: COLORS.text },
-  heroType:       { fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
-  heroToggleWrap: { width: 60, alignItems: 'center' },
+  heroTop:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
+  heroStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  statusDot:     { width: 10, height: 10, borderRadius: 5 },
+  heroStatus:    { fontSize: 18, fontWeight: '800', color: '#fff' },
+  heroChargerName:{ fontSize: 13, color: 'rgba(255,255,255,0.65)', marginBottom: 4 },
+  heroAddress:   { fontSize: 12, color: 'rgba(255,255,255,0.5)', maxWidth: 220 },
+  toggleWrap:    { minWidth: 60, alignItems: 'center', justifyContent: 'center' },
 
-  // Stats
-  statsRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 14, gap: 10 },
-  statBox:  { flex: 1, backgroundColor: COLORS.card, borderRadius: 16, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: COLORS.border },
-  statValue:{ fontSize: 15, fontWeight: '800', marginBottom: 2 },
+  selfChargeBtn: {
+    marginTop: 14,
+    backgroundColor: COLORS.gold,
+    borderRadius: 16, paddingVertical: 14,
+    alignItems: 'center',
+    shadowColor: COLORS.gold, shadowOpacity: 0.4,
+    shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 5,
+  },
+  selfChargeBtnOff: { opacity: 0.55 },
+  selfChargeBtnText: { color: '#fff', fontSize: 16, fontWeight: '800', letterSpacing: 0.3 },
+
+  deviceBadgeRow: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  deviceBadge:    { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  deviceBadgeWarn:  { backgroundColor: 'rgba(239,68,68,0.2)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.3)' },
+  deviceBadgeAmber: { backgroundColor: 'rgba(245,158,11,0.2)', borderWidth: 1, borderColor: 'rgba(245,158,11,0.3)' },
+  deviceBadgeGreen: { backgroundColor: 'rgba(16,185,129,0.2)', borderWidth: 1, borderColor: 'rgba(16,185,129,0.3)' },
+  deviceBadgeText: { fontSize: 11, fontWeight: '700', color: '#fff' },
+  editBadge:    { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+  editBadgeText:{ fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.8)' },
+  heroTip:      { marginTop: 10, fontSize: 11, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' },
+
+  // ── Setup progress card ──
+  setupCard:      { backgroundColor: COLORS.card, borderRadius: 20, marginHorizontal: 16, marginBottom: 12, padding: 16, borderWidth: 1, borderColor: COLORS.border },
+  setupCardTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 4 },
+
+  // ── Stats ──
+  statsRow: { flexDirection: 'row', gap: 10, marginHorizontal: 16, marginBottom: 12 },
+  statCard: { flex: 1, backgroundColor: COLORS.card, borderRadius: 18, padding: 14, alignItems: 'center', gap: 2, borderWidth: 1, borderColor: COLORS.border },
+  statEmoji:{ fontSize: 20, marginBottom: 2 },
+  statValue:{ fontSize: 15, fontWeight: '800', textAlign: 'center' },
   statLabel:{ fontSize: 10, color: COLORS.textSecondary, textAlign: 'center' },
 
-  // Section
-  section: { backgroundColor: COLORS.card, borderRadius: 20, marginHorizontal: 16, marginBottom: 14, padding: 16, borderWidth: 1, borderColor: COLORS.border },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 12 },
+  // ── Card ──
+  card:      { backgroundColor: COLORS.card, borderRadius: 20, marginHorizontal: 16, marginBottom: 12, padding: 16, borderWidth: 1, borderColor: COLORS.border },
+  cardTitle: { fontSize: 12, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 12 },
 
-  // Info rows
+  // ── Info rows ──
   infoRow:     { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
   infoRowLast: { borderBottomWidth: 0 },
   infoIcon:    { fontSize: 16, width: 24 },
   infoLabel:   { fontSize: 13, color: COLORS.textSecondary, flex: 1 },
-  infoValue:   { fontSize: 13, fontWeight: '600', color: COLORS.text, textAlign: 'right', flex: 1.2 },
-  descText:    { fontSize: 14, color: COLORS.text, lineHeight: 21 },
+  infoValue:   { fontSize: 13, fontWeight: '600', color: COLORS.text, textAlign: 'right', flex: 1.3 },
 
-  // Booking rows
-  noBookingsWrap: { alignItems: 'center', paddingVertical: 24, gap: 8 },
-  noBookingsTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text },
-  noBookingsSub:   { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
-  bookingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
-  bookingIconWrap: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center' },
-  bookingDate: { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 2 },
-  bookingMeta: { fontSize: 11, color: COLORS.textSecondary },
-  bookingBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
+  addDeviceBtn:    { marginTop: 12, backgroundColor: COLORS.primaryBg, borderRadius: 12, paddingVertical: 11, alignItems: 'center', borderWidth: 1, borderColor: COLORS.primaryTint },
+  addDeviceBtnText:{ fontSize: 14, fontWeight: '700', color: COLORS.primary },
+
+  // ── Bookings ──
+  emptyBookings:     { alignItems: 'center', paddingVertical: 24, gap: 8 },
+  emptyBookingsTitle:{ fontSize: 14, fontWeight: '700', color: COLORS.text },
+  emptyBookingsSub:  { fontSize: 12, color: COLORS.textSecondary, textAlign: 'center' },
+  bookingRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border, gap: 10 },
+  bookingIcon:  { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center' },
+  bookingDate:  { fontSize: 13, fontWeight: '600', color: COLORS.text, marginBottom: 2 },
+  bookingMeta:  { fontSize: 11, color: COLORS.textSecondary },
+  bookingBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: COLORS.backgroundAlt },
   badgeDone:    { backgroundColor: COLORS.successBg },
   badgePending: { backgroundColor: COLORS.goldBg },
   bookingBadgeText: { fontSize: 10, fontWeight: '700' },
-  badgeDoneText:    { color: COLORS.success },
-  badgePendingText: { color: COLORS.gold },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-  modalSheet:   { backgroundColor: COLORS.card, borderTopLeftRadius: 32, borderTopRightRadius: 32, padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 28 },
-  modalHandle:  { width: 40, height: 4, backgroundColor: COLORS.borderStrong, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalTitleRow:{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle:   { fontSize: 20, fontWeight: '800', color: COLORS.text },
-  editField:    { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
-  editFieldLast:{ borderBottomWidth: 0, marginBottom: 16 },
-  editFieldLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
-  input: { fontSize: 15, color: COLORS.text, paddingVertical: Platform.OS === 'ios' ? 4 : 2 },
-  timeRow: { flexDirection: 'row', gap: 12 },
-  saveBtn: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center', shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4 },
-  saveBtnDisabled: { opacity: 0.55 },
-  saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  // ── Modal ──
+  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay },
+  modalSheet:   {
+    backgroundColor: COLORS.card,
+    borderTopLeftRadius: 32, borderTopRightRadius: 32,
+    paddingHorizontal: 24, paddingTop: 16,
+    paddingBottom: Platform.OS === 'ios' ? 44 : 28,
+    maxHeight: '90%',
+  },
+  modalHandle: { width: 40, height: 4, backgroundColor: COLORS.borderStrong, borderRadius: 2, alignSelf: 'center', marginBottom: 18 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle:  { fontSize: 20, fontWeight: '800', color: COLORS.text },
+
+  field:      { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  fieldLabel: { fontSize: 11, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
+  input:      { fontSize: 15, color: COLORS.text, paddingVertical: Platform.OS === 'ios' ? 4 : 2 },
+  timeRow:    { flexDirection: 'row', gap: 16 },
+
+  // Tuya device section in modal
+  deviceSection: {
+    marginTop: 16, padding: 16, backgroundColor: COLORS.primaryBg,
+    borderRadius: 16, borderWidth: 1.5, borderColor: COLORS.primaryTint, gap: 8,
+  },
+  deviceSectionTitle: { fontSize: 15, fontWeight: '800', color: COLORS.primary },
+  deviceSectionSub:   { fontSize: 12, color: COLORS.textSecondary },
+  deviceInput:        {
+    borderBottomWidth: 1, borderBottomColor: COLORS.primaryTint,
+    paddingVertical: 8, fontSize: 15,
+  },
+  deviceHintText: { fontSize: 11, color: COLORS.textTertiary, lineHeight: 16 },
+
+  saveBtn:    { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginTop: 20, shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4 },
+  saveBtnOff: { opacity: 0.55 },
+  saveBtnText:{ color: '#fff', fontWeight: '700', fontSize: 16 },
 });

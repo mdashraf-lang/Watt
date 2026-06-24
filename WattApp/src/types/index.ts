@@ -18,6 +18,7 @@ export interface ChargerListing {
   id: string;
   host_id: string;
   host_name?: string;
+  station_name?: string | null;
   address: string;
   latitude: number;
   longitude: number;
@@ -92,8 +93,9 @@ export interface Booking {
 export interface ChargingSession {
   id: string;
   booking_id?: string;
+  listing_id?: string;
   user_id: string;
-  station_id: string;
+  station_id?: string;
   connector_id?: string;
   status: 'active' | 'completed' | 'interrupted';
   started_at: string;
@@ -104,6 +106,7 @@ export interface ChargingSession {
   battery_end_pct?: number;
   created_at: string;
   station?: Station;
+  listing?: { id: string; tuya_device_id: string | null; power_kw: number; price_per_kwh: number; address: string };
 }
 
 export interface WalletTransaction {
@@ -196,6 +199,7 @@ export interface ChargerApplication {
   user_id: string;
   full_name: string;
   phone: string;
+  station_name?: string | null;
   governorate: string;
   city: string;
   latitude?: number;

@@ -60,7 +60,7 @@ export default function ActiveBookingScreen() {
   const fetchBooking = async () => {
     const { data } = await supabase
       .from('bookings')
-      .select('*, station:stations(*), listing:charger_listings(id, address)')
+      .select('*, station:stations(*), listing:charger_listings(id, address, station_name)')
       .eq('id', bookingId)
       .single();
     if (data) setBooking(data as Booking);
@@ -128,9 +128,10 @@ export default function ActiveBookingScreen() {
 
       await supabase.from('bookings').update({ status: 'active' }).eq('id', booking.id);
 
-      // Use station name for official stations, listing address for private chargers
+      const listingData = (booking as any).listing;
       const displayName = booking.station?.name
-        || (booking as any).listing?.address
+        || listingData?.station_name
+        || listingData?.address
         || 'Private Charger';
 
       navigation.replace('Charging', {
