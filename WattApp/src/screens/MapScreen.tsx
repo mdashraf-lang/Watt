@@ -201,20 +201,43 @@ export default function MapScreen() {
     mapRef.current?.animateToRegion({ latitude: listing.latitude, longitude: listing.longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 600);
   };
 
-  const renderStationCard = useCallback(({ item }: { item: Station }) => (
-    <TouchableOpacity style={styles.listCard} onPress={() => selectStation(item)} activeOpacity={0.8}>
-      <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.status] }]} />
-      <View style={styles.listCardInfo}>
-        <Text style={[styles.listCardName, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
-          {stationDisplayName(item, isRTL)}
-        </Text>
-        <Text style={[styles.listCardSub, { textAlign: isRTL ? 'right' : 'left' }]}>
-          {translateGov(item.governorate, isRTL)} • {item.available_connectors}/{item.total_connectors} {t.map_available}
-        </Text>
-      </View>
-      <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
-    </TouchableOpacity>
-  ), [isRTL, t]);
+  // IDs of private listings so we know which tap handler to call in the combined list
+  const listingIdSet = React.useMemo(
+    () => new Set(listings.map(l => l.id)),
+    [listings],
+  );
+
+  // Combined list: official stations + available private listings (excluding own)
+  const combinedItems = React.useMemo<Station[]>(() => {
+    const listingStations = listings
+      .filter(l => !myListing || l.id !== myListing.id)
+      .map(listingToStation);
+    return [...filtered, ...listingStations];
+  }, [filtered, listings, myListing]);
+
+  const renderStationCard = useCallback(({ item }: { item: Station }) => {
+    const isListing = listingIdSet.has(item.id);
+    const onPress = isListing
+      ? () => selectListing(listings.find(l => l.id === item.id)!)
+      : () => selectStation(item);
+    const subText = isListing
+      ? item.operating_hours ?? ''
+      : `${translateGov(item.governorate, isRTL)} • ${item.available_connectors}/${item.total_connectors} ${t.map_available}`;
+    return (
+      <TouchableOpacity style={styles.listCard} onPress={onPress} activeOpacity={0.8}>
+        <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.status] }]} />
+        <View style={styles.listCardInfo}>
+          <Text style={[styles.listCardName, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+            {isListing ? item.name : stationDisplayName(item, isRTL)}
+          </Text>
+          <Text style={[styles.listCardSub, { textAlign: isRTL ? 'right' : 'left' }]}>
+            {subText}
+          </Text>
+        </View>
+        <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
+      </TouchableOpacity>
+    );
+  }, [isRTL, t, listingIdSet, listings]);
 
   const isInvestor = profile?.role === 'investor' || profile?.role === 'host';
 
@@ -330,14 +353,14 @@ export default function MapScreen() {
           <View style={styles.listHandleWrap} {...panResponder.panHandlers}>
             <View style={styles.listHandle} />
             <Text style={[styles.listTitle, { textAlign: isRTL ? 'right' : 'left' }]}>
-              {t.map_stations} ({filtered.length}){search ? ` • "${search}"` : ''}
+              {t.map_stations} ({combinedItems.length}){search ? ` • "${search}"` : ''}
             </Text>
           </View>
           {loading ? (
             <ActivityIndicator color={COLORS.primary} style={{ marginTop: 20 }} />
           ) : (
             <FlatList
-              data={filtered}
+              data={combinedItems}
               keyExtractor={item => item.id}
               renderItem={renderStationCard}
               showsVerticalScrollIndicator={false}

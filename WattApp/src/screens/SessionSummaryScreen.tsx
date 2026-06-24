@@ -41,7 +41,7 @@ export default function SessionSummaryScreen() {
   };
 
   const goHome = () => {
-    navigation.reset({ index: 0, routes: [{ name: 'Tabs' }] });
+    navigation.popToTop();
   };
 
   const align = isRTL ? 'right' : 'left';
