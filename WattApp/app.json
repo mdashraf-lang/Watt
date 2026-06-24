@@ -28,9 +28,12 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "scheme": "watt",
     "plugins": [
       "expo-secure-store",
-      "expo-location"
+      "expo-location",
+      "expo-apple-authentication",
+      "expo-web-browser"
     ]
   }
 }

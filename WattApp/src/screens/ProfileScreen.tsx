@@ -19,7 +19,7 @@ import PrivacyScreen from './PrivacyScreen';
 import type { ChargingSession, ChargerApplication, CustomerStackParamList } from '../types';
 import {
   BellIcon, ShieldIcon, HelpCircleIcon, InfoIcon, GlobeIcon,
-  LogOutIcon, ChevronRightIcon, UserIcon, CarIcon, PhoneIcon,
+  LogOutIcon, ChevronRightIcon, UserIcon, CarIcon, PhoneIcon, MailIcon,
   AwardIcon, XIcon, CheckIcon, ZapIcon, BatteryChargingIcon, StarIcon,
   CameraIcon, HistoryIcon, PlugZapIcon, ClockIcon,
 } from '../components/icons';
@@ -272,7 +272,7 @@ export default function ProfileScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.profile_my_info}</Text>
           <InfoRow Icon={UserIcon}  label={t.profile_name}   value={profile.full_name || '—'} />
-          <InfoRow Icon={PhoneIcon} label={t.profile_email}  value={email || '—'} />
+          <InfoRow Icon={MailIcon}  label={t.profile_email}  value={email || '—'} />
           <InfoRow Icon={PhoneIcon} label={t.profile_phone}  value={profile.phone || '—'} />
           <InfoRow Icon={AwardIcon} label={t.profile_joined} value={new Date(profile.created_at).toLocaleDateString()} />
           <TouchableOpacity

@@ -89,6 +89,11 @@ export default function AdminInvestorsScreen() {
     setSelected(updated);
   };
 
+  const handleDelete = (id: string) => {
+    setApplications(prev => prev.filter(a => a.id !== id));
+    setSelected(null);
+  };
+
   const FILTERS: { key: StatusFilter; label: string }[] = [
     { key: 'all',      label: t.admin_inv_filter_all },
     { key: 'pending',  label: t.admin_inv_filter_pending },
@@ -208,6 +213,7 @@ export default function AdminInvestorsScreen() {
             statusColors={STATUS_COLORS}
             onClose={() => setSelected(null)}
             onUpdate={handleUpdate}
+            onDelete={handleDelete}
             t={t}
           />
         )}
@@ -218,12 +224,13 @@ export default function AdminInvestorsScreen() {
 
 // ── ApplicationDetail — full-screen, freely scrollable ─────────
 
-function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, t }: {
+function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, onDelete, t }: {
   app: ChargerApplication;
   statusLabel: (s: string) => string;
   statusColors: typeof STATUS_COLORS;
   onClose: () => void;
   onUpdate: (a: ChargerApplication) => void;
+  onDelete: (id: string) => void;
   t: any;
 }) {
   const [comment,  setComment]  = useState(app.admin_comment ?? '');
@@ -271,6 +278,36 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
 
   const handleCall = () => {
     Linking.openURL(`tel:${app.phone.replace(/\s/g, '')}`);
+  };
+
+  const handleDelete = () => {
+    Alert.alert(
+      t.admin_inv_delete,
+      t.admin_inv_delete_confirm,
+      [
+        { text: t.cancel, style: 'cancel' },
+        {
+          text: t.admin_inv_delete,
+          style: 'destructive',
+          onPress: async () => {
+            setSaving(true);
+            try {
+              const { error } = await supabase
+                .from('charger_applications')
+                .delete()
+                .eq('id', app.id);
+              if (error) throw error;
+              Alert.alert('✓', t.admin_inv_deleted);
+              onDelete(app.id);
+            } catch (e: any) {
+              Alert.alert(t.error, e.message);
+            } finally {
+              setSaving(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleSaveComment = async () => {
@@ -476,6 +513,19 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
             </TouchableOpacity>
           </View>
 
+          {/* ── Delete ── */}
+          <TouchableOpacity
+            style={[detail.deleteBtn, saving && detail.saveBtnDisabled]}
+            onPress={handleDelete}
+            disabled={saving}
+            activeOpacity={0.85}
+          >
+            {saving
+              ? <ActivityIndicator color="#fff" size="small" />
+              : <Text style={detail.saveBtnText}>{t.admin_inv_delete}</Text>
+            }
+          </TouchableOpacity>
+
           <View style={{ height: 32 }} />
         </ScrollView>
       </KeyboardAvoidingView>
@@ -655,6 +705,7 @@ const detail = StyleSheet.create({
   },
   saveBtn:         { backgroundColor: COLORS.primaryDark, borderRadius: 14, paddingVertical: 14, alignItems: 'center' },
   verifyBtn:       { backgroundColor: COLORS.primary, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginBottom: 20 },
+  deleteBtn:       { backgroundColor: COLORS.error, borderRadius: 14, paddingVertical: 14, alignItems: 'center', marginTop: 12, marginBottom: 4 },
   saveBtnDisabled: { opacity: 0.55 },
   saveBtnText:     { fontSize: 15, fontWeight: '700', color: '#fff' },
 });

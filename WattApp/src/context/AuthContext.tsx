@@ -1,20 +1,26 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
+import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
 import type { Profile } from '../types';
+
+WebBrowser.maybeCompleteAuthSession();
 
 interface AuthContextType {
   session:    Session | null;
   profile:    Profile | null;
   devProfile: Profile | null;
   loading:    boolean;
-  signOut:          () => Promise<void>;
-  refreshProfile:   () => Promise<void>;
-  updateProfile:    (data: Partial<Profile>) => Promise<void>;
-  deactivateAccount:() => Promise<void>;
-  signIn:  (email: string, password: string) => Promise<void>;
-  signUp:  (email: string, password: string, fullName: string) => Promise<void>;
+  signOut:           () => Promise<void>;
+  refreshProfile:    () => Promise<void>;
+  updateProfile:     (data: Partial<Profile>) => Promise<void>;
+  deactivateAccount: () => Promise<void>;
+  signIn:            (email: string, password: string) => Promise<void>;
+  signUp:            (email: string, password: string, fullName: string) => Promise<void>;
+  signInWithGoogle:   () => Promise<void>;
+  signInWithApple:    () => Promise<void>;
+  sendPasswordReset:  (email: string) => Promise<void>;
   devSignIn:  (profile: Profile) => void;
   devSignOut: () => void;
 }
@@ -27,8 +33,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [devProfile, setDevProfile] = useState<Profile | null>(null);
   const [loading,    setLoading]    = useState(true);
 
-  // Prevents onAuthStateChange from racing with the signUp upsert.
-  // During signup, the profile fetch is handled explicitly after the upsert.
   const isSigningUp = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
@@ -49,6 +53,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // Creates the profile row for OAuth users who don't have one yet
+  const ensureProfile = useCallback(async (userId: string, fullName: string) => {
+    await supabase.from('profiles').upsert({
+      id: userId,
+      full_name: fullName,
+      wallet_balance: 0,
+      total_sessions: 0,
+      total_kwh: 0,
+      is_active: true,
+    }, { onConflict: 'id' });
+    await fetchProfile(userId);
+  }, [fetchProfile]);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
@@ -59,7 +76,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       if (session) {
-        // Skip during signup — signUp() calls fetchProfile after the upsert completes
         if (!isSigningUp.current) {
           fetchProfile(session.user.id);
         }
@@ -92,13 +108,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         throw error;
       }
-      // Supabase email enumeration protection: existing email returns user with
-      // empty identities instead of an error when "Confirm email" is on.
       if (!data.user?.identities || data.user.identities.length === 0) {
         throw new Error('This email is already registered. Please sign in instead.');
       }
       if (data.user) {
-        // Never include `role` — set by DB default; never overwrite from client.
         await supabase.from('profiles').upsert({
           id: data.user.id,
           full_name: fullName,
@@ -111,6 +124,85 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } finally {
       isSigningUp.current = false;
+    }
+  };
+
+  const signInWithGoogle = async () => {
+    const redirectTo = 'watt://auth/callback';
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo, skipBrowserRedirect: true },
+    });
+    if (error) throw error;
+    if (!data.url) throw new Error('No OAuth URL returned');
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
+    if (result.type !== 'success') return;
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
+    if (sessionError) throw sessionError;
+
+    if (sessionData?.user) {
+      const fullName =
+        sessionData.user.user_metadata?.full_name ??
+        sessionData.user.user_metadata?.name ??
+        sessionData.user.email ?? '';
+      await ensureProfile(sessionData.user.id, fullName);
+    }
+  };
+
+  const sendPasswordReset = async (email: string) => {
+    const clean = email.trim().toLowerCase();
+    // Check if an account with this email exists first
+    const { data: exists, error: checkError } = await supabase.rpc('check_email_exists', { p_email: clean });
+    if (checkError) throw checkError;
+    if (!exists) {
+      const err = new Error('NO_ACCOUNT');
+      (err as any).code = 'NO_ACCOUNT';
+      throw err;
+    }
+    const { error } = await supabase.auth.resetPasswordForEmail(clean, {
+      redirectTo: 'watt://reset-password',
+    });
+    if (error) throw error;
+  };
+
+  const signInWithApple = async () => {
+    if (Platform.OS !== 'ios') {
+      Alert.alert('Not available', 'Apple sign-in is only available on iOS.');
+      return;
+    }
+    // Dynamically imported to avoid Android build failure
+    const AppleAuthentication = await import('expo-apple-authentication');
+    const isAvailable = await AppleAuthentication.isAvailableAsync();
+    if (!isAvailable) {
+      Alert.alert('Not available', 'Apple sign-in is not available on this device.');
+      return;
+    }
+    try {
+      const credential = await AppleAuthentication.signInAsync({
+        requestedScopes: [
+          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+          AppleAuthentication.AppleAuthenticationScope.EMAIL,
+        ],
+      });
+
+      const { data, error } = await supabase.auth.signInWithIdToken({
+        provider: 'apple',
+        token: credential.identityToken!,
+      });
+      if (error) throw error;
+
+      if (data?.user) {
+        const nameParts = credential.fullName;
+        const fullName = nameParts
+          ? [nameParts.givenName, nameParts.familyName].filter(Boolean).join(' ')
+          : (data.user.email ?? '');
+        await ensureProfile(data.user.id, fullName);
+      }
+    } catch (e: any) {
+      if (e.code === 'ERR_REQUEST_CANCELED') return; // user dismissed
+      throw e;
     }
   };
 
@@ -160,6 +252,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       loading,
       signIn,
       signUp,
+      signInWithGoogle,
+      signInWithApple,
+      sendPasswordReset,
       signOut,
       deactivateAccount,
       refreshProfile,

@@ -74,14 +74,14 @@ export default function ChargingScreen() {
   const fetchSession = async () => {
     const { data } = await supabase
       .from('charging_sessions')
-      .select('*, station:stations(*), booking:bookings(id, listing_id)')
+      .select('*, station:stations(*), booking:bookings(id, listing_id), listing:charger_listings(id, tuya_device_id, power_kw, price_per_kwh, address)')
       .eq('id', sessionId)
       .single();
     if (data) {
       setSession(data as any);
-      if ((data as any).station?.price_per_kwh) {
-        setPricePerKwh((data as any).station.price_per_kwh);
-      }
+      const d = data as any;
+      if (d.station?.price_per_kwh) setPricePerKwh(d.station.price_per_kwh);
+      else if (d.listing?.price_per_kwh) setPricePerKwh(d.listing.price_per_kwh);
     }
   };
 
@@ -119,13 +119,15 @@ export default function ChargingScreen() {
     if (!session || !profile) return;
     setStopLoading(true);
     try {
-      // Turn off Tuya switch for private charger bookings (non-blocking on failure)
-      const bookingId  = (session as any).booking?.id;
-      const listingId  = (session as any).booking?.listing_id;
-      if (bookingId && listingId) {
-        supabase.functions.invoke('control-tuya-switch', {
-          body: { action: 'off', booking_id: bookingId },
-        }).catch(e => console.warn('[ChargingScreen] switch off failed:', e));
+      // Turn off Tuya switch — non-blocking on failure
+      const bookingId = (session as any).booking?.id;
+      const listingId = (session as any).booking?.listing_id ?? (session as any).listing_id;
+      if (listingId) {
+        const body = bookingId
+          ? { action: 'off', booking_id: bookingId }   // customer booking path
+          : { action: 'off', listing_id: listingId };  // investor self-charge path
+        supabase.functions.invoke('control-tuya-switch', { body })
+          .catch(e => console.warn('[ChargingScreen] switch off failed:', e));
       }
 
       const batteryEnd = Math.min(100, Math.floor(20 + kwhDelivered * 4));
