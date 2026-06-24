@@ -200,6 +200,7 @@ const ar = {
 
   // Booking
   booking_title: 'حجز الشحن',
+  booking_directions: 'الاتجاهات',
   booking_choose_day: 'اختر اليوم',
   booking_today: 'اليوم',
   booking_choose_time: 'اختر الوقت',

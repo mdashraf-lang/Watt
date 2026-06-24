@@ -202,6 +202,7 @@ const en: Translations = {
 
   // Booking
   booking_title: 'Book Charging',
+  booking_directions: 'Directions',
   booking_choose_day: 'Choose Day',
   booking_today: 'Today',
   booking_choose_time: 'Choose Time',
