@@ -431,52 +431,112 @@ When investors join, there must be a signed agreement covering commission rate (
 
 ---
 
-## Priority Order for Launch
+## Launch Plan — 2 Weeks Maximum
 
-Work through these in this order — each unlocks the next.
+> **Principle:** Parallel tasks run simultaneously. Each day has one clear goal. Do not start a new task before testing the previous one.
 
-```
-WEEK 1 — Fix what's broken
-──────────────────────────────────────────────────────
-[ ] B-05  Upgrade Expo SDK to v56 (unblocks everything else)
-[ ] B-08  Handle watt://reset-password deep link
-[ ] B-04  Rebuild Tuya toggle as proper Edge Function (HTTP fetch, no Node.js SDK)
+---
 
-WEEK 2 — Wire up money
-──────────────────────────────────────────────────────
-[ ] B-01  Integrate Thawani Checkout API for real wallet top-up
-[ ] B-03  Connect email provider (Resend) — wire up investor application emails
+### Week 1 — Fix the Code + Wire Up Money
 
-WEEK 3 — Notifications & polish
-──────────────────────────────────────────────────────
-[ ] B-02  Add expo-notifications, store push tokens, send booking/session alerts
-[ ] B-10  Save notification preferences to DB
-[ ] B-09  Realtime switch_status update for investor charger screen
+| Day | Task | Est. Time | Note |
+|-----|------|-----------|------|
+| **Sun** | B-05: Upgrade Expo SDK to v56 | Full day | **Must be first** — unblocks everything |
+| **Sun** (parallel) | B-11 + B-12: Register Apple Developer + Google Play accounts | 1 hour | Just payment, no dev work |
+| **Mon** | B-08: ResetPasswordScreen + deep link handler | Full day | Relatively quick |
+| **Tue** | B-04: Rebuild Tuya as Edge Function | Full day | HTTP fetch, no Node.js SDK |
+| **Wed + Thu** | B-01: Integrate Thawani Checkout API | 2 days | Heaviest task — do not skip |
+| **Fri** | B-03: Connect Resend to Supabase Edge Functions | Full day | Investor + admin emails |
+| **Fri** (parallel) | B-14: Upgrade Supabase to Pro | 10 min | Just payment in Supabase dashboard |
+| **Fri** (parallel) | B-07: Google Maps production API key | 1 hour | Create Google Cloud project + billing |
 
-WEEK 4 — Infrastructure
-──────────────────────────────────────────────────────
-[ ] B-11  Register Apple Developer account
-[ ] B-12  Register Google Play account
-[ ] B-13  Set up EAS Build for signed releases
-[ ] B-14  Upgrade Supabase to Pro plan
-[ ] B-07  Set up Google Maps production API key with billing
+---
 
-WEEK 5–6 — Legal & website
-──────────────────────────────────────────────────────
-[ ] L-01  Get Privacy Policy + Terms reviewed by Omani lawyer
-[ ] L-02  Complete Commercial Registration
-[ ] L-03  Draft investor agreement
-[ ] B-16  Register domain
-[ ] W-01  Build marketing website (Framer recommended)
-[ ] B-15  Produce App Store screenshots and descriptions (EN + AR)
+### Week 2 — Notifications + Infrastructure + Launch
 
-WEEK 7 — Launch
-──────────────────────────────────────────────────────
-[ ] Submit to App Store (allow 1–3 days review)
-[ ] Submit to Google Play (allow 1–3 days review)
-[ ] Launch website
-[ ] B-06  Plan investor withdrawal feature for v1.1
-```
+| Day | Task | Est. Time | Note |
+|-----|------|-----------|------|
+| **Sun** | B-02: expo-notifications + store Push Tokens | Full day | |
+| **Sun** (parallel) | B-10: Save notification prefs to DB | Half day | Simple migration + wire up toggles |
+| **Mon** | B-09: Realtime switch_status update | Full day | Supabase Realtime subscription |
+| **Mon** (parallel) | B-13: Set up EAS Build | 2 hours | `eas build --profile production` |
+| **Mon** (parallel) | B-16: Register domain | 15 min | |
+| **Tue** | B-15: App Store screenshots + descriptions (EN + AR) | Full day | DIY with simulator |
+| **Tue** (parallel) | W-01: Build marketing website on Framer | Full day | Ready-made template + Watt content |
+| **Wed** | Final signed build + full flow testing | Full day | Test every user flow end-to-end |
+| **Thu** | Submit to App Store + Google Play | Full day | 1–3 days review starts now |
+| **Fri** | Launch website + await store approvals | — | |
+
+---
+
+### What Cannot Be Done in 2 Weeks ⚠️
+
+These must be **started now** but will not finish before launch:
+
+| Task | Reason | Solution |
+|------|--------|----------|
+| L-01: Legal review | Omani lawyer needs 2+ weeks minimum | **Send request today**, launch with current text, update after review |
+| L-02: Commercial Registration | Government process takes weeks | Start paperwork now in parallel |
+| L-03: Investor agreement | Requires legal review | Use a temporary template, update post-launch |
+| B-06: Investor withdrawal | 2–4 days dev + Thawani Disbursement decision | v1.1 — after launch |
+
+---
+
+---
+
+## Total Cost in OMR — Safe First Launch
+
+> Exchange rate: 1 OMR = 2.60 USD
+
+### One-Time Costs (paid once before launch)
+
+| Item | Why It's Non-Negotiable | OMR |
+|------|------------------------|-----|
+| Apple Developer Account | Cannot publish to iOS without it | **38 OMR** |
+| Google Play Developer | Cannot publish to Android without it | **10 OMR** |
+| Domain name (.app or .com) | Website, deep links, email credibility | **6 OMR** |
+| Framer website template | Fastest path to a professional bilingual site | **17 OMR** |
+| Commercial Registration (Oman) | Required to open a Thawani merchant account | **200 OMR** |
+| Ministry of Commerce fees | Mandatory with registration | **50–150 OMR** |
+| Legal review (Privacy + Terms + Investor agreement) | Protection under Oman's Personal Data Law (RD 6/2022) | **300–900 OMR** |
+| **Total One-Time** | | **621 – 1,321 OMR** |
+
+---
+
+### Monthly Recurring Costs
+
+| Service | Why It's Non-Negotiable | OMR/month |
+|---------|------------------------|-----------|
+| Supabase Pro | Without it, the app pauses automatically after inactivity | **10 OMR** |
+| Framer (website hosting) | Keeps the marketing site live | **6 OMR** |
+| Apple Developer (annualized) | Annual fee spread monthly | **3 OMR** |
+| Google Maps | Within the free $200/month credit at launch | **0 OMR** |
+| Resend (email) | Free up to 3,000 emails/month | **0 OMR** |
+| **Total Monthly** | | **~19 OMR/month** |
+
+---
+
+### Variable Cost (deducted from revenue automatically)
+
+| Item | Calculation |
+|------|-------------|
+| Thawani transaction fee | 2.9% + 0.100 OMR per transaction |
+| Example: user tops up 10 OMR | Thawani takes **0.385 OMR** → you receive **9.615 OMR** |
+
+---
+
+### Bottom Line
+
+| | Low | High |
+|-|-----|------|
+| **Before launch (one-time)** | **621 OMR** | **1,321 OMR** |
+| **Every month after launch** | **19 OMR** | **77 OMR** |
+
+**621 OMR** = DIY everything (Framer template + basic legal)
+
+**1,321 OMR** = experienced lawyer for legal review + higher ministry fees
+
+> **Recommendation:** Budget **900–1,000 OMR** for the first launch — covers everything with a comfortable safety margin.
 
 ---
 
