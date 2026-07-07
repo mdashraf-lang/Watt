@@ -1,17 +1,40 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import type { Session } from '@supabase/supabase-js';
 import * as WebBrowser from 'expo-web-browser';
 import { supabase } from '../lib/supabase';
+import { registerForPushNotifications, unregisterPushNotifications } from '../lib/notifications';
 import type { Profile } from '../types';
 
 WebBrowser.maybeCompleteAuthSession();
+
+// Parse auth params from both the query string (?a=b) and the URL
+// fragment (#a=b). Supabase returns recovery tokens in either place
+// depending on the auth flow (PKCE = code query, implicit = token hash).
+function parseAuthParams(url: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const collect = (str: string) => {
+    for (const pair of str.split('&')) {
+      const eq = pair.indexOf('=');
+      if (eq < 0) continue;
+      const k = decodeURIComponent(pair.slice(0, eq));
+      const v = decodeURIComponent(pair.slice(eq + 1));
+      if (k) params[k] = v;
+    }
+  };
+  const q = url.indexOf('?');
+  const h = url.indexOf('#');
+  if (q >= 0) collect(url.slice(q + 1, h >= 0 ? h : undefined));
+  if (h >= 0) collect(url.slice(h + 1));
+  return params;
+}
 
 interface AuthContextType {
   session:    Session | null;
   profile:    Profile | null;
   devProfile: Profile | null;
   loading:    boolean;
+  recoveryMode: boolean;
   signOut:           () => Promise<void>;
   refreshProfile:    () => Promise<void>;
   updateProfile:     (data: Partial<Profile>) => Promise<void>;
@@ -21,6 +44,8 @@ interface AuthContextType {
   signInWithGoogle:   () => Promise<void>;
   signInWithApple:    () => Promise<void>;
   sendPasswordReset:  (email: string) => Promise<void>;
+  completePasswordRecovery: (newPassword: string) => Promise<void>;
+  cancelPasswordRecovery:   () => Promise<void>;
   devSignIn:  (profile: Profile) => void;
   devSignOut: () => void;
 }
@@ -28,10 +53,11 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session,    setSession]    = useState<Session | null>(null);
-  const [profile,    setProfile]    = useState<Profile | null>(null);
-  const [devProfile, setDevProfile] = useState<Profile | null>(null);
-  const [loading,    setLoading]    = useState(true);
+  const [session,      setSession]      = useState<Session | null>(null);
+  const [profile,      setProfile]      = useState<Profile | null>(null);
+  const [devProfile,   setDevProfile]   = useState<Profile | null>(null);
+  const [loading,      setLoading]      = useState(true);
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   const isSigningUp = useRef(false);
 
@@ -69,16 +95,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
-      if (session) fetchProfile(session.user.id);
+      if (session) {
+        fetchProfile(session.user.id);
+        registerForPushNotifications(session.user.id);
+      }
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      // Password-recovery deep link — show the reset screen instead of
+      // routing the user into the app with the temporary recovery session.
+      if (event === 'PASSWORD_RECOVERY') { setRecoveryMode(true); setSession(session); return; }
       setSession(session);
       if (session) {
         if (!isSigningUp.current) {
           fetchProfile(session.user.id);
         }
+        if (event === 'SIGNED_IN') registerForPushNotifications(session.user.id);
       } else {
         setProfile(null);
         setLoading(false);
@@ -87,6 +120,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => subscription.unsubscribe();
   }, [fetchProfile]);
+
+  // ── Password-reset deep link (watt://reset-password) ───────────
+  // The reset email opens this URL from outside the app. We establish
+  // the recovery session from its tokens, then flip recoveryMode so the
+  // navigator shows the "set new password" screen.
+  useEffect(() => {
+    const handleUrl = async (url: string | null) => {
+      if (!url || !url.includes('reset-password')) return;
+      const p = parseAuthParams(url);
+      try {
+        if (p.access_token && p.refresh_token) {
+          const { error } = await supabase.auth.setSession({
+            access_token: p.access_token,
+            refresh_token: p.refresh_token,
+          });
+          if (error) throw error;
+        } else if (p.code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(url);
+          if (error) throw error;
+        } else if (p.error_description) {
+          Alert.alert('Reset link problem', p.error_description);
+          return;
+        } else {
+          return;
+        }
+        setRecoveryMode(true);
+      } catch (e: any) {
+        Alert.alert('Reset link expired', e?.message ?? 'This password reset link is no longer valid. Please request a new one.');
+      }
+    };
+
+    Linking.getInitialURL().then(handleUrl);
+    const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+    return () => sub.remove();
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -208,6 +276,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     setDevProfile(null);
+    if (session?.user.id) await unregisterPushNotifications(session.user.id);
     await supabase.auth.signOut();
   };
 
@@ -239,6 +308,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await fetchProfile(session.user.id);
   };
 
+  // Set the new password using the active recovery session, then sign
+  // out so the user logs in fresh with their new credentials.
+  const completePasswordRecovery = async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    setRecoveryMode(false);
+    await supabase.auth.signOut();
+  };
+
+  const cancelPasswordRecovery = async () => {
+    setRecoveryMode(false);
+    await supabase.auth.signOut();
+  };
+
   const devSignIn  = (p: Profile) => setDevProfile(p);
   const devSignOut = () => setDevProfile(null);
 
@@ -250,11 +333,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile:    activeProfile,
       devProfile,
       loading,
+      recoveryMode,
       signIn,
       signUp,
       signInWithGoogle,
       signInWithApple,
       sendPasswordReset,
+      completePasswordRecovery,
+      cancelPasswordRecovery,
       signOut,
       deactivateAccount,
       refreshProfile,

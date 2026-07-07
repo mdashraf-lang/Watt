@@ -283,6 +283,11 @@ export default function BookingScreen() {
         const timeStr = `${selectedHour}:${selectedMinute} ${selectedPeriod}`;
         supabase.functions.invoke('notify-booking', { body: { phone: profile.phone, date: dateStr, time: timeStr } });
       }
+      // Push the host a heads-up when their charger is booked (fire-and-forget)
+      if (listingId) {
+        supabase.functions.invoke('send-push', { body: { booking_id: data.id } })
+          .catch(e => console.warn('[BookingScreen] host push failed:', e));
+      }
       navigation.replace('ActiveBooking', { bookingId: data.id });
     } catch (e: any) {
       Alert.alert(t.booking_error, e.message);

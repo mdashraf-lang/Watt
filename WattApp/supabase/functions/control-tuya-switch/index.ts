@@ -60,7 +60,57 @@ async function switchOff(d: string) { return tuyaCall('POST', `/v1.0/devices/${d
 async function switchStatus(d: string): Promise<boolean> {
   const r = await tuyaCall('GET', `/v1.0/devices/${d}/status`)
   if (!r.success) throw new Error(`Tuya status: ${r.msg}`)
-  return r.result?.find((x: any) => x.code === 'switch_1')?.value ?? false
+  return r.result?.find((x: any) => x.code === 'switch_1' || x.code === 'switch')?.value ?? false
+}
+
+// ── Energy metering ────────────────────────────────────────────
+// Fallback scales (value / 10^scale) when the device spec lookup fails.
+const FALLBACK_SCALES: Record<string, number> = {
+  cur_power: 1,               // 0.1 W
+  cur_voltage: 1,             // 0.1 V
+  cur_current: 3,             // mA
+  add_ele: 2,                 // 0.01 kWh
+  total_forward_energy: 2,    // 0.01 kWh
+  forward_energy_total: 2,    // 0.01 kWh
+}
+
+// Reads live electrical data from the device. Returns nulls for values
+// the device does not report (non-metering switches only have switch_1).
+async function deviceEnergy(d: string) {
+  const [statusRes, specRes] = await Promise.all([
+    tuyaCall('GET', `/v1.0/devices/${d}/status`),
+    tuyaCall('GET', `/v1.0/devices/${d}/specifications`).catch(() => null),
+  ])
+  if (!statusRes.success) throw new Error(`Tuya status: ${statusRes.msg}`)
+  const status: { code: string; value: unknown }[] = statusRes.result ?? []
+
+  // Per-device scale map from the Tuya specification endpoint
+  const scales: Record<string, number> = {}
+  if (specRes?.success) {
+    for (const s of specRes.result?.status ?? []) {
+      try {
+        const v = JSON.parse(s.values)
+        if (typeof v.scale === 'number') scales[s.code] = v.scale
+      } catch { /* non-numeric spec — ignore */ }
+    }
+  }
+  const read = (code: string): number | null => {
+    const item = status.find(x => x.code === code)
+    if (!item || typeof item.value !== 'number') return null
+    return item.value / Math.pow(10, scales[code] ?? FALLBACK_SCALES[code] ?? 0)
+  }
+
+  const powerW    = read('cur_power')
+  const energyKwh = read('total_forward_energy') ?? read('forward_energy_total') ?? read('add_ele')
+
+  return {
+    switch:     status.find(x => x.code === 'switch_1' || x.code === 'switch')?.value === true,
+    power_w:    powerW,                       // live power draw (W)
+    voltage_v:  read('cur_voltage'),          // line voltage (V)
+    current_a:  read('cur_current'),          // current (A)
+    energy_kwh: energyKwh,                    // cumulative meter reading (kWh)
+    metering:   powerW !== null || energyKwh !== null,
+  }
 }
 
 // ── Main ───────────────────────────────────────────────────────
@@ -73,10 +123,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     )
     const { action, booking_id, listing_id } = await req.json() as {
-      action: 'on' | 'off' | 'status'; booking_id?: string; listing_id?: string
+      action: 'on' | 'off' | 'status' | 'energy'; booking_id?: string; listing_id?: string
     }
-    if (!action || !['on', 'off', 'status'].includes(action))
-      return err('action must be on | off | status')
+    if (!action || !['on', 'off', 'status', 'energy'].includes(action))
+      return err('action must be on | off | status | energy')
 
     // ── Path 1: internal auto-shutoff (pg_cron) ────────────────
     if (SHUTOFF_SECRET && req.headers.get('x-auto-shutoff-secret') === SHUTOFF_SECRET) {
@@ -108,6 +158,12 @@ serve(async (req) => {
         .maybeSingle()
       if (!l)                return err('Listing not found or not yours', 404)
       if (!l.tuya_device_id) return err('No Tuya device configured yet', 400)
+
+      if (action === 'energy') {
+        const e = await deviceEnergy(l.tuya_device_id)
+        await supabase.from('charger_listings').update({ switch_status: e.switch }).eq('id', l.id)
+        return ok({ success: true, ...e })
+      }
 
       let switchState: boolean
       if (action === 'on') {
@@ -141,6 +197,12 @@ serve(async (req) => {
     const l = booking.listing as any
     if (!l?.tuya_device_id) return err('Charger device not configured. Contact the host.', 400)
     if (!l?.tuya_verified)  return err('Charger not yet verified by admin.', 400)
+
+    if (action === 'energy') {
+      const e = await deviceEnergy(l.tuya_device_id)
+      await supabase.from('charger_listings').update({ switch_status: e.switch }).eq('id', l.id)
+      return ok({ success: true, ...e })
+    }
 
     if (action === 'on') {
       const now   = Date.now()

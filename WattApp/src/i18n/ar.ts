@@ -75,6 +75,19 @@ const ar = {
   forgot_no_account: 'لم يتم العثور على حساب بهذا البريد الإلكتروني.',
   forgot_done: 'تم',
 
+  // Reset password (deep link screen)
+  reset_title: 'تعيين كلمة مرور جديدة',
+  reset_subtitle: 'اختر كلمة مرور جديدة لحساب واط الخاص بك.',
+  reset_new_label: 'كلمة المرور الجديدة',
+  reset_new_ph: 'أدخل كلمة المرور الجديدة',
+  reset_confirm_label: 'تأكيد كلمة المرور',
+  reset_confirm_ph: 'أعد إدخال كلمة المرور الجديدة',
+  reset_submit_btn: 'تحديث كلمة المرور',
+  reset_cancel: 'إلغاء',
+  reset_mismatch: 'كلمتا المرور غير متطابقتين',
+  reset_success_title: 'تم تحديث كلمة المرور',
+  reset_success_msg: 'تم تغيير كلمة المرور. يرجى تسجيل الدخول بكلمة المرور الجديدة.',
+
   auth_or_divider: 'أو المتابعة باستخدام',
   auth_google: 'المتابعة عبر جوجل',
   auth_apple: 'تسجيل الدخول بـ Apple',
@@ -250,8 +263,11 @@ const ar = {
   charging_header: 'جلسة الشحن',
   charging_battery: 'شحن البطارية',
   charging_energy: 'الطاقة',
+  charging_power: 'القدرة',
   charging_cost: 'التكلفة',
   charging_duration: 'المدة',
+  charging_real_data: 'قراءة العداد المباشرة',
+  charging_estimated: 'تقديري — جارٍ الاتصال بالعداد…',
   charging_balance_after: 'الرصيد المتبقي بعد الشحن',
   charging_stop: 'إيقاف الشحن',
   charging_stop_title: 'إيقاف الشحن',
@@ -323,6 +339,9 @@ const ar = {
   wallet_success_title: 'تم الشحن',
   wallet_success_msg: 'تم إضافة',
   wallet_success_suffix: 'OMR إلى محفظتك بنجاح ✅',
+  wallet_pending_title: 'الدفع قيد الانتظار',
+  wallet_pending_msg: 'لم يكتمل الدفع بعد. إذا تم خصم المبلغ، فسيتم تحديث رصيدك قريباً.',
+  wallet_payment_error: 'تعذّر إتمام عملية الدفع. يرجى المحاولة مرة أخرى.',
 
   // Profile
   profile_dev_name: 'مستخدم Watt',
