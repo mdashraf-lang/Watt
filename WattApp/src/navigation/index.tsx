@@ -27,6 +27,7 @@ import type {
 } from '../types';
 
 // Auth screens
+import LandingScreen       from '../screens/SplashScreen';
 import SignInScreen        from '../screens/SignInScreen';
 import SignUpScreen        from '../screens/SignUpScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
@@ -179,6 +180,7 @@ function GuestTabs() {
 function GuestNavigator() {
   return (
     <GuestStack.Navigator screenOptions={{ headerShown: false }}>
+      <GuestStack.Screen name="Landing"   component={LandingScreen} />
       <GuestStack.Screen name="SignIn"    component={SignInScreen} />
       <GuestStack.Screen name="SignUp"    component={SignUpScreen} />
       <GuestStack.Screen name="GuestTabs" component={GuestTabs} options={{ animation: 'fade' }} />

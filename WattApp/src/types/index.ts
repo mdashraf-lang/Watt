@@ -140,6 +140,7 @@ export type RootStackParamList = {
 };
 
 export type GuestStackParamList = {
+  Landing: undefined;
   SignIn: undefined;
   SignUp: undefined;
   GuestTabs: undefined;
