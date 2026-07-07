@@ -29,6 +29,7 @@ const en: Translations = {
   splash_next: 'Next',
   splash_start: 'Get Started',
   splash_skip: 'Skip',
+  splash_tap_hint: 'Tap anywhere to continue',
 
   // Auth - Role Select
   auth_role_title: 'Welcome to Watt',

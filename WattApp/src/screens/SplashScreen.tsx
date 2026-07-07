@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-  FlatList, StyleSheet, Text, TouchableOpacity, View,
+  FlatList, Pressable, StyleSheet, Text, TouchableOpacity, View,
   ViewToken, useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -80,7 +80,8 @@ export default function SplashScreen() {
   const logoSize = Math.min(96, width * 0.26);
 
   return (
-    <View style={styles.container}>
+    // Tap anywhere on the screen to continue / advance the slides
+    <Pressable style={styles.container} onPress={handleNext}>
       <StatusBar style="light" />
 
       {/* Animated decorative orbs */}
@@ -139,6 +140,8 @@ export default function SplashScreen() {
         ))}
       </View>
 
+      <Text style={styles.tapHint}>{t.splash_tap_hint}</Text>
+
       {/* Actions */}
       <Animated.View
         entering={FadeInUp.delay(650).duration(700)}
@@ -160,7 +163,7 @@ export default function SplashScreen() {
           </TouchableOpacity>
         )}
       </Animated.View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -187,7 +190,8 @@ const styles = StyleSheet.create({
   slideTitle: { fontSize: 22, fontWeight: '700', color: '#FFFFFF', textAlign: 'center', lineHeight: 30 },
   slideSubtitle: { fontSize: 15, color: 'rgba(255,255,255,0.7)', textAlign: 'center', lineHeight: 22 },
 
-  dotsRow: { flexDirection: 'row', gap: 8, marginBottom: 28 },
+  dotsRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  tapHint: { color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 20, letterSpacing: 0.3 },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.25)' },
   dotActive: { width: 28, backgroundColor: COLORS.gold, borderRadius: 4 },
 

@@ -14,7 +14,7 @@ import {
 import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../components/OSMMap';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Station, ChargerListing } from '../types';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
@@ -67,6 +67,7 @@ export default function MapScreen() {
     offline: t.status_offline,
   };
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const { session, devProfile, profile } = useAuth();
   const { activeSessionId, activeStationName } = useCharging();
   const isAuthenticated = !!session || !!devProfile;
@@ -358,7 +359,7 @@ export default function MapScreen() {
               keyExtractor={item => item.id}
               renderItem={renderStationCard}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 32 }}
+              contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
             />
           )}
         </Animated.View>

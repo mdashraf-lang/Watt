@@ -27,6 +27,7 @@ const ar = {
   splash_next: 'التالي',
   splash_start: 'ابدأ الآن',
   splash_skip: 'تخطي',
+  splash_tap_hint: 'اضغط في أي مكان للمتابعة',
 
   // Auth - Role Select
   auth_role_title: 'مرحباً بك في واط',

@@ -3,7 +3,7 @@ import {
   ActivityIndicator, Alert, Linking, Platform, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -149,6 +149,7 @@ export default function BookingScreen() {
   const { station, listingId } = route.params;
   const { profile } = useAuth();
   const { t, isRTL } = useLang();
+  const insets = useSafeAreaInsets();
 
   const DAY_NAMES   = [t.day_0, t.day_1, t.day_2, t.day_3, t.day_4, t.day_5, t.day_6];
   const MONTH_NAMES = [t.month_0, t.month_1, t.month_2, t.month_3, t.month_4,
@@ -311,7 +312,7 @@ export default function BookingScreen() {
         <View style={{ width: 40 }} />
       </View>
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 120 }} keyboardShouldPersistTaps="handled">
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 + insets.bottom }} keyboardShouldPersistTaps="handled">
 
         {/* Station card */}
         <View style={s.stationCard}>
@@ -485,7 +486,7 @@ export default function BookingScreen() {
       </ScrollView>
 
       {/* Book button */}
-      <View style={s.footer}>
+      <View style={[s.footer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
         <TouchableOpacity
           style={[s.bookBtn, (loading || slotUnavailable) && s.bookBtnDisabled]}
           onPress={handleBook}

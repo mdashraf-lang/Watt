@@ -10,7 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as WebBrowser from 'expo-web-browser';
 import type { WalletTransaction } from '../types';
 import { supabase } from '../lib/supabase';
@@ -52,6 +52,7 @@ export default function WalletScreen() {
     bonus: t.wallet_tx_bonus,
   };
   const { profile, refreshProfile } = useAuth();
+  const insets = useSafeAreaInsets();
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [showTopUp, setShowTopUp] = useState(false);
@@ -234,7 +235,7 @@ export default function WalletScreen() {
       {/* Top Up Modal */}
       <Modal visible={showTopUp} transparent animationType="slide" onRequestClose={() => setShowTopUp(false)}>
         <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowTopUp(false)} activeOpacity={1}>
-          <View style={styles.modalSheet}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 24) + 8 }]}>
             <View style={styles.modalHandle} />
 
             <View style={styles.modalTitleRow}>
