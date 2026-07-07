@@ -1,23 +1,26 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
-import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// Remote push was removed from Expo Go in SDK 53 — touching any push API
-// there throws a fatal error. Push only works in a dev/production build.
+// Remote push was removed from Expo Go in SDK 53 — even *importing*
+// expo-notifications runs native init that throws there. So we never load
+// the module statically; it's imported lazily only in dev/production builds.
 const isExpoGo = Constants.executionEnvironment === 'storeClient';
 
-// Show notifications while the app is foregrounded (skip in Expo Go).
+// Configure the foreground notification handler once (real builds only).
 if (!isExpoGo) {
-  Notifications.setNotificationHandler({
-    handleNotification: async () => ({
-      shouldShowBanner: true,
-      shouldShowList:   true,
-      shouldPlaySound:  true,
-      shouldSetBadge:   false,
-    }),
-  });
+  import('expo-notifications')
+    .then((Notifications) => {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowBanner: true,
+          shouldShowList:   true,
+          shouldPlaySound:  true,
+          shouldSetBadge:   false,
+        }),
+      });
+    })
+    .catch(() => { /* module unavailable — ignore */ });
 }
 
 // Resolve the EAS project id (required for Expo push tokens). Present
@@ -32,12 +35,16 @@ function getProjectId(): string | undefined {
 /**
  * Requests notification permission, obtains the Expo push token, and
  * saves it to the signed-in user's profile. Safe to call on every login;
- * no-ops on simulators, when permission is denied, or before EAS is set up.
+ * no-ops in Expo Go, on simulators, when permission is denied, or before
+ * EAS is set up.
  */
 export async function registerForPushNotifications(userId: string): Promise<void> {
+  if (isExpoGo) return;                          // remote push unavailable in Expo Go (SDK 53+)
   try {
-    if (isExpoGo) return;                       // remote push unavailable in Expo Go (SDK 53+)
-    if (!Device.isDevice) return;              // push only works on physical devices
+    const Device = await import('expo-device');
+    if (!Device.isDevice) return;                // push only works on physical devices
+
+    const Notifications = await import('expo-notifications');
 
     if (Platform.OS === 'android') {
       await Notifications.setNotificationChannelAsync('default', {
@@ -52,7 +59,7 @@ export async function registerForPushNotifications(userId: string): Promise<void
     if (existing !== 'granted') {
       status = (await Notifications.requestPermissionsAsync()).status;
     }
-    if (status !== 'granted') return;          // user declined — respect it
+    if (status !== 'granted') return;            // user declined — respect it
 
     const projectId = getProjectId();
     if (!projectId) {
