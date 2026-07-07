@@ -30,10 +30,9 @@ export default function InvestorChargerScreen() {
   const [selfCharging, setSelfCharging] = useState(false);
   const deviceRef = useRef<TextInput>(null);
 
-  // Edit form
+  // Edit form — price is NOT editable here: pricing is set by Watt admin
   const [editAddress,  setEditAddress]  = useState('');
   const [editPowerKw,  setEditPowerKw]  = useState('');
-  const [editPrice,    setEditPrice]    = useState('');
   const [editStart,    setEditStart]    = useState('08:00');
   const [editEnd,      setEditEnd]      = useState('22:00');
   const [editDesc,     setEditDesc]     = useState('');
@@ -82,7 +81,6 @@ export default function InvestorChargerScreen() {
     if (listing) {
       setEditAddress(listing.address);
       setEditPowerKw(String(listing.power_kw));
-      setEditPrice(String(listing.price_per_kwh));
       setEditStart(listing.availability_start ?? '08:00');
       setEditEnd(listing.availability_end ?? '22:00');
       setEditDesc(listing.description ?? '');
@@ -103,7 +101,6 @@ export default function InvestorChargerScreen() {
       const updates = {
         address:            editAddress.trim(),
         power_kw:           parseFloat(editPowerKw) || listing.power_kw,
-        price_per_kwh:      parseFloat(editPrice)   || listing.price_per_kwh,
         availability_start: editStart,
         availability_end:   editEnd,
         description:        editDesc.trim() || null,
@@ -134,7 +131,7 @@ export default function InvestorChargerScreen() {
         longitude:     app?.longitude ?? 58.383,
         charger_type:  app?.charger_type ?? 'Type2',
         power_kw:      app?.power_kw  ?? 7.4,
-        price_per_kwh: 0.025,
+        price_per_kwh: 0.028,   // placeholder — DB trigger applies the admin-set default
         is_available:  false,
       }).select().single();
       if (error) throw error;
@@ -447,10 +444,16 @@ export default function InvestorChargerScreen() {
                   keyboardType="decimal-pad" returnKeyType="next" />
               </EditField>
 
+              {/* Price is read-only — set centrally by Watt admin */}
               <EditField label={t.host_charger_price}>
-                <TextInput style={s.input} value={editPrice} onChangeText={setEditPrice}
-                  placeholder={t.inv_charger_price_ph} placeholderTextColor={COLORS.textTertiary}
-                  keyboardType="decimal-pad" returnKeyType="next" />
+                <View style={[s.input, { justifyContent: 'center' }]}>
+                  <Text style={{ color: COLORS.text, fontSize: 15 }}>
+                    {listing?.price_per_kwh} OMR/kWh
+                  </Text>
+                  <Text style={{ color: COLORS.textTertiary, fontSize: 11, marginTop: 2 }}>
+                    {t.inv_price_admin_note}
+                  </Text>
+                </View>
               </EditField>
 
               <View style={s.timeRow}>

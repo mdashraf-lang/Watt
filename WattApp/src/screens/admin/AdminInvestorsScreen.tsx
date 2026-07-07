@@ -235,7 +235,8 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
 }) {
   const [comment,  setComment]  = useState(app.admin_comment ?? '');
   const [saving,   setSaving]   = useState(false);
-  const [listing,  setListing]  = useState<{ id: string; tuya_device_id: string | null; tuya_verified: boolean } | null>(null);
+  const [listing,  setListing]  = useState<{ id: string; tuya_device_id: string | null; tuya_verified: boolean; price_per_kwh: number } | null>(null);
+  const [priceInput, setPriceInput] = useState('');
   const sc = statusColors[app.status] ?? statusColors.pending;
 
   // Fetch the charger listing if application is approved
@@ -243,12 +244,40 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
     if (app.status === 'approved') {
       supabase
         .from('charger_listings')
-        .select('id, tuya_device_id, tuya_verified')
+        .select('id, tuya_device_id, tuya_verified, price_per_kwh')
         .eq('host_id', app.user_id)
         .maybeSingle()
-        .then(({ data }) => { if (data) setListing(data as any); });
+        .then(({ data }) => {
+          if (data) {
+            setListing(data as any);
+            setPriceInput(String((data as any).price_per_kwh ?? ''));
+          }
+        });
     }
   }, [app.user_id, app.status]);
+
+  // Admin-only: set the price per kWh for this investor's charger
+  const handleSavePrice = async () => {
+    if (!listing) return;
+    const price = parseFloat(priceInput);
+    if (!price || price <= 0 || price > 1) {
+      Alert.alert(t.error, t.admin_price_invalid); return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from('charger_listings')
+        .update({ price_per_kwh: price })
+        .eq('id', listing.id);
+      if (error) throw error;
+      setListing(prev => prev ? { ...prev, price_per_kwh: price } : prev);
+      Alert.alert('✓', t.admin_price_saved);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleVerifyDevice = () => {
     if (!listing) return;
@@ -484,6 +513,34 @@ function ApplicationDetail({ app, statusLabel, statusColors, onClose, onUpdate, 
                     : <Text style={detail.saveBtnText}>✓ {t.admin_tuya_verify_btn}</Text>
                   }
                 </TouchableOpacity>
+              )}
+
+              {/* ── Pricing (admin-only control) ── */}
+              {listing && (
+                <>
+                  <SectionLabel icon={<ZapIcon size={14} color={COLORS.primary} strokeWidth={2} />} title={t.admin_price_section} />
+                  <View style={detail.commentCard}>
+                    <TextInput
+                      style={detail.commentInput}
+                      value={priceInput}
+                      onChangeText={setPriceInput}
+                      placeholder={t.admin_price_ph}
+                      placeholderTextColor={COLORS.textTertiary}
+                      keyboardType="decimal-pad"
+                    />
+                    <TouchableOpacity
+                      style={[detail.saveBtn, saving && detail.saveBtnDisabled]}
+                      onPress={handleSavePrice}
+                      disabled={saving}
+                      activeOpacity={0.85}
+                    >
+                      {saving
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Text style={detail.saveBtnText}>{t.admin_price_save}</Text>
+                      }
+                    </TouchableOpacity>
+                  </View>
+                </>
               )}
             </>
           )}
