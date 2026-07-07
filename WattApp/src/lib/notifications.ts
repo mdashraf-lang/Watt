@@ -4,15 +4,21 @@ import * as Device from 'expo-device';
 import Constants from 'expo-constants';
 import { supabase } from './supabase';
 
-// Show notifications while the app is foregrounded.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList:   true,
-    shouldPlaySound:  true,
-    shouldSetBadge:   false,
-  }),
-});
+// Remote push was removed from Expo Go in SDK 53 — touching any push API
+// there throws a fatal error. Push only works in a dev/production build.
+const isExpoGo = Constants.executionEnvironment === 'storeClient';
+
+// Show notifications while the app is foregrounded (skip in Expo Go).
+if (!isExpoGo) {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList:   true,
+      shouldPlaySound:  true,
+      shouldSetBadge:   false,
+    }),
+  });
+}
 
 // Resolve the EAS project id (required for Expo push tokens). Present
 // once the project is linked with EAS; before that we skip registration.
@@ -30,6 +36,7 @@ function getProjectId(): string | undefined {
  */
 export async function registerForPushNotifications(userId: string): Promise<void> {
   try {
+    if (isExpoGo) return;                       // remote push unavailable in Expo Go (SDK 53+)
     if (!Device.isDevice) return;              // push only works on physical devices
 
     if (Platform.OS === 'android') {
