@@ -55,12 +55,36 @@ async function tuyaCall(method: string, path: string, body?: object): Promise<an
     ...(bodyStr ? { body: bodyStr } : {}),
   })).json()
 }
-async function switchOn(d: string)  { return tuyaCall('POST', `/v1.0/devices/${d}/commands`, { commands: [{ code: 'switch_1', value: true  }] }) }
-async function switchOff(d: string) { return tuyaCall('POST', `/v1.0/devices/${d}/commands`, { commands: [{ code: 'switch_1', value: false }] }) }
-async function switchStatus(d: string): Promise<boolean> {
+// Different Tuya models expose their main switch under different DP codes
+// (switch_1, switch, switch_on, …). Detect the device's actual code from
+// its live status instead of hardcoding one — sending the wrong code makes
+// Tuya reply "command or value not support".
+const KNOWN_SWITCH_CODES = ['switch_1', 'switch', 'switch_on', 'switch_2', 'switch_3']
+
+async function getDeviceStatus(d: string): Promise<{ code: string; value: unknown }[]> {
   const r = await tuyaCall('GET', `/v1.0/devices/${d}/status`)
   if (!r.success) throw new Error(`Tuya status: ${r.msg}`)
-  return r.result?.find((x: any) => x.code === 'switch_1' || x.code === 'switch')?.value ?? false
+  return r.result ?? []
+}
+
+function findSwitchCode(status: { code: string; value: unknown }[]): string {
+  for (const c of KNOWN_SWITCH_CODES)
+    if (status.some(x => x.code === c && typeof x.value === 'boolean')) return c
+  const anyBool = status.find(x => typeof x.value === 'boolean' && x.code.toLowerCase().includes('switch'))
+  if (anyBool) return anyBool.code
+  throw new Error('Device reports no switch function')
+}
+
+async function setSwitch(d: string, value: boolean) {
+  const code = findSwitchCode(await getDeviceStatus(d))
+  return tuyaCall('POST', `/v1.0/devices/${d}/commands`, { commands: [{ code, value }] })
+}
+async function switchOn(d: string)  { return setSwitch(d, true)  }
+async function switchOff(d: string) { return setSwitch(d, false) }
+async function switchStatus(d: string): Promise<boolean> {
+  const status = await getDeviceStatus(d)
+  try { return status.find(x => x.code === findSwitchCode(status))?.value === true }
+  catch { return false }
 }
 
 // ── Energy metering ────────────────────────────────────────────
@@ -103,8 +127,12 @@ async function deviceEnergy(d: string) {
   const powerW    = read('cur_power')
   const energyKwh = read('total_forward_energy') ?? read('forward_energy_total') ?? read('add_ele')
 
+  let switchState = false
+  try { switchState = status.find(x => x.code === findSwitchCode(status))?.value === true }
+  catch { /* device has no switch DP */ }
+
   return {
-    switch:     status.find(x => x.code === 'switch_1' || x.code === 'switch')?.value === true,
+    switch:     switchState,
     power_w:    powerW,                       // live power draw (W)
     voltage_v:  read('cur_voltage'),          // line voltage (V)
     current_a:  read('cur_current'),          // current (A)

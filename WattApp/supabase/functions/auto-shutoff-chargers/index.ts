@@ -45,8 +45,21 @@ async function tuyaCall(method: string, path: string, body?: object): Promise<an
     ...(bodyStr ? { body: bodyStr } : {}),
   })).json()
 }
+// Detect the device's actual switch DP code (models vary: switch_1,
+// switch, switch_on, …) — sending the wrong one fails with
+// "command or value not support".
+const KNOWN_SWITCH_CODES = ['switch_1', 'switch', 'switch_on', 'switch_2', 'switch_3']
+
 async function switchOff(deviceId: string) {
-  return tuyaCall('POST', `/v1.0/devices/${deviceId}/commands`, { commands: [{ code: 'switch_1', value: false }] })
+  const statusRes = await tuyaCall('GET', `/v1.0/devices/${deviceId}/status`)
+  if (!statusRes.success) throw new Error(`Tuya status: ${statusRes.msg}`)
+  const status: { code: string; value: unknown }[] = statusRes.result ?? []
+
+  let code = KNOWN_SWITCH_CODES.find(c => status.some(x => x.code === c && typeof x.value === 'boolean'))
+  if (!code) code = status.find(x => typeof x.value === 'boolean' && x.code.toLowerCase().includes('switch'))?.code
+  if (!code) throw new Error('Device reports no switch function')
+
+  return tuyaCall('POST', `/v1.0/devices/${deviceId}/commands`, { commands: [{ code, value: false }] })
 }
 
 // ── Main handler ───────────────────────────────────────────────
