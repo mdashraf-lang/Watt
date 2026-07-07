@@ -249,6 +249,18 @@ export default function BookingScreen() {
     if (!profile) return;
     // Pay-after-charging model: no wallet balance required to book.
     // The session is paid when charging stops (wallet first, card for the rest).
+    // Debt cap: block new bookings until outstanding balance is settled.
+    if (profile.wallet_balance < -0.5) {
+      Alert.alert(
+        t.booking_debt_title,
+        `${t.booking_debt_msg} ${Math.abs(profile.wallet_balance).toFixed(3)} OMR`,
+        [
+          { text: t.cancel, style: 'cancel' },
+          { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
+        ],
+      );
+      return;
+    }
     setLoading(true);
     try {
       const day = days[selectedDay];

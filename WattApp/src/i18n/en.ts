@@ -276,6 +276,8 @@ const en: Translations = {
   pay_later: 'Pay Later',
   pay_later_note: 'Online payment is coming soon. The amount has been recorded and will be settled from your wallet later.',
   inv_price_admin_note: 'Pricing is set by Watt — contact support to discuss rates.',
+  booking_debt_title: 'Outstanding Balance',
+  booking_debt_msg: 'Please settle your unpaid balance before booking again:',
   admin_price_section: 'Pricing (OMR per kWh)',
   admin_price_ph: 'e.g. 0.028',
   admin_price_save: 'Save Price',

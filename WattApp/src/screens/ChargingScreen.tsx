@@ -231,40 +231,32 @@ export default function ChargingScreen() {
           .catch(e => console.warn('[ChargingScreen] switch off failed:', e));
       }
 
+      // Billing happens SERVER-SIDE: the RPC recomputes the cost from the
+      // admin-set price, caps kWh at physical limits, and atomically
+      // completes session + booking + wallet. Idempotent — a double tap
+      // never double-charges.
       const batteryEnd = Math.min(100, Math.floor(20 + kwhDelivered * 4));
-      await supabase.from('charging_sessions').update({
-        status: 'completed',
-        ended_at: new Date().toISOString(),
-        kwh_delivered: kwhDelivered,
-        cost,
-        battery_end_pct: batteryEnd,
-      }).eq('id', sessionId);
-
-      const newBalance = profile.wallet_balance - cost;
-      await supabase.from('profiles').update({
-        wallet_balance: newBalance,
-        total_sessions: profile.total_sessions + 1,
-        total_kwh:      profile.total_kwh + kwhDelivered,
-      }).eq('id', profile.id);
-
-      await supabase.from('wallet_transactions').insert({
-        user_id:       profile.id,
-        type:          'charge',
-        amount:        -cost,
-        balance_after: newBalance,
-        description:   isRTL ? `شحن في ${stationName}` : `Charging at ${stationName}`,
-        reference_id:  sessionId,
+      const { data: result, error: rpcErr } = await supabase.rpc('complete_charging_session', {
+        p_session:     sessionId,
+        p_kwh:         kwhDelivered,
+        p_battery_end: batteryEnd,
+        p_description: isRTL ? `شحن في ${stationName}` : `Charging at ${stationName}`,
       });
+      if (rpcErr) throw rpcErr;
+
+      const finalCost = Number(result?.cost ?? cost);
+      const finalKwh  = Number(result?.kwh ?? kwhDelivered);
+      const balance   = Number(result?.balance ?? 0);
 
       clearActiveSession();
       await refreshProfile();
 
       // Wallet went negative — offer to settle the difference immediately
-      if (newBalance < -0.0005) await promptPayDue(-newBalance);
+      if (balance < -0.0005) await promptPayDue(-balance);
 
       navigation.replace('SessionSummary', {
-        kwhDelivered,
-        cost,
+        kwhDelivered: finalKwh,
+        cost: finalCost,
         durationSeconds: elapsedSeconds,
         stationName,
       });

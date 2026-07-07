@@ -104,21 +104,55 @@ serve(async (req) => {
           .eq('id', row.listing_id)
       }
 
-      // 2. Calculate delivered energy up to booking end time
+      // 2. Calculate delivered energy up to booking end time.
+      //    Prefer the app-synced real meter reading (kwh_delivered is
+      //    updated every 30s while charging); fall back to a rated-power
+      //    estimate, and never accept more than physics allows.
+      const { data: listing } = await supabase.from('charger_listings')
+        .select('price_per_kwh, power_kw').eq('id', row.listing_id).maybeSingle()
+      const price = Number(listing?.price_per_kwh ?? 0.028)
+      const power = Number(listing?.power_kw ?? KW_RATE)
+
       const startMs      = new Date(row.started_at).getTime()
       const endMs        = new Date(row.booking_ends_at).getTime()
       const elapsedHours = Math.max(0, (endMs - startMs) / 3_600_000)
-      const kwh          = parseFloat((elapsedHours * KW_RATE).toFixed(4))
+      const estimate     = elapsedHours * power
+      const synced       = Number(row.kwh_delivered ?? 0)
+      const kwh  = parseFloat(Math.min(synced > 0 ? synced : estimate, estimate * 1.25).toFixed(4))
+      const cost = Math.round(kwh * price * 1000) / 1000
 
       // 3. Complete the charging session at booking end time
       await supabase.from('charging_sessions').update({
         status:        'completed',
         ended_at:      row.booking_ends_at,
         kwh_delivered: kwh,
+        cost,
       }).eq('id', row.session_id)
 
       // 4. Complete the booking
       await supabase.from('bookings').update({ status: 'completed' }).eq('id', row.booking_id)
+
+      // 5. Bill the customer — abandoned sessions are not free electricity.
+      //    (Service role bypasses the client-side wallet protection trigger.)
+      const { data: prof } = await supabase.from('profiles')
+        .select('wallet_balance, total_sessions, total_kwh')
+        .eq('id', row.user_id).single()
+      if (prof) {
+        const newBalance = Number(prof.wallet_balance) - cost
+        await supabase.from('profiles').update({
+          wallet_balance: newBalance,
+          total_sessions: Number(prof.total_sessions) + 1,
+          total_kwh:      Number(prof.total_kwh) + kwh,
+        }).eq('id', row.user_id)
+        await supabase.from('wallet_transactions').insert({
+          user_id:       row.user_id,
+          type:          'charge',
+          amount:        -cost,
+          balance_after: newBalance,
+          description:   'Charging session (auto-stop)',
+          reference_id:  row.session_id,
+        })
+      }
 
       results.push({ session_id: row.session_id, status: 'completed' })
       console.log(`[auto-shutoff] completed session ${row.session_id}`)
