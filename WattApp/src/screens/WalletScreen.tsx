@@ -160,7 +160,9 @@ export default function WalletScreen() {
           <Text style={styles.balanceLabel}>{t.wallet_balance_label}</Text>
         </View>
 
-        <Text style={styles.balanceAmount}>{profile?.wallet_balance.toFixed(3) ?? '0.000'}</Text>
+        <Text style={[styles.balanceAmount, (profile?.wallet_balance ?? 0) < 0 && { color: '#fca5a5' }]}>
+          {profile?.wallet_balance.toFixed(3) ?? '0.000'}
+        </Text>
         <Text style={styles.balanceCurrency}>OMR</Text>
 
         <TouchableOpacity style={styles.topUpBtn} onPress={() => setShowTopUp(true)} activeOpacity={0.85}>

@@ -3,7 +3,7 @@ import {
   ActivityIndicator, ScrollView, StyleSheet, Text,
   TouchableOpacity, View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../../components/OSMMap';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Station } from '../../types';
@@ -34,7 +34,7 @@ export default function AdminMapScreen() {
     offline:   t.admin_map_offline,
   };
 
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<OSMMapHandle>(null);
   const [stations, setStations]   = useState<Station[]>([]);
   const [loading,  setLoading]    = useState(true);
   const [selected, setSelected]   = useState<Station | null>(null);
@@ -86,28 +86,23 @@ export default function AdminMapScreen() {
 
   return (
     <View style={styles.root}>
-      {/* Map */}
-      <MapView
+      {/* Map — free OpenStreetMap (no API key); see OSMMap.tsx */}
+      <OSMMap
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        provider={PROVIDER_GOOGLE}
         initialRegion={OMAN_REGION}
+        markers={stations.map((s): OSMMarkerSpec => ({
+          id: s.id,
+          latitude: s.latitude, longitude: s.longitude,
+          color: STATUS_COLOR[s.status] ?? COLORS.offline,
+          icon: 'zap',
+        }))}
+        onMarkerPress={(id) => {
+          const s = stations.find(x => x.id === id);
+          if (s) setSelected(s);
+        }}
         showsUserLocation
-        showsMyLocationButton={false}
-        onPress={() => setSelected(null)}
-      >
-        {stations.map(s => (
-          <Marker
-            key={s.id}
-            coordinate={{ latitude: s.latitude, longitude: s.longitude }}
-            onPress={() => setSelected(s)}
-          >
-            <View style={[styles.pin, { backgroundColor: STATUS_COLOR[s.status] }]}>
-              <ZapIcon size={15} color="#fff" strokeWidth={2.5} />
-            </View>
-          </Marker>
-        ))}
-      </MapView>
+      />
 
       {/* Top overlay */}
       <SafeAreaView edges={['top']} style={styles.topOverlay} pointerEvents="box-none">

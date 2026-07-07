@@ -4,7 +4,7 @@ import {
   ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MapView, { PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import OSMMap, { OSMMapHandle, OSMRegion as Region } from '../components/OSMMap';
 import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
@@ -219,20 +219,15 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
                 /* Location picked — show map thumbnail + details */
                 <View style={styles.mapPickerContent}>
                   <View style={styles.mapThumbWrap}>
-                    <MapView
+                    <OSMMap
                       style={styles.mapThumb}
-                      provider={PROVIDER_GOOGLE}
-                      region={{
+                      initialRegion={{
                         latitude: location.latitude,
                         longitude: location.longitude,
                         latitudeDelta: 0.02,
                         longitudeDelta: 0.02,
                       }}
-                      scrollEnabled={false}
-                      zoomEnabled={false}
-                      rotateEnabled={false}
-                      pitchEnabled={false}
-                      pointerEvents="none"
+                      interactive={false}
                     />
                     {/* Static pin overlay on thumbnail */}
                     <View style={styles.mapThumbPin} pointerEvents="none">
@@ -362,7 +357,7 @@ function LocationPickerModal({ visible, initial, onConfirm, onClose, t }: {
   onClose: () => void;
   t: any;
 }) {
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<OSMMapHandle>(null);
   const geocodeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [region, setRegion] = useState<Region>(
@@ -445,15 +440,13 @@ function LocationPickerModal({ visible, initial, onConfirm, onClose, t }: {
   return (
     <Modal visible={visible} animationType="slide" statusBarTranslucent>
       <View style={mapStyles.container}>
-        {/* Map */}
-        <MapView
+        {/* Map — free OpenStreetMap (no API key); see OSMMap.tsx */}
+        <OSMMap
           ref={mapRef}
           style={mapStyles.map}
-          provider={PROVIDER_GOOGLE}
           initialRegion={region}
           onRegionChangeComplete={handleRegionChangeComplete}
           showsUserLocation
-          showsMyLocationButton={false}
         />
 
         {/* Fixed center pin — stays still while map moves */}

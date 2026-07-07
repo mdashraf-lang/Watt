@@ -11,7 +11,7 @@ import {
   View,
   Dimensions,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_GOOGLE, Region } from 'react-native-maps';
+import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../components/OSMMap';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -70,7 +70,7 @@ export default function MapScreen() {
   const { session, devProfile, profile } = useAuth();
   const { activeSessionId, activeStationName } = useCharging();
   const isAuthenticated = !!session || !!devProfile;
-  const mapRef = useRef<MapView>(null);
+  const mapRef = useRef<OSMMapHandle>(null);
 
   const [stations, setStations]         = useState<Station[]>([]);
   const [listings, setListings]         = useState<ChargerListing[]>([]);
@@ -241,58 +241,52 @@ export default function MapScreen() {
 
   const isInvestor = profile?.role === 'investor' || profile?.role === 'host';
 
+  // Pins for the OSM map: official stations, other home chargers, own charger
+  const mapMarkers = React.useMemo<OSMMarkerSpec[]>(() => [
+    ...stations.map(s => ({
+      id: `station:${s.id}`,
+      latitude: s.latitude, longitude: s.longitude,
+      color: STATUS_COLOR[s.status] ?? COLORS.offline,
+      icon: 'zap' as const,
+    })),
+    ...listings
+      .filter(l => !myListing || l.id !== myListing.id)
+      .map(l => ({
+        id: `listing:${l.id}`,
+        latitude: l.latitude, longitude: l.longitude,
+        color: '#3B82F6',
+        icon: 'home' as const,
+      })),
+    ...(myListing ? [{
+      id: `listing:${myListing.id}`,
+      latitude: myListing.latitude, longitude: myListing.longitude,
+      color: COLORS.gold,
+      icon: 'star' as const,
+    }] : []),
+  ], [stations, listings, myListing]);
+
+  const handleMarkerPress = useCallback((id: string) => {
+    const [kind, realId] = [id.slice(0, id.indexOf(':')), id.slice(id.indexOf(':') + 1)];
+    if (kind === 'station') {
+      const s = stations.find(x => x.id === realId);
+      if (s) selectStation(s);
+    } else if (kind === 'listing') {
+      const l = (myListing && myListing.id === realId) ? myListing : listings.find(x => x.id === realId);
+      if (l) selectListing(l);
+    }
+  }, [stations, listings, myListing]);
+
   return (
     <View style={styles.container}>
-      {/* Map */}
-      <MapView
+      {/* Map — free OpenStreetMap (no API key); see OSMMap.tsx */}
+      <OSMMap
         ref={mapRef}
         style={StyleSheet.absoluteFill}
-        provider={PROVIDER_GOOGLE}
         initialRegion={OMAN_REGION}
+        markers={mapMarkers}
+        onMarkerPress={handleMarkerPress}
         showsUserLocation
-        showsMyLocationButton={false}
-      >
-        {/* Official station pins */}
-        {stations.map(station => (
-          <Marker
-            key={station.id}
-            coordinate={{ latitude: station.latitude, longitude: station.longitude }}
-            onPress={() => selectStation(station)}
-          >
-            <View style={[styles.pin, { backgroundColor: STATUS_COLOR[station.status] }]}>
-              <ZapIcon size={16} color="#fff" strokeWidth={2.5} />
-            </View>
-          </Marker>
-        ))}
-
-        {/* Other home charger listings (blue) */}
-        {listings
-          .filter(l => !myListing || l.id !== myListing.id)
-          .map(listing => (
-            <Marker
-              key={`listing-${listing.id}`}
-              coordinate={{ latitude: listing.latitude, longitude: listing.longitude }}
-              onPress={() => selectListing(listing)}
-            >
-              <View style={[styles.pin, styles.pinHome]}>
-                <HomeIcon size={16} color="#fff" strokeWidth={2} />
-              </View>
-            </Marker>
-          ))}
-
-        {/* Investor's own charger (gold star) */}
-        {myListing && (
-          <Marker
-            key="my-listing"
-            coordinate={{ latitude: myListing.latitude, longitude: myListing.longitude }}
-            onPress={() => selectListing(myListing)}
-          >
-            <View style={styles.myPin}>
-              <StarIcon size={16} color="#fff" strokeWidth={2} filled />
-            </View>
-          </Marker>
-        )}
-      </MapView>
+      />
 
       {/* Search bar */}
       <SafeAreaView edges={['top']} style={styles.topOverlay}>

@@ -247,17 +247,8 @@ export default function BookingScreen() {
       Alert.alert(t.warning, 'Enter a duration between 15 and 720 minutes.'); return;
     }
     if (!profile) return;
-    if (profile.wallet_balance < estimatedCost) {
-      Alert.alert(
-        t.booking_low_balance,
-        `${t.booking_low_balance_msg} ${profile.wallet_balance.toFixed(3)} OMR. ${t.booking_low_balance_needed} ${estimatedCost.toFixed(3)} OMR`,
-        [
-          { text: t.cancel, style: 'cancel' },
-          { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
-        ],
-      );
-      return;
-    }
+    // Pay-after-charging model: no wallet balance required to book.
+    // The session is paid when charging stops (wallet first, card for the rest).
     setLoading(true);
     try {
       const day = days[selectedDay];

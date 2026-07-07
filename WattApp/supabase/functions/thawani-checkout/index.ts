@@ -6,8 +6,9 @@ const THAWANI_BASE   = Deno.env.get('THAWANI_BASE_URL') ?? 'https://uatcheckout.
 const SECRET_KEY     = Deno.env.get('THAWANI_SECRET_KEY') ?? ''
 const PUBLISHABLE_KEY = Deno.env.get('THAWANI_PUBLISHABLE_KEY') ?? ''
 
-// Guardrails on a single top-up (OMR).
-const MIN_OMR = 1
+// Guardrails on a single payment (OMR). Min 0.1 = Thawani's 100-baisa floor,
+// and post-charging session payments can be well under 1 OMR.
+const MIN_OMR = 0.1
 const MAX_OMR = 500
 
 const CORS = {

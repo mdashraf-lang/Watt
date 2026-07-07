@@ -4,6 +4,7 @@ import {
   Text, TouchableOpacity, View, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
@@ -179,6 +180,42 @@ export default function ChargingScreen() {
     );
   };
 
+  // Supermarket model: pay the exact session cost via Thawani when the
+  // wallet doesn't cover it. Falls back to "recorded as due" while the
+  // payment gateway is not configured yet.
+  const payDue = async (due: number) => {
+    try {
+      const amount = Math.max(0.1, Math.round(due * 1000) / 1000);
+      const { data: created, error } = await supabase.functions.invoke('thawani-checkout', {
+        body: { action: 'create', amount },
+      });
+      if (error || !created?.pay_url) throw new Error(created?.error ?? error?.message ?? 'unavailable');
+
+      const result = await WebBrowser.openAuthSessionAsync(created.pay_url, 'watt://wallet');
+      if (result.type !== 'success' && result.type !== 'dismiss') return;
+
+      await supabase.functions.invoke('thawani-checkout', {
+        body: { action: 'verify', session_id: created.session_id },
+      });
+      await refreshProfile();
+    } catch {
+      Alert.alert(t.pay_due_title, t.pay_later_note);
+    }
+  };
+
+  const promptPayDue = (due: number) =>
+    new Promise<void>((resolve) => {
+      Alert.alert(
+        t.pay_due_title,
+        `${t.pay_due_msg} ${due.toFixed(3)} OMR`,
+        [
+          { text: t.pay_later, style: 'cancel', onPress: () => resolve() },
+          { text: t.pay_now, onPress: async () => { await payDue(due); resolve(); } },
+        ],
+        { cancelable: false },
+      );
+    });
+
   const stopCharging = async () => {
     if (!session || !profile) return;
     setStopLoading(true);
@@ -221,6 +258,10 @@ export default function ChargingScreen() {
 
       clearActiveSession();
       await refreshProfile();
+
+      // Wallet went negative — offer to settle the difference immediately
+      if (newBalance < -0.0005) await promptPayDue(-newBalance);
+
       navigation.replace('SessionSummary', {
         kwhDelivered,
         cost,
