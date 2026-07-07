@@ -60,6 +60,24 @@ export default function InvestorChargerScreen() {
 
   useEffect(() => { fetchListing(); }, [fetchListing]);
 
+  // Live-update the charger row (switch_status / is_available) when a
+  // session starts, auto-shutoff fires, or an admin changes it.
+  useEffect(() => {
+    if (!listing?.id) return;
+    const channel = supabase
+      .channel(`listing-${listing.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'charger_listings', filter: `id=eq.${listing.id}` },
+        (payload) => {
+          const row = payload.new as ChargerListing;
+          setListing(prev => (prev ? { ...prev, ...row } : row));
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [listing?.id]);
+
   const openEdit = (focusDevice = false) => {
     if (listing) {
       setEditAddress(listing.address);

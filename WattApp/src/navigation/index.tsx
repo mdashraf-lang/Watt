@@ -27,10 +27,11 @@ import type {
 } from '../types';
 
 // Auth screens
-import SignInScreen       from '../screens/SignInScreen';
-import SignUpScreen       from '../screens/SignUpScreen';
-import GuestProfileScreen from '../screens/GuestProfileScreen';
-import GuestLockedScreen  from '../screens/GuestLockedScreen';
+import SignInScreen        from '../screens/SignInScreen';
+import SignUpScreen        from '../screens/SignUpScreen';
+import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import GuestProfileScreen  from '../screens/GuestProfileScreen';
+import GuestLockedScreen   from '../screens/GuestLockedScreen';
 
 // Customer screens
 import MapScreen                  from '../screens/MapScreen';
@@ -500,7 +501,11 @@ function AdminNavigator() {
 // ── ROOT ──────────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { session, profile, devProfile, loading } = useAuth();
+  const { session, profile, devProfile, loading, recoveryMode } = useAuth();
+
+  // Password-reset deep link takes precedence over all normal routing:
+  // the recovery session must not drop the user into the app.
+  if (recoveryMode) return <ResetPasswordScreen />;
 
   // isLoggedIn: real Supabase session OR dev bypass profile
   const isLoggedIn    = !!session || !!devProfile;

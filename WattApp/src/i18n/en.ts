@@ -77,6 +77,19 @@ const en: Translations = {
   forgot_no_account: 'No account found with this email address.',
   forgot_done: 'Done',
 
+  // Reset password (deep link screen)
+  reset_title: 'Set a New Password',
+  reset_subtitle: 'Choose a new password for your Watt account.',
+  reset_new_label: 'New Password',
+  reset_new_ph: 'Enter new password',
+  reset_confirm_label: 'Confirm Password',
+  reset_confirm_ph: 'Re-enter new password',
+  reset_submit_btn: 'Update Password',
+  reset_cancel: 'Cancel',
+  reset_mismatch: 'Passwords do not match',
+  reset_success_title: 'Password Updated',
+  reset_success_msg: 'Your password has been changed. Please sign in with your new password.',
+
   auth_or_divider: 'Or continue with',
   auth_google: 'Continue with Google',
   auth_apple: 'Sign in with Apple',
@@ -252,8 +265,11 @@ const en: Translations = {
   charging_header: 'Charging Session',
   charging_battery: 'Battery Charging',
   charging_energy: 'Energy',
+  charging_power: 'Power',
   charging_cost: 'Cost',
   charging_duration: 'Duration',
+  charging_real_data: 'Live meter reading',
+  charging_estimated: 'Estimated — connecting to meter…',
   charging_balance_after: 'Remaining Balance After Charging',
   charging_stop: 'Stop Charging',
   charging_stop_title: 'Stop Charging',
@@ -325,6 +341,9 @@ const en: Translations = {
   wallet_success_title: 'Top Up Successful',
   wallet_success_msg: 'Successfully added',
   wallet_success_suffix: 'OMR to your wallet ✅',
+  wallet_pending_title: 'Payment Pending',
+  wallet_pending_msg: 'Your payment has not completed yet. If you were charged, your balance will update shortly.',
+  wallet_payment_error: 'Payment could not be processed. Please try again.',
 
   // Profile
   profile_dev_name: 'Watt User',

@@ -19,7 +19,8 @@ type Nav   = NativeStackNavigationProp<MainStackParamList, 'Charging'>;
 type Route = RouteProp<MainStackParamList, 'Charging'>;
 
 const PRICE_PER_KWH_DEFAULT = 0.028;
-const KW_RATE = 22;
+const KW_RATE_DEFAULT = 22;          // fallback estimate when device has no metering
+const ENERGY_POLL_MS  = 15_000;      // how often we read real data from the hardware
 
 export default function ChargingScreen() {
   const navigation = useNavigation<Nav>();
@@ -35,6 +36,18 @@ export default function ChargingScreen() {
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [stopLoading,    setStopLoading]    = useState(false);
   const [pricePerKwh,    setPricePerKwh]    = useState(PRICE_PER_KWH_DEFAULT);
+  const [livePowerKw,    setLivePowerKw]    = useState<number | null>(null);
+  const [isRealData,     setIsRealData]     = useState(false);
+
+  // Real hardware readings accumulated from the Tuya device.
+  // metering=true once the device reports power/energy; kwh is then
+  // measured (meter delta or integrated power), not a time estimate.
+  const realRef = useRef({
+    metering: false,
+    kwh: 0,
+    meterBaseline: null as number | null,  // cumulative meter reading at session start
+    lastPollAt: 0,                         // ms timestamp of last power sample
+  });
 
   // Radar-ping pulse animation
   const pulseAnim = useRef(new Animated.Value(0)).current;
@@ -52,12 +65,16 @@ export default function ChargingScreen() {
   useEffect(() => {
     if (!session) return;
     const startTime = new Date(session.started_at).getTime();
+    const ratedKw   = (session as any).listing?.power_kw ?? KW_RATE_DEFAULT;
     const interval = setInterval(async () => {
       const elapsed = Math.floor((Date.now() - startTime) / 1000);
       setElapsedSeconds(elapsed);
-      const hours = elapsed / 3600;
-      const kwh   = hours * KW_RATE;
-      const c     = kwh * pricePerKwh;
+      // Real measured kWh from the hardware when available;
+      // otherwise estimate from the charger's rated power.
+      const kwh = realRef.current.metering
+        ? realRef.current.kwh
+        : (elapsed / 3600) * ratedKw;
+      const c = kwh * pricePerKwh;
       setKwhDelivered(kwh);
       setCost(c);
       // Sync to DB every 30 s
@@ -70,6 +87,53 @@ export default function ChargingScreen() {
     }, 1000);
     return () => clearInterval(interval);
   }, [session, pricePerKwh]);
+
+  // Poll the physical Tuya switch for real electrical readings
+  useEffect(() => {
+    if (!session) return;
+    const bookingId = (session as any).booking?.id;
+    const listingId = (session as any).booking?.listing_id ?? (session as any).listing_id;
+    if (!bookingId && !listingId) return;   // legacy station session — no hardware attached
+
+    const poll = async () => {
+      try {
+        const body = bookingId
+          ? { action: 'energy', booking_id: bookingId }
+          : { action: 'energy', listing_id: listingId };
+        const { data, error } = await supabase.functions.invoke('control-tuya-switch', { body });
+        if (error || !data?.success) return;
+
+        const r   = realRef.current;
+        const now = Date.now();
+
+        if (data.energy_kwh != null) {
+          // Best source: the device's cumulative kWh meter
+          if (r.meterBaseline == null) r.meterBaseline = data.energy_kwh - r.kwh;
+          let delta = data.energy_kwh - r.meterBaseline;
+          if (delta < 0) {               // meter reset — re-anchor, keep what we measured
+            r.meterBaseline = data.energy_kwh - r.kwh;
+            delta = r.kwh;
+          }
+          r.kwh = delta;
+          r.metering = true;
+        } else if (data.power_w != null) {
+          // No meter — integrate live power samples over time
+          if (r.lastPollAt) r.kwh += (data.power_w * (now - r.lastPollAt)) / 3_600_000_000;
+          r.metering = true;
+        }
+        r.lastPollAt = now;
+
+        if (data.power_w != null) setLivePowerKw(data.power_w / 1000);
+        setIsRealData(r.metering);
+      } catch (e) {
+        console.warn('[ChargingScreen] energy poll failed:', e);
+      }
+    };
+
+    poll();                                            // read immediately on start
+    const interval = setInterval(poll, ENERGY_POLL_MS);
+    return () => clearInterval(interval);
+  }, [session]);
 
   const fetchSession = async () => {
     const { data } = await supabase
@@ -224,13 +288,24 @@ export default function ChargingScreen() {
       <Text style={styles.timer}>{formatTime(elapsedSeconds)}</Text>
       <Text style={styles.timerLabel}>{t.charging_duration}</Text>
 
-      {/* ── Two metrics ────────────────────────── */}
+      {/* ── Metrics ────────────────────────────── */}
       <View style={styles.metricsRow}>
         <View style={styles.metric}>
           <Text style={styles.metricValue}>{kwhDelivered.toFixed(2)}</Text>
           <Text style={styles.metricUnit}>kWh</Text>
           <Text style={styles.metricLabel}>{t.charging_energy}</Text>
         </View>
+
+        {livePowerKw != null && (
+          <>
+            <View style={styles.metricDivider} />
+            <View style={styles.metric}>
+              <Text style={styles.metricValue}>{livePowerKw.toFixed(1)}</Text>
+              <Text style={styles.metricUnit}>kW</Text>
+              <Text style={styles.metricLabel}>{t.charging_power}</Text>
+            </View>
+          </>
+        )}
 
         <View style={styles.metricDivider} />
 
@@ -240,6 +315,11 @@ export default function ChargingScreen() {
           <Text style={styles.metricLabel}>{t.charging_cost}</Text>
         </View>
       </View>
+
+      {/* ── Data source indicator ──────────────── */}
+      <Text style={styles.dataSource}>
+        {isRealData ? `⚡ ${t.charging_real_data}` : t.charging_estimated}
+      </Text>
 
       {/* ── Remaining balance ──────────────────── */}
       {profile && (
@@ -374,6 +454,10 @@ const styles = StyleSheet.create({
   metricDivider: {
     width: 1, height: 52,
     backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  dataSource: {
+    fontSize: 11, color: 'rgba(255,255,255,0.4)',
+    marginBottom: 10, letterSpacing: 0.3,
   },
 
   // Balance

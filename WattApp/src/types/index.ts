@@ -10,6 +10,11 @@ export interface Profile {
   total_kwh: number;
   car_model?: string;
   investor_welcomed?: boolean;
+  expo_push_token?: string | null;
+  notif_push?: boolean;
+  notif_booking?: boolean;
+  notif_charging?: boolean;
+  notif_promo?: boolean;
   created_at: string;
   updated_at: string;
 }

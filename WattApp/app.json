@@ -8,7 +8,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": false,
-      "bundleIdentifier": "com.watt.ev"
+      "bundleIdentifier": "com.watt.ev",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "Watt uses your location to show nearby EV charging stations on the map.",
+        "NSPhotoLibraryUsageDescription": "Watt needs access to your photos so you can set a profile picture.",
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.watt.ev",
@@ -31,9 +36,21 @@
     "scheme": "watt",
     "plugins": [
       "expo-secure-store",
-      "expo-location",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Watt uses your location to show nearby EV charging stations on the map."
+        }
+      ],
       "expo-apple-authentication",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-status-bar",
+      [
+        "expo-notifications",
+        {
+          "color": "#10B981"
+        }
+      ]
     ]
   }
 }

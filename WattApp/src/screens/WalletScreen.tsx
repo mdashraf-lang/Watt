@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as WebBrowser from 'expo-web-browser';
 import type { WalletTransaction } from '../types';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -76,22 +77,38 @@ export default function WalletScreen() {
     if (!profile) return;
     setTopUpLoading(true);
     try {
-      const newBalance = profile.wallet_balance + selectedAmount;
-      await supabase.from('profiles').update({ wallet_balance: newBalance }).eq('id', profile.id);
-      await supabase.from('wallet_transactions').insert({
-        user_id: profile.id,
-        type: 'topup',
-        amount: selectedAmount,
-        balance_after: newBalance,
-        description: `شحن رصيد - ${selectedAmount} OMR`,
-        payment_method: 'thawani',
+      // 1. Create a Thawani checkout session on the server
+      const { data: created, error: createErr } = await supabase.functions.invoke('thawani-checkout', {
+        body: { action: 'create', amount: selectedAmount },
       });
+      if (createErr || !created?.pay_url) {
+        throw new Error(created?.error ?? createErr?.message ?? t.wallet_payment_error);
+      }
+
+      // 2. Open Thawani's hosted payment page; returns on the watt:// redirect
+      const result = await WebBrowser.openAuthSessionAsync(created.pay_url, 'watt://wallet');
+      if (result.type !== 'success' && result.type !== 'dismiss') {
+        setTopUpLoading(false);
+        return; // user backed out before paying
+      }
+
+      // 3. Verify with Thawani and credit the wallet only if actually paid
+      const { data: verified, error: verifyErr } = await supabase.functions.invoke('thawani-checkout', {
+        body: { action: 'verify', session_id: created.session_id },
+      });
+      if (verifyErr) throw new Error(verifyErr.message);
+
       await refreshProfile();
       await fetchTransactions();
-      setShowTopUp(false);
-      Alert.alert(t.wallet_success_title, `${t.wallet_success_msg} ${selectedAmount} ${t.wallet_success_suffix}`);
+
+      if (verified?.status === 'paid') {
+        setShowTopUp(false);
+        Alert.alert(t.wallet_success_title, `${t.wallet_success_msg} ${selectedAmount} ${t.wallet_success_suffix}`);
+      } else {
+        Alert.alert(t.wallet_pending_title, t.wallet_pending_msg);
+      }
     } catch (e: any) {
-      Alert.alert('خطأ', e.message);
+      Alert.alert(t.error, e.message ?? t.wallet_payment_error);
     } finally {
       setTopUpLoading(false);
     }

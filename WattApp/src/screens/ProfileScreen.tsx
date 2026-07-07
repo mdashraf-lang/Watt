@@ -85,11 +85,28 @@ export default function ProfileScreen() {
     });
   }, [profile?.id]);
 
-  // Notification toggles
-  const [notifPush,     setNotifPush]     = useState(true);
-  const [notifBooking,  setNotifBooking]  = useState(true);
-  const [notifCharging, setNotifCharging] = useState(true);
-  const [notifPromo,    setNotifPromo]    = useState(false);
+  // Notification toggles — initialised from the profile, persisted on change
+  const [notifPush,     setNotifPush]     = useState(profile?.notif_push     ?? true);
+  const [notifBooking,  setNotifBooking]  = useState(profile?.notif_booking  ?? true);
+  const [notifCharging, setNotifCharging] = useState(profile?.notif_charging ?? true);
+  const [notifPromo,    setNotifPromo]    = useState(profile?.notif_promo    ?? false);
+
+  // Keep toggles in sync when the profile (re)loads, e.g. after login
+  useEffect(() => {
+    setNotifPush(profile?.notif_push         ?? true);
+    setNotifBooking(profile?.notif_booking   ?? true);
+    setNotifCharging(profile?.notif_charging ?? true);
+    setNotifPromo(profile?.notif_promo       ?? false);
+  }, [profile?.id]);
+
+  // Optimistically flip the toggle, then persist to the profile.
+  const persistNotif = (
+    key: 'notif_push' | 'notif_booking' | 'notif_charging' | 'notif_promo',
+    setter: (v: boolean) => void,
+  ) => (value: boolean) => {
+    setter(value);
+    updateProfile({ [key]: value }).catch(() => setter(!value));
+  };
 
   // Charging history
   const [sessions,         setSessions]         = useState<ChargingSession[]>([]);
@@ -462,10 +479,10 @@ export default function ProfileScreen() {
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
             <Text style={styles.modalTitle}>{t.notif_title}</Text>
-            <ToggleRow label={t.notif_push}     sub={t.notif_push_sub}     value={notifPush}     onToggle={setNotifPush} />
-            <ToggleRow label={t.notif_booking}  sub={t.notif_booking_sub}  value={notifBooking}  onToggle={setNotifBooking} />
-            <ToggleRow label={t.notif_charging} sub={t.notif_charging_sub} value={notifCharging} onToggle={setNotifCharging} />
-            <ToggleRow label={t.notif_promo}    sub={t.notif_promo_sub}    value={notifPromo}    onToggle={setNotifPromo} />
+            <ToggleRow label={t.notif_push}     sub={t.notif_push_sub}     value={notifPush}     onToggle={persistNotif('notif_push', setNotifPush)} />
+            <ToggleRow label={t.notif_booking}  sub={t.notif_booking_sub}  value={notifBooking}  onToggle={persistNotif('notif_booking', setNotifBooking)} />
+            <ToggleRow label={t.notif_charging} sub={t.notif_charging_sub} value={notifCharging} onToggle={persistNotif('notif_charging', setNotifCharging)} />
+            <ToggleRow label={t.notif_promo}    sub={t.notif_promo_sub}    value={notifPromo}    onToggle={persistNotif('notif_promo', setNotifPromo)} />
           </View>
         </TouchableOpacity>
       </Modal>
