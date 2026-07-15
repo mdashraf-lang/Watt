@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet, Platform,
+  ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -70,8 +71,9 @@ const InvestorTab    = createBottomTabNavigator<InvestorTabParamList>();
 // ── Tab Bar ────────────────────────────────────────────────────
 
 function CustomTabBar({ state, descriptors, navigation, accentColor }: BottomTabBarProps & { accentColor: string }) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={tabStyles.container}>
+    <View style={[tabStyles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label =
@@ -109,7 +111,6 @@ const tabStyles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 12,
     paddingHorizontal: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: -6 },
@@ -503,17 +504,16 @@ function AdminNavigator() {
 // ── ROOT ──────────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { session, profile, devProfile, loading, recoveryMode } = useAuth();
+  const { session, profile, loading, recoveryMode } = useAuth();
 
   // Password-reset deep link takes precedence over all normal routing:
   // the recovery session must not drop the user into the app.
   if (recoveryMode) return <ResetPasswordScreen />;
 
-  // isLoggedIn: real Supabase session OR dev bypass profile
-  const isLoggedIn    = !!session || !!devProfile;
-  const activeProfile = profile ?? devProfile;
+  const isLoggedIn    = !!session;
+  const activeProfile = profile;
 
-  if (loading || (session && !profile && !devProfile)) {
+  if (loading || (session && !profile)) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primaryDark }}>
         <ActivityIndicator size="large" color={COLORS.primary} />

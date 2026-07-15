@@ -68,9 +68,9 @@ export default function MapScreen() {
   };
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
-  const { session, devProfile, profile } = useAuth();
+  const { session, profile } = useAuth();
   const { activeSessionId, activeStationName } = useCharging();
-  const isAuthenticated = !!session || !!devProfile;
+  const isAuthenticated = !!session;
   const mapRef = useRef<OSMMapHandle>(null);
 
   const [stations, setStations]         = useState<Station[]>([]);

@@ -32,7 +32,6 @@ function parseAuthParams(url: string): Record<string, string> {
 interface AuthContextType {
   session:    Session | null;
   profile:    Profile | null;
-  devProfile: Profile | null;
   loading:    boolean;
   recoveryMode: boolean;
   signOut:           () => Promise<void>;
@@ -46,8 +45,6 @@ interface AuthContextType {
   sendPasswordReset:  (email: string) => Promise<void>;
   completePasswordRecovery: (newPassword: string) => Promise<void>;
   cancelPasswordRecovery:   () => Promise<void>;
-  devSignIn:  (profile: Profile) => void;
-  devSignOut: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -55,7 +52,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session,      setSession]      = useState<Session | null>(null);
   const [profile,      setProfile]      = useState<Profile | null>(null);
-  const [devProfile,   setDevProfile]   = useState<Profile | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [recoveryMode, setRecoveryMode] = useState(false);
 
@@ -275,7 +271,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signOut = async () => {
-    setDevProfile(null);
     if (session?.user.id) await unregisterPushNotifications(session.user.id);
     await supabase.auth.signOut();
   };
@@ -295,10 +290,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateProfile = async (data: Partial<Profile>) => {
-    if (devProfile) {
-      setDevProfile(prev => prev ? { ...prev, ...data } : prev);
-      return;
-    }
     if (!session) return;
     const { error } = await supabase
       .from('profiles')
@@ -322,16 +313,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
-  const devSignIn  = (p: Profile) => setDevProfile(p);
-  const devSignOut = () => setDevProfile(null);
-
-  const activeProfile = profile ?? devProfile;
-
   return (
     <AuthContext.Provider value={{
       session,
-      profile:    activeProfile,
-      devProfile,
+      profile,
       loading,
       recoveryMode,
       signIn,
@@ -345,8 +330,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       deactivateAccount,
       refreshProfile,
       updateProfile,
-      devSignIn,
-      devSignOut,
     }}>
       {children}
     </AuthContext.Provider>

@@ -408,3 +408,64 @@ The host is a property owner or business who installs a Watt charger at their lo
 | Push notifications | Not started |
 | Host payout system | Not started |
 | App Store submission | Not started |
+----------------------------------------------------------------------------------------------------------------------------------
+ 📊 Watt App — Full Analysis & Code Review
+
+  What you have
+
+  A genuinely complete dual-role EV charging app — much further along than "needs building":
+
+  ┌─────────────┬────────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │    Area     │                                                     State                                                      │
+  ├─────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ App         │ Expo SDK 56 / React Native 0.85 — the current stack, works on both iOS & Android by design                     │
+  ├─────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Screens     │ 30 screens across 4 roles: Guest, Customer, Investor, Admin — all wired                                        │
+  ├─────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Backend     │ Supabase: 21 migrations, 6 edge functions (Thawani payments, Tuya hardware control, push, email, auto-shutoff) │
+  ├─────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Money layer │ Server-side billing, wallet protection triggers, payment verification — already hardened                       │
+  ├─────────────┼────────────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ i18n        │ Full Arabic + English with RTL                                                                                 │
+  └─────────────┴────────────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Code review findings
+
+  ✅ What's genuinely good (worth saying — this is above-average work):
+  - complete_charging_session RPC is excellent: idempotent (can't double-charge), row-locked, prices come from the server never the phone, kWh capped at
+  physical limits
+  - Thawani checkout verifies user identity, session ownership, and amount bounds server-side
+  - The profile trigger makes role/wallet_balance immutable from the client — users can't make themselves admin or give themselves money
+
+  🔴 Blocker — free-charging loophole (supabase/schema.sql:212)
+  The RLS policy sessions: update own lets a user update their own charging session directly. A technical user could mark their session completed with cost 0
+  before calling the billing RPC — the RPC would then see "already completed" and never charge them, even though they physically received electricity.
+  Fix: remove the client update policy on charging_sessions; all completion must go through the RPC. ~10-line migration.
+
+  🟡 Should fix before launch:
+  1. wallet: insert own (schema.sql:216) — users can insert fake rows into their transaction history (balance is protected, but the ledger can be polluted).
+  Inserts should be server-only.
+  2. devProfile/devSignIn bypass still ships in AuthContext.tsx — nothing calls it today, but dead login-bypass code shouldn't go to the App Store.
+  3. Google Maps Android key in app.json is an unrestricted dev key (already tracked in your GO_LIVE.md step 5).
+
+  💭 Minor: tab bar uses hardcoded iOS bottom padding instead of safe-area insets (affects older iPhones); check_email_exists lets anyone probe which emails are
+  registered (a deliberate UX choice — fine, just know it).
+
+  The honest part
+
+  The app doesn't need "building" — it needs the 3 fixes above, then store builds. Your own GO_LIVE.md is accurate: what's left after code fixes is account work
+  only you can do — eas login/eas init (Expo account), Apple Developer ($99/yr), Thawani merchant keys, privacy policy URL. I can guide you through each but
+  can't log in for you.
+
+  ---
+  Proposed plan (the /loop)
+
+  A self-pacing loop that each cycle: fix → verify → report, until the app is store-ready:
+
+  1. Cycle 1: Apply the security migration (close the free-charging hole + wallet ledger), remove dev bypass code, fix safe-area padding
+  2. Cycle 2: Run TypeScript check + expo-doctor, verify nothing broke, deploy the migration to your Supabase project
+  3. Cycle 3: Walk you through eas init + kick off iOS & Android builds, monitor them, fix any build errors that surface
+  4. Ongoing cycles: re-check build status, resolve issues, until both an .aab (Android) and .ipa (iOS) exist
+
+
+
