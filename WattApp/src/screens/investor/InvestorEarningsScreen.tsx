@@ -12,7 +12,7 @@ import type { WalletTransaction } from '../../types';
 import { ZapIcon, TrendingUpIcon, WalletIcon } from '../../components/icons';
 
 const TX_ICON: Record<string, string> = {
-  topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁',
+  topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁', earning: '💰',
 };
 
 export default function InvestorEarningsScreen() {
@@ -40,17 +40,21 @@ export default function InvestorEarningsScreen() {
 
   useEffect(() => { fetchTx(); }, [fetchTx]);
 
+  // Earnings = money the host receives for hosting (type 'earning'), plus any
+  // promotional 'bonus'. A host's own wallet top-ups are NOT earnings.
+  const isEarning = (tx: WalletTransaction) => tx.type === 'earning' || tx.type === 'bonus';
+
   const thisMonthTotal = transactions
     .filter(tx => {
       const d = new Date(tx.created_at);
       const now = new Date();
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-        && (tx.type === 'bonus' || tx.type === 'topup');
+        && isEarning(tx);
     })
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   const allTimeTotal = transactions
-    .filter(tx => tx.type === 'bonus' || tx.type === 'topup')
+    .filter(isEarning)
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   return (

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense, lazy } from 'react';
 import {
   ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet,
 } from 'react-native';
@@ -27,35 +27,58 @@ import type {
   InvestorStackParamList,
 } from '../types';
 
-// Auth screens
+// Auth screens — kept eager: they are the pre-login flow, small, and needed
+// immediately, so lazy-loading them would only add a spinner at first paint.
 import LandingScreen       from '../screens/SplashScreen';
 import SignInScreen        from '../screens/SignInScreen';
 import SignUpScreen        from '../screens/SignUpScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
-import GuestProfileScreen  from '../screens/GuestProfileScreen';
-import GuestLockedScreen   from '../screens/GuestLockedScreen';
 
-// Customer screens
-import MapScreen                  from '../screens/MapScreen';
-import StationDetailsScreen       from '../screens/StationDetailsScreen';
-import BookingScreen              from '../screens/BookingScreen';
-import ActiveBookingScreen        from '../screens/ActiveBookingScreen';
-import ChargingScreen             from '../screens/ChargingScreen';
-import SessionSummaryScreen       from '../screens/SessionSummaryScreen';
-import BookingsScreen             from '../screens/BookingsScreen';
-import WalletScreen               from '../screens/WalletScreen';
-import ProfileScreen              from '../screens/ProfileScreen';
-import InvestorApplicationScreen  from '../screens/InvestorApplicationScreen';
+// ── Lazy loading ──────────────────────────────────────────────
+// Post-login screens are code-split with React.lazy so their (often large)
+// modules are only evaluated the first time the user navigates to them,
+// instead of all at app startup. Each is wrapped in its own Suspense so a
+// slow load shows a small spinner for that screen only — never the whole app.
+function ScreenFallback() {
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background }}>
+      <ActivityIndicator size="large" color={COLORS.primary} />
+    </View>
+  );
+}
 
-// Admin screens
-import AdminMapScreen       from '../screens/admin/AdminMapScreen';
-import AdminUsersScreen     from '../screens/admin/AdminUsersScreen';
-import AdminInvestorsScreen from '../screens/admin/AdminInvestorsScreen';
-import AdminProfileScreen   from '../screens/admin/AdminProfileScreen';
+function lazyScreen<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
+  const Component = lazy(factory);
+  return function LazyScreen(props: any) {
+    return (
+      <Suspense fallback={<ScreenFallback />}>
+        <Component {...props} />
+      </Suspense>
+    );
+  };
+}
 
-// Investor screens
-import InvestorChargerScreen  from '../screens/investor/InvestorChargerScreen';
-import InvestorEarningsScreen from '../screens/investor/InvestorEarningsScreen';
+const GuestProfileScreen        = lazyScreen(() => import('../screens/GuestProfileScreen'));
+const GuestLockedScreen         = lazyScreen(() => import('../screens/GuestLockedScreen'));
+
+const MapScreen                 = lazyScreen(() => import('../screens/MapScreen'));
+const StationDetailsScreen      = lazyScreen(() => import('../screens/StationDetailsScreen'));
+const BookingScreen             = lazyScreen(() => import('../screens/BookingScreen'));
+const ActiveBookingScreen       = lazyScreen(() => import('../screens/ActiveBookingScreen'));
+const ChargingScreen            = lazyScreen(() => import('../screens/ChargingScreen'));
+const SessionSummaryScreen      = lazyScreen(() => import('../screens/SessionSummaryScreen'));
+const BookingsScreen            = lazyScreen(() => import('../screens/BookingsScreen'));
+const WalletScreen              = lazyScreen(() => import('../screens/WalletScreen'));
+const ProfileScreen             = lazyScreen(() => import('../screens/ProfileScreen'));
+const InvestorApplicationScreen = lazyScreen(() => import('../screens/InvestorApplicationScreen'));
+
+const AdminMapScreen            = lazyScreen(() => import('../screens/admin/AdminMapScreen'));
+const AdminUsersScreen          = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
+const AdminInvestorsScreen      = lazyScreen(() => import('../screens/admin/AdminInvestorsScreen'));
+const AdminProfileScreen        = lazyScreen(() => import('../screens/admin/AdminProfileScreen'));
+
+const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
+const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
 
 // Root navigator — switches between Guest, Customer, and Admin
 const RootStack      = createNativeStackNavigator();

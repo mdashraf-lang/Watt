@@ -117,6 +117,7 @@ export default function ActiveBookingScreen() {
         .insert({
           user_id:           profile.id,
           station_id:        booking.station_id ?? null,
+          listing_id:        (booking as any).listing_id ?? null,
           connector_id:      booking.connector_id,
           booking_id:        booking.id,
           status:            'active',

@@ -117,7 +117,7 @@ export interface ChargingSession {
 export interface WalletTransaction {
   id: string;
   user_id: string;
-  type: 'topup' | 'charge' | 'refund' | 'bonus';
+  type: 'topup' | 'charge' | 'refund' | 'bonus' | 'earning';
   amount: number;
   balance_after: number;
   description: string;

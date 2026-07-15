@@ -154,6 +154,16 @@ serve(async (req) => {
         })
       }
 
+      // 6. Pay the charger owner their share (idempotent, reads commission live).
+      if (row.listing_id) {
+        const { error: payErr } = await supabase.rpc('credit_host_earning', {
+          p_listing: row.listing_id,
+          p_session: row.session_id,
+          p_gross:   cost,
+        })
+        if (payErr) console.error(`[auto-shutoff] host payout ${row.session_id}:`, payErr.message)
+      }
+
       results.push({ session_id: row.session_id, status: 'completed' })
       console.log(`[auto-shutoff] completed session ${row.session_id}`)
     } catch (e: any) {
