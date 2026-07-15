@@ -210,15 +210,16 @@ export default function BookingScreen() {
     const day = days[selectedDay];
     const startOfDay = new Date(day); startOfDay.setHours(0,0,0,0);
     const endOfDay   = new Date(day); endOfDay.setHours(23,59,59,999);
-    const { data } = await supabase
-      .from('bookings')
-      .select('booked_at, duration_minutes')
-      .eq('station_id', station.id)
-      .gte('booked_at', startOfDay.toISOString())
-      .lte('booked_at', endOfDay.toISOString())
-      .in('status', ['pending','confirmed','active']);
+    // Uses a SECURITY DEFINER RPC so availability reflects ALL users' bookings
+    // (RLS hides other users' rows) and covers private-charger listings too.
+    const { data } = await supabase.rpc('get_booked_slots', {
+      p_from:    startOfDay.toISOString(),
+      p_to:      endOfDay.toISOString(),
+      p_station: listingId ? null : station.id,
+      p_listing: listingId ?? null,
+    });
     if (data) {
-      const ranges: [number, number][] = data.map(b => {
+      const ranges: [number, number][] = (data as { booked_at: string; duration_minutes: number }[]).map(b => {
         const start = new Date(b.booked_at);
         const startMin = start.getHours() * 60 + start.getMinutes();
         return [startMin, startMin + b.duration_minutes];

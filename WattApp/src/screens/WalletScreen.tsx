@@ -60,18 +60,21 @@ export default function WalletScreen() {
   const [topUpLoading, setTopUpLoading] = useState(false);
   const [txFilter, setTxFilter] = useState<'all' | 'topup' | 'charge' | 'refund' | 'bonus'>('all');
 
-  useEffect(() => { fetchTransactions(); }, []);
+  useEffect(() => { fetchTransactions(); }, [profile?.id]);
 
   const fetchTransactions = async () => {
-    if (!profile) return;
-    const { data } = await supabase
-      .from('wallet_transactions')
-      .select('*')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    if (data) setTransactions(data as WalletTransaction[]);
-    setLoading(false);
+    if (!profile) return;   // wait until the profile loads; effect re-runs on profile.id
+    try {
+      const { data } = await supabase
+        .from('wallet_transactions')
+        .select('*')
+        .eq('user_id', profile.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+      if (data) setTransactions(data as WalletTransaction[]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleTopUp = async () => {
