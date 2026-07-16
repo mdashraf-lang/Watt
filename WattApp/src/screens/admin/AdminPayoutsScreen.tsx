@@ -109,7 +109,7 @@ export default function AdminPayoutsScreen() {
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }} accessibilityRole="button" accessibilityLabel={t.a11y_back}>
           <ArrowLeftIcon size={20} color={COLORS.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t.payout_history}</Text>

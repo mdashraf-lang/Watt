@@ -114,7 +114,15 @@ function CustomTabBar({ state, descriptors, navigation, accentColor }: BottomTab
         const color = isFocused ? accentColor : COLORS.textTertiary;
 
         return (
-          <TouchableOpacity key={route.key} style={tabStyles.tab} onPress={onPress} activeOpacity={0.7}>
+          <TouchableOpacity
+            key={route.key}
+            style={tabStyles.tab}
+            onPress={onPress}
+            activeOpacity={0.7}
+            accessibilityRole="tab"
+            accessibilityLabel={label}
+            accessibilityState={{ selected: isFocused }}
+          >
             <View style={[tabStyles.iconWrap, isFocused && { backgroundColor: accentColor + '1A' }]}>
               {options.tabBarIcon?.({ focused: isFocused, color, size: 22 })}
             </View>

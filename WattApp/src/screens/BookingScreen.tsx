@@ -315,7 +315,7 @@ export default function BookingScreen() {
 
       {/* Header */}
       <View style={s.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={s.backBtn} accessibilityRole="button" accessibilityLabel={t.a11y_back}>
           <ArrowLeftIcon size={20} color={COLORS.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={s.headerTitle}>{t.booking_title}</Text>

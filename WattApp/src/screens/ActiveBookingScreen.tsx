@@ -198,7 +198,7 @@ export default function ActiveBookingScreen() {
 
       {/* ── Header ── */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn} accessibilityRole="button" accessibilityLabel={t.a11y_back}>
           <ArrowLeftIcon size={20} color={COLORS.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t.active_header}</Text>

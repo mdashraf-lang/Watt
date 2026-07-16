@@ -26,6 +26,9 @@ const en: Translations = {
   error_load_title: 'Couldn\'t load data',
   error_load_msg: 'Check your internet connection and try again.',
   retry: 'Retry',
+  a11y_back: 'Go back',
+  a11y_close: 'Close',
+  a11y_home: 'Minimize and go home',
   warning: 'Warning',
   close: 'Close',
 

@@ -25,6 +25,9 @@ const ar = {
   error_load_title: 'تعذّر تحميل البيانات',
   error_load_msg: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
   retry: 'إعادة المحاولة',
+  a11y_back: 'رجوع',
+  a11y_close: 'إغلاق',
+  a11y_home: 'تصغير والعودة للرئيسية',
   warning: 'تنبيه',
 
   // Status
