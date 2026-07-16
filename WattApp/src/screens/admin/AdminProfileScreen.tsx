@@ -4,14 +4,16 @@ import {
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { COLORS } from '../../constants/colors';
-import { ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon } from '../../components/icons';
+import { ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon, WalletIcon } from '../../components/icons';
 
 export default function AdminProfileScreen() {
   const { profile, signOut, updateProfile } = useAuth();
   const { t, toggleLanguage } = useLang();
+  const navigation = useNavigation<any>();
 
   const [editModal, setEditModal] = useState(false);
   const [editPhone, setEditPhone] = useState('');
@@ -91,6 +93,15 @@ export default function AdminProfileScreen() {
         {/* ── Settings ── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.admin_profile_settings}</Text>
+          <TouchableOpacity style={styles.settingRow} onPress={() => navigation.navigate('AdminPayouts')} activeOpacity={0.7}>
+            <View style={styles.settingLeft}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.goldBg }]}>
+                <WalletIcon size={16} color={COLORS.gold} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.payout_history}</Text>
+            </View>
+            <Text style={styles.langToggle}>›</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={[styles.settingRow, styles.settingRowLast]} onPress={toggleLanguage} activeOpacity={0.7}>
             <View style={styles.settingLeft}>
               <View style={[styles.settingIconWrap, { backgroundColor: '#eff6ff' }]}>

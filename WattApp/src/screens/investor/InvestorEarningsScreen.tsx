@@ -1,65 +1,129 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, StyleSheet, Text,
-  TouchableOpacity, View, Alert,
+  ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text,
+  TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
-import type { WalletTransaction } from '../../types';
-import { ZapIcon, TrendingUpIcon, WalletIcon } from '../../components/icons';
+import type { WalletTransaction, PayoutRequest } from '../../types';
+import { TrendingUpIcon, WalletIcon, XIcon } from '../../components/icons';
 
 const TX_ICON: Record<string, string> = {
-  topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁', earning: '💰',
+  topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁', earning: '💰', withdrawal: '🏦',
+};
+
+const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
+  pending:  { color: COLORS.warning, bg: COLORS.warningBg },
+  paid:     { color: COLORS.success, bg: COLORS.successBg },
+  rejected: { color: COLORS.error,   bg: COLORS.errorBg },
 };
 
 export default function InvestorEarningsScreen() {
-  const { profile } = useAuth();
-  const { t } = useLang();
+  const { profile, updateProfile, refreshProfile } = useAuth();
+  const { t, isRTL } = useLang();
+  const insets = useSafeAreaInsets();
 
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const [payouts, setPayouts]           = useState<PayoutRequest[]>([]);
   const [loading, setLoading]           = useState(true);
 
-  const fetchTx = useCallback(async () => {
+  const [showWithdraw, setShowWithdraw] = useState(false);
+  const [bankName, setBankName]   = useState('');
+  const [holder, setHolder]       = useState('');
+  const [iban, setIban]           = useState('');
+  const [amount, setAmount]       = useState('');
+  const [savingBank, setSavingBank]   = useState(false);
+  const [submitting, setSubmitting]   = useState(false);
+
+  const hasBank = !!(profile?.payout_iban && profile.payout_iban.trim());
+
+  const fetchData = useCallback(async () => {
     if (!profile) return;
     setLoading(true);
     try {
-      const { data } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      setTransactions((data ?? []) as WalletTransaction[]);
+      const [{ data: tx }, { data: pr }] = await Promise.all([
+        supabase.from('wallet_transactions').select('*')
+          .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50),
+        supabase.from('payout_requests').select('*')
+          .order('requested_at', { ascending: false }).limit(20),
+      ]);
+      setTransactions((tx ?? []) as WalletTransaction[]);
+      setPayouts((pr ?? []) as PayoutRequest[]);
     } finally {
       setLoading(false);
     }
-  }, [profile]);
+  }, [profile?.id]);
 
-  useEffect(() => { fetchTx(); }, [fetchTx]);
+  useEffect(() => { fetchData(); }, [fetchData]);
 
-  // Earnings = money the host receives for hosting (type 'earning'), plus any
-  // promotional 'bonus'. A host's own wallet top-ups are NOT earnings.
+  // Prefill the bank form from the profile.
+  useEffect(() => {
+    if (profile) {
+      setBankName(profile.payout_bank_name ?? '');
+      setHolder(profile.payout_account_holder ?? '');
+      setIban(profile.payout_iban ?? '');
+    }
+  }, [profile?.id]);
+
   const isEarning = (tx: WalletTransaction) => tx.type === 'earning' || tx.type === 'bonus';
 
   const thisMonthTotal = transactions
     .filter(tx => {
       const d = new Date(tx.created_at);
       const now = new Date();
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-        && isEarning(tx);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear() && isEarning(tx);
     })
     .reduce((sum, tx) => sum + tx.amount, 0);
 
-  const allTimeTotal = transactions
-    .filter(isEarning)
-    .reduce((sum, tx) => sum + tx.amount, 0);
+  const allTimeTotal = transactions.filter(isEarning).reduce((sum, tx) => sum + tx.amount, 0);
+
+  const saveBank = async () => {
+    if (!bankName.trim() || !holder.trim() || !iban.trim()) {
+      Alert.alert(t.error, t.payout_fill_all); return;
+    }
+    setSavingBank(true);
+    try {
+      await updateProfile({
+        payout_bank_name: bankName.trim(),
+        payout_account_holder: holder.trim(),
+        payout_iban: iban.trim(),
+      });
+      Alert.alert('', t.payout_bank_saved);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
+    } finally {
+      setSavingBank(false);
+    }
+  };
+
+  const submitPayout = async () => {
+    const amt = parseFloat(amount);
+    if (!amt || amt < 1) { Alert.alert(t.warning, t.payout_min_note); return; }
+    if (amt > (profile?.wallet_balance ?? 0)) { Alert.alert(t.warning, t.payout_exceeds); return; }
+    if (!hasBank) { Alert.alert(t.warning, t.payout_add_bank_first); return; }
+    setSubmitting(true);
+    try {
+      const { error } = await supabase.rpc('request_payout', { p_amount: amt });
+      if (error) throw error;
+      setShowWithdraw(false);
+      await refreshProfile();
+      await fetchData();
+      Alert.alert('', t.payout_success);
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const statusLabel = (s: string) =>
+    s === 'paid' ? t.payout_status_paid : s === 'rejected' ? t.payout_status_rejected : t.payout_status_pending;
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>{t.inv_earnings_title}</Text>
         <View style={styles.headerIcon}>
@@ -82,7 +146,7 @@ export default function InvestorEarningsScreen() {
               <Text style={styles.balanceCurrency}>OMR</Text>
               <TouchableOpacity
                 style={styles.withdrawBtn}
-                onPress={() => Alert.alert('Coming Soon', 'Withdrawal feature coming in next update.')}
+                onPress={() => { setAmount(''); setShowWithdraw(true); }}
                 activeOpacity={0.85}
               >
                 <Text style={styles.withdrawBtnText}>{t.inv_earnings_withdraw}</Text>
@@ -103,16 +167,27 @@ export default function InvestorEarningsScreen() {
               </View>
             </View>
 
-            {/* Coming soon banner */}
-            <View style={styles.comingSoonCard}>
-              <Text style={styles.comingSoonEmoji}>📊</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.comingSoonTitle}>{t.inv_earnings_coming_soon}</Text>
-                <Text style={styles.comingSoonSub}>{t.inv_earnings_coming_soon_sub}</Text>
+            {/* Payout requests */}
+            {payouts.length > 0 && (
+              <View style={styles.payoutSection}>
+                <Text style={styles.sectionTitle}>{t.payout_history}</Text>
+                {payouts.map(p => {
+                  const st = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending;
+                  return (
+                    <View key={p.id} style={styles.payoutRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.payoutAmount}>{p.amount.toFixed(3)} OMR</Text>
+                        <Text style={styles.payoutDate}>{new Date(p.requested_at).toLocaleDateString()}</Text>
+                      </View>
+                      <View style={[styles.payoutBadge, { backgroundColor: st.bg }]}>
+                        <Text style={[styles.payoutBadgeText, { color: st.color }]}>{statusLabel(p.status)}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
-            </View>
+            )}
 
-            {/* TX header */}
             <View style={styles.txHeader}>
               <Text style={styles.txHeaderText}>{t.inv_earnings_tx_title}</Text>
             </View>
@@ -120,9 +195,7 @@ export default function InvestorEarningsScreen() {
         }
         ListEmptyComponent={
           loading ? (
-            <View style={styles.loadingWrap}>
-              <ActivityIndicator color={COLORS.primary} />
-            </View>
+            <View style={styles.loadingWrap}><ActivityIndicator color={COLORS.primary} /></View>
           ) : (
             <View style={styles.emptyWrap}>
               <WalletIcon size={32} color={COLORS.textTertiary} strokeWidth={1.5} />
@@ -149,6 +222,57 @@ export default function InvestorEarningsScreen() {
           </View>
         )}
       />
+
+      {/* Withdraw modal */}
+      <Modal visible={showWithdraw} transparent animationType="slide" onRequestClose={() => setShowWithdraw(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 24) + 8 }]}>
+            <View style={styles.modalTitleRow}>
+              <Text style={styles.modalTitle}>{t.payout_title}</Text>
+              <TouchableOpacity onPress={() => setShowWithdraw(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              <View style={styles.availRow}>
+                <Text style={styles.availLabel}>{t.payout_available}</Text>
+                <Text style={styles.availValue}>{profile?.wallet_balance.toFixed(3) ?? '0.000'} OMR</Text>
+              </View>
+
+              {/* Bank details */}
+              <Text style={styles.formLabel}>{t.payout_bank_details}</Text>
+              <TextInput style={styles.input} value={bankName} onChangeText={setBankName}
+                placeholder={t.payout_bank_name} placeholderTextColor={COLORS.textTertiary} />
+              <TextInput style={styles.input} value={holder} onChangeText={setHolder}
+                placeholder={t.payout_account_holder} placeholderTextColor={COLORS.textTertiary} />
+              <TextInput style={styles.input} value={iban} onChangeText={setIban}
+                placeholder={t.payout_iban} placeholderTextColor={COLORS.textTertiary} autoCapitalize="characters" />
+              <TouchableOpacity style={styles.secondaryBtn} onPress={saveBank} disabled={savingBank} activeOpacity={0.85}>
+                {savingBank ? <ActivityIndicator color={COLORS.primary} />
+                  : <Text style={styles.secondaryBtnText}>{t.payout_save_bank}</Text>}
+              </TouchableOpacity>
+
+              {/* Amount */}
+              <Text style={[styles.formLabel, { marginTop: 18 }]}>{t.payout_amount}</Text>
+              <TextInput style={styles.input} value={amount} onChangeText={setAmount}
+                placeholder="10.000" placeholderTextColor={COLORS.textTertiary} keyboardType="decimal-pad" />
+
+              <Text style={styles.note}>{t.payout_note}</Text>
+
+              <TouchableOpacity
+                style={[styles.primaryBtn, (submitting || !hasBank) && { opacity: 0.55 }]}
+                onPress={submitPayout}
+                disabled={submitting}
+                activeOpacity={0.85}
+              >
+                {submitting ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.primaryBtnText}>{t.payout_request_btn}</Text>}
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -163,11 +287,9 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
   headerIcon:  { width: 42, height: 42, borderRadius: 14, backgroundColor: COLORS.goldBg, alignItems: 'center', justifyContent: 'center' },
 
-  // Balance card
   balanceCard: {
     margin: 16, borderRadius: 24, padding: 24,
-    backgroundColor: COLORS.primaryDark, alignItems: 'center',
-    overflow: 'hidden', gap: 4,
+    backgroundColor: COLORS.primaryDark, alignItems: 'center', overflow: 'hidden', gap: 4,
   },
   balanceDeco1: { position: 'absolute', width: 200, height: 200, borderRadius: 100, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -40 },
   balanceDeco2: { position: 'absolute', width: 120, height: 120, borderRadius: 60, backgroundColor: 'rgba(255,255,255,0.04)', bottom: -30, left: -20 },
@@ -177,7 +299,6 @@ const styles = StyleSheet.create({
   withdrawBtn: { backgroundColor: COLORS.gold, paddingHorizontal: 28, paddingVertical: 11, borderRadius: 14 },
   withdrawBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
 
-  // Stats
   statsRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 14, gap: 10 },
   statCard: {
     flex: 1, backgroundColor: COLORS.card, borderRadius: 18, padding: 16,
@@ -186,18 +307,17 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 18, fontWeight: '800', color: COLORS.gold },
   statLabel: { fontSize: 11, color: COLORS.textSecondary, textAlign: 'center' },
 
-  // Coming soon
-  comingSoonCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 16, marginBottom: 16,
-    backgroundColor: COLORS.goldBg, borderRadius: 18, padding: 16,
-    borderWidth: 1, borderColor: COLORS.goldTint,
+  payoutSection: { marginHorizontal: 16, marginBottom: 16 },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.7, marginBottom: 8 },
+  payoutRow: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.card,
+    borderRadius: 14, padding: 14, marginBottom: 8, borderWidth: 1, borderColor: COLORS.border,
   },
-  comingSoonEmoji: { fontSize: 28 },
-  comingSoonTitle: { fontSize: 14, fontWeight: '700', color: COLORS.text, marginBottom: 2 },
-  comingSoonSub:   { fontSize: 12, color: COLORS.textSecondary, lineHeight: 18 },
+  payoutAmount: { fontSize: 15, fontWeight: '700', color: COLORS.text },
+  payoutDate:   { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
+  payoutBadge:  { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
+  payoutBadgeText: { fontSize: 12, fontWeight: '700' },
 
-  // Tx header
   txHeader: { paddingHorizontal: 16, paddingBottom: 8 },
   txHeaderText: { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.7 },
 
@@ -205,7 +325,6 @@ const styles = StyleSheet.create({
   emptyWrap:   { padding: 40, alignItems: 'center', gap: 10 },
   emptyText:   { fontSize: 14, color: COLORS.textSecondary },
 
-  // Tx rows
   txRow: {
     flexDirection: 'row', alignItems: 'center', paddingVertical: 12,
     paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: COLORS.border,
@@ -222,4 +341,35 @@ const styles = StyleSheet.create({
   txPos:      { color: COLORS.success },
   txNeg:      { color: COLORS.error },
   txBalance:  { fontSize: 10, color: COLORS.textTertiary, marginTop: 2 },
+
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
+  modalSheet: {
+    backgroundColor: COLORS.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 22, maxHeight: '88%',
+  },
+  modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  modalTitle: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  availRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    backgroundColor: COLORS.background, borderRadius: 14, padding: 14, marginBottom: 18,
+    borderWidth: 1, borderColor: COLORS.border,
+  },
+  availLabel: { fontSize: 14, color: COLORS.textSecondary },
+  availValue: { fontSize: 16, fontWeight: '800', color: COLORS.primary },
+  formLabel: { fontSize: 13, fontWeight: '700', color: COLORS.textSecondary, marginBottom: 8 },
+  input: {
+    backgroundColor: COLORS.background, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 15, color: COLORS.text, marginBottom: 10,
+  },
+  secondaryBtn: {
+    borderRadius: 12, paddingVertical: 12, alignItems: 'center',
+    borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: COLORS.primaryBg,
+  },
+  secondaryBtnText: { color: COLORS.primary, fontSize: 14, fontWeight: '700' },
+  note: { fontSize: 12, color: COLORS.textTertiary, lineHeight: 18, marginTop: 12, marginBottom: 14 },
+  primaryBtn: {
+    backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center',
+  },
+  primaryBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 });

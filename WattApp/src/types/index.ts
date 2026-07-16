@@ -10,6 +10,9 @@ export interface Profile {
   total_kwh: number;
   car_model?: string;
   investor_welcomed?: boolean;
+  payout_bank_name?: string | null;
+  payout_account_holder?: string | null;
+  payout_iban?: string | null;
   expo_push_token?: string | null;
   notif_push?: boolean;
   notif_booking?: boolean;
@@ -117,13 +120,28 @@ export interface ChargingSession {
 export interface WalletTransaction {
   id: string;
   user_id: string;
-  type: 'topup' | 'charge' | 'refund' | 'bonus' | 'earning';
+  type: 'topup' | 'charge' | 'refund' | 'bonus' | 'earning' | 'withdrawal';
   amount: number;
   balance_after: number;
   description: string;
   reference_id?: string;
   payment_method?: string;
   created_at: string;
+}
+
+export interface PayoutRequest {
+  id: string;
+  user_id: string;
+  amount: number;
+  status: 'pending' | 'paid' | 'rejected';
+  bank_name?: string | null;
+  account_holder?: string | null;
+  iban?: string | null;
+  admin_note?: string | null;
+  requested_at: string;
+  processed_at?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
 }
 
 // Navigation param lists
@@ -180,6 +198,7 @@ export type AdminTabParamList = {
 export type AdminStackParamList = {
   AdminTabs: undefined;
   AdminApplicationDetail: { applicationId: string };
+  AdminPayouts: undefined;
 };
 
 export type InvestorTabParamList = {
