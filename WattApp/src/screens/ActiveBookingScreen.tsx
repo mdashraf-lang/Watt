@@ -90,6 +90,7 @@ export default function ActiveBookingScreen() {
     }
 
     setStartLoading(true);
+    let switchedOn = false;
     try {
       // Private charger booking — activate Tuya switch before creating the session
       if (booking.listing_id) {
@@ -110,6 +111,7 @@ export default function ActiveBookingScreen() {
           Alert.alert(t.active_charger_err_title, errMsg);
           return;
         }
+        switchedOn = true;
       }
 
       const { data: session, error } = await supabase
@@ -140,6 +142,13 @@ export default function ActiveBookingScreen() {
         stationName: displayName,
       });
     } catch (e: any) {
+      // If we powered the charger on but couldn't start the session, turn it
+      // back off so it isn't left running untracked (auto-shutoff can't catch
+      // a session that was never created).
+      if (switchedOn && booking.listing_id) {
+        supabase.functions.invoke('control-tuya-switch', { body: { action: 'off', booking_id: booking.id } })
+          .catch(() => {});
+      }
       Alert.alert(t.error, e.message);
     } finally {
       setStartLoading(false);

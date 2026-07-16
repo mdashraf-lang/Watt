@@ -275,7 +275,7 @@ const en: Translations = {
   pay_due_msg: 'Amount to pay for this session:',
   pay_now: 'Pay Now',
   pay_later: 'Pay Later',
-  pay_later_note: 'Online payment is coming soon. The amount has been recorded and will be settled from your wallet later.',
+  pay_later_note: 'We couldn\'t complete the payment right now. The amount has been recorded and will be settled from your wallet later.',
   inv_price_admin_note: 'Pricing is set by Watt — contact support to discuss rates.',
   booking_debt_title: 'Outstanding Balance',
   booking_debt_msg: 'Please settle your unpaid balance before booking again:',
