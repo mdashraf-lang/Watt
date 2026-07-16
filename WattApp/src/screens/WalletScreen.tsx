@@ -31,22 +31,29 @@ const TX_ICON_COMPONENT: Record<string, React.ComponentType<any>> = {
   charge: ZapIcon,
   refund: RotateCcwIcon,
   bonus: GiftIcon,
+  earning: GiftIcon,
+  withdrawal: WalletIcon,
 };
 const TX_ICON_COLOR: Record<string, string> = {
   topup: COLORS.success,
   charge: COLORS.error,
   refund: '#3b82f6',
   bonus: COLORS.gold,
+  earning: COLORS.gold,
+  withdrawal: '#3b82f6',
 };
 const TX_ICON_BG: Record<string, string> = {
   topup: COLORS.successBg,
   charge: COLORS.errorBg,
   refund: '#eff6ff',
   bonus: COLORS.goldBg,
+  earning: COLORS.goldBg,
+  withdrawal: '#eff6ff',
 };
 
 export default function WalletScreen() {
-  const { t } = useLang();
+  const { t, isRTL } = useLang();
+  const locale = isRTL ? 'ar-OM' : 'en-GB';
   const TX_LABEL: Record<string, string> = {
     topup: t.wallet_tx_topup,
     charge: t.wallet_tx_charge,
@@ -146,7 +153,7 @@ export default function WalletScreen() {
           <Text style={styles.txTitle}>{TX_LABEL[item.type]}</Text>
           <Text style={styles.txDesc} numberOfLines={1}>{item.description}</Text>
           <Text style={styles.txDate}>
-            {new Date(item.created_at).toLocaleDateString('ar-OM')} · {new Date(item.created_at).toLocaleTimeString('ar-OM', { hour: '2-digit', minute: '2-digit' })}
+            {new Date(item.created_at).toLocaleDateString(locale)} · {new Date(item.created_at).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </View>
         <View style={styles.txRight}>
@@ -157,7 +164,7 @@ export default function WalletScreen() {
         </View>
       </View>
     );
-  }, []);
+  }, [locale, t]);   // re-render rows when the language switches
 
   const totalSpent = transactions
     .filter(tx => tx.type === 'charge')
