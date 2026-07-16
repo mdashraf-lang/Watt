@@ -9,12 +9,7 @@ import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
 import type { PayoutRequest } from '../../types';
 import { ArrowLeftIcon, WalletIcon } from '../../components/icons';
-
-const STATUS_STYLE: Record<string, { color: string; bg: string; label: (t: any) => string }> = {
-  pending:  { color: COLORS.warning, bg: COLORS.warningBg, label: t => t.payout_status_pending },
-  paid:     { color: COLORS.success, bg: COLORS.successBg, label: t => t.payout_status_paid },
-  rejected: { color: COLORS.error,   bg: COLORS.errorBg,   label: t => t.payout_status_rejected },
-};
+import PayoutStatusBadge from '../../components/PayoutStatusBadge';
 
 export default function AdminPayoutsScreen() {
   const { t } = useLang();
@@ -65,7 +60,6 @@ export default function AdminPayoutsScreen() {
     ]);
 
   const renderItem = ({ item }: { item: PayoutRequest }) => {
-    const st = STATUS_STYLE[item.status] ?? STATUS_STYLE.pending;
     return (
       <View style={styles.card}>
         <View style={styles.cardTop}>
@@ -73,9 +67,7 @@ export default function AdminPayoutsScreen() {
             <Text style={styles.name}>{item.customer_name ?? '—'}</Text>
             {item.customer_phone ? <Text style={styles.phone}>{item.customer_phone}</Text> : null}
           </View>
-          <View style={[styles.badge, { backgroundColor: st.bg }]}>
-            <Text style={[styles.badgeText, { color: st.color }]}>{st.label(t)}</Text>
-          </View>
+          <PayoutStatusBadge status={item.status} />
         </View>
 
         <Text style={styles.amount}>{item.amount.toFixed(3)} OMR</Text>
@@ -174,8 +166,6 @@ const styles = StyleSheet.create({
   cardTop: { flexDirection: 'row', alignItems: 'flex-start' },
   name: { fontSize: 15, fontWeight: '700', color: COLORS.text },
   phone: { fontSize: 12, color: COLORS.textTertiary, marginTop: 2 },
-  badge: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
-  badgeText: { fontSize: 12, fontWeight: '700' },
   amount: { fontSize: 24, fontWeight: '900', color: COLORS.primary },
   bankBox: { backgroundColor: COLORS.background, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: COLORS.border },
   bankLine: { fontSize: 13, color: COLORS.text, fontWeight: '600' },

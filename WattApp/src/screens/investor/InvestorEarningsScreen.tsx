@@ -12,15 +12,10 @@ import { COLORS } from '../../constants/colors';
 import type { WalletTransaction, PayoutRequest } from '../../types';
 import { TrendingUpIcon, WalletIcon, XIcon } from '../../components/icons';
 import ErrorView from '../../components/ErrorView';
+import PayoutStatusBadge from '../../components/PayoutStatusBadge';
 
 const TX_ICON: Record<string, string> = {
   topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁', earning: '💰', withdrawal: '🏦',
-};
-
-const STATUS_STYLE: Record<string, { color: string; bg: string }> = {
-  pending:  { color: COLORS.warning, bg: COLORS.warningBg },
-  paid:     { color: COLORS.success, bg: COLORS.successBg },
-  rejected: { color: COLORS.error,   bg: COLORS.errorBg },
 };
 
 export default function InvestorEarningsScreen() {
@@ -138,9 +133,6 @@ export default function InvestorEarningsScreen() {
     }
   };
 
-  const statusLabel = (s: string) =>
-    s === 'paid' ? t.payout_status_paid : s === 'rejected' ? t.payout_status_rejected : t.payout_status_pending;
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -191,20 +183,15 @@ export default function InvestorEarningsScreen() {
             {payouts.length > 0 && (
               <View style={styles.payoutSection}>
                 <Text style={styles.sectionTitle}>{t.payout_history}</Text>
-                {payouts.map(p => {
-                  const st = STATUS_STYLE[p.status] ?? STATUS_STYLE.pending;
-                  return (
-                    <View key={p.id} style={styles.payoutRow}>
-                      <View style={{ flex: 1 }}>
-                        <Text style={styles.payoutAmount}>{p.amount.toFixed(3)} OMR</Text>
-                        <Text style={styles.payoutDate}>{new Date(p.requested_at).toLocaleDateString()}</Text>
-                      </View>
-                      <View style={[styles.payoutBadge, { backgroundColor: st.bg }]}>
-                        <Text style={[styles.payoutBadgeText, { color: st.color }]}>{statusLabel(p.status)}</Text>
-                      </View>
+                {payouts.map(p => (
+                  <View key={p.id} style={styles.payoutRow}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.payoutAmount}>{p.amount.toFixed(3)} OMR</Text>
+                      <Text style={styles.payoutDate}>{new Date(p.requested_at).toLocaleDateString()}</Text>
                     </View>
-                  );
-                })}
+                    <PayoutStatusBadge status={p.status} />
+                  </View>
+                ))}
               </View>
             )}
 
@@ -337,8 +324,6 @@ const styles = StyleSheet.create({
   },
   payoutAmount: { fontSize: 15, fontWeight: '700', color: COLORS.text },
   payoutDate:   { fontSize: 11, color: COLORS.textTertiary, marginTop: 2 },
-  payoutBadge:  { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 10 },
-  payoutBadgeText: { fontSize: 12, fontWeight: '700' },
 
   txHeader: { paddingHorizontal: 16, paddingBottom: 8 },
   txHeaderText: { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.7 },
