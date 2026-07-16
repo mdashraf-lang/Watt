@@ -295,7 +295,16 @@ export default function BookingScreen() {
       }
       navigation.replace('ActiveBooking', { bookingId: data.id });
     } catch (e: any) {
-      Alert.alert(t.booking_error, e.message);
+      // Someone booked this exact slot first — the DB exclusion constraint
+      // (bookings_no_overlap, SQLSTATE 23P01) rejected the overlap. Refresh the
+      // picker so the taken slot shows as unavailable, and prompt another time.
+      const isOverlap = e?.code === '23P01' || /bookings_no_overlap|exclusion/i.test(e?.message ?? '');
+      if (isOverlap) {
+        await fetchBookedSlots();
+        Alert.alert(t.warning, t.booking_select_time);
+      } else {
+        Alert.alert(t.booking_error, e.message);
+      }
     } finally {
       setLoading(false);
     }
