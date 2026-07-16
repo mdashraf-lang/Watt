@@ -46,13 +46,14 @@ export default function InvestorChargerScreen() {
         .from('charger_listings').select('*').eq('host_id', profile.id).maybeSingle();
       setListing(listData as ChargerListing | null);
       if (listData) {
-        const { data: bData } = await supabase
-          .from('bookings')
-          .select('*, customer:profiles(full_name, phone)')
-          .eq('listing_id', listData.id)
-          .order('booked_at', { ascending: false })
-          .limit(50);
-        setBookings((bData ?? []) as Booking[]);
+        // RLS hides customer bookings/profiles from the host, so fetch via an
+        // ownership-scoped RPC that includes the customer name/phone.
+        const { data: bData } = await supabase.rpc('get_host_listing_bookings');
+        const mapped = (bData ?? []).map((r: any) => ({
+          ...r,
+          customer: { full_name: r.customer_name, phone: r.customer_phone },
+        }));
+        setBookings(mapped as Booking[]);
       }
     } finally { setLoading(false); }
   }, [profile]);
