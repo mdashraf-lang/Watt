@@ -38,7 +38,7 @@ function AppleLogo({ size = 20, color = '#fff' }: { size?: number; color?: strin
 
 export default function SignUpScreen() {
   const navigation = useNavigation<Nav>();
-  const { t, toggleLanguage } = useLang();
+  const { t, toggleLanguage, isRTL } = useLang();
   const { signUp, signInWithGoogle, signInWithApple } = useAuth();
 
   const [fullName,      setFullName]      = useState('');
@@ -92,19 +92,23 @@ export default function SignUpScreen() {
       {/* ── Dark header — always fixed, never moves ── */}
       <View style={s.header}>
         <View style={s.deco1} /><View style={s.deco2} />
-        {/* Language toggle — top right */}
-        <TouchableOpacity style={s.langBtn} onPress={toggleLanguage} activeOpacity={0.8}>
+        {/* Language toggle — top corner (flips side in RTL) */}
+        <TouchableOpacity
+          style={[s.langBtn, isRTL ? s.langBtnRtl : s.langBtnLtr]}
+          onPress={toggleLanguage}
+          activeOpacity={0.8}
+        >
           <GlobeIcon size={14} color="rgba(255,255,255,0.8)" strokeWidth={2} />
           <Text style={s.langBtnText}>{t.profile_language_label}</Text>
         </TouchableOpacity>
-        <View style={s.logoRow}>
+        <View style={[s.logoRow, isRTL && s.rowReverse]}>
           <View style={s.logoBadge}>
             <ZapIcon size={24} color={COLORS.gold} strokeWidth={2} />
           </View>
           <Text style={s.logoText}>WATT</Text>
         </View>
-        <Text style={s.title}>{t.auth_signup_title}</Text>
-        <Text style={s.subtitle}>{t.auth_signup_subtitle}</Text>
+        <Text style={[s.title, isRTL && s.rtlText]}>{t.auth_signup_title}</Text>
+        <Text style={[s.subtitle, isRTL && s.rtlText]}>{t.auth_signup_subtitle}</Text>
       </View>
 
       {/* ── KAV: shrinks on keyboard, no ScrollView ── */}
@@ -116,10 +120,10 @@ export default function SignUpScreen() {
         <View style={s.formPanel}>
           {/* Full Name */}
           <View style={s.field}>
-            <Text style={s.label}>{t.auth_name_label}</Text>
+            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_name_label}</Text>
             <View style={s.inputBox}>
               <TextInput
-                style={s.input}
+                style={[s.input, isRTL && s.rtlText]}
                 placeholder={t.auth_name_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 value={fullName}
@@ -133,10 +137,10 @@ export default function SignUpScreen() {
 
           {/* Email */}
           <View style={s.field}>
-            <Text style={s.label}>{t.auth_email_label}</Text>
+            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_email_label}</Text>
             <View style={[s.inputBox, emailError ? s.inputBoxError : null]}>
               <TextInput
-                style={s.input}
+                style={[s.input, isRTL && s.rtlText]}
                 placeholder={t.auth_email_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 value={email}
@@ -148,15 +152,15 @@ export default function SignUpScreen() {
                 onBlur={() => { if (email) validateEmail(email); }}
               />
             </View>
-            {emailError ? <Text style={s.fieldErr}>{emailError}</Text> : null}
+            {emailError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{emailError}</Text> : null}
           </View>
 
           {/* Password */}
           <View style={s.field}>
-            <Text style={s.label}>{t.auth_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow]}>
+            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_password_label}</Text>
+            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse]}>
               <TextInput
-                style={[s.input, { flex: 1 }]}
+                style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
                 placeholder={t.auth_password_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry={!showPass}
@@ -187,7 +191,7 @@ export default function SignUpScreen() {
           </TouchableOpacity>
 
           {/* Switch to Sign In */}
-          <View style={s.switchRow}>
+          <View style={[s.switchRow, isRTL && s.rowReverse]}>
             <Text style={s.switchText}>{t.auth_have_account}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('SignIn')}>
               <Text style={s.switchLink}> {t.auth_signin_link}</Text>
@@ -241,13 +245,15 @@ const s = StyleSheet.create({
   deco1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -50 },
   deco2: { position: 'absolute', width: 140, height: 140, borderRadius: 70,  backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -30 },
   langBtn: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 60 : 44, right: 20,
+    position: 'absolute', top: Platform.OS === 'ios' ? 60 : 44,
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
     zIndex: 10,
   },
+  langBtnLtr: { right: 20 },
+  langBtnRtl: { left: 20 },
   langBtnText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
 
   logoRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
@@ -315,4 +321,8 @@ const s = StyleSheet.create({
   },
   socialApple: { backgroundColor: '#000', borderColor: '#000' },
   socialText:  { fontSize: 15, fontWeight: '600', color: COLORS.text },
+
+  // ── RTL helpers ──
+  rtlText:    { textAlign: 'right' },
+  rowReverse: { flexDirection: 'row-reverse' },
 });

@@ -38,7 +38,7 @@ function AppleLogo({ size = 20, color = '#fff' }: { size?: number; color?: strin
 
 export default function SignInScreen() {
   const navigation = useNavigation<Nav>();
-  const { t, toggleLanguage } = useLang();
+  const { t, toggleLanguage, isRTL } = useLang();
   const { signIn, signInWithGoogle, signInWithApple, sendPasswordReset } = useAuth();
 
   const [email,         setEmail]         = useState('');
@@ -111,19 +111,23 @@ export default function SignInScreen() {
       {/* ── Dark header — always fixed, never moves ── */}
       <View style={s.header}>
         <View style={s.deco1} /><View style={s.deco2} />
-        {/* Language toggle — top right */}
-        <TouchableOpacity style={s.langBtn} onPress={toggleLanguage} activeOpacity={0.8}>
+        {/* Language toggle — top corner (flips side in RTL) */}
+        <TouchableOpacity
+          style={[s.langBtn, isRTL ? s.langBtnRtl : s.langBtnLtr]}
+          onPress={toggleLanguage}
+          activeOpacity={0.8}
+        >
           <GlobeIcon size={14} color="rgba(255,255,255,0.8)" strokeWidth={2} />
           <Text style={s.langBtnText}>{t.profile_language_label}</Text>
         </TouchableOpacity>
-        <View style={s.logoRow}>
+        <View style={[s.logoRow, isRTL && s.rowReverse]}>
           <View style={s.logoBadge}>
             <ZapIcon size={24} color={COLORS.gold} strokeWidth={2} />
           </View>
           <Text style={s.logoText}>WATT</Text>
         </View>
-        <Text style={s.title}>{t.auth_signin_title}</Text>
-        <Text style={s.subtitle}>{t.auth_signin_subtitle}</Text>
+        <Text style={[s.title, isRTL && s.rtlText]}>{t.auth_signin_title}</Text>
+        <Text style={[s.subtitle, isRTL && s.rtlText]}>{t.auth_signin_subtitle}</Text>
       </View>
 
       {/* ── KAV: shrinks on keyboard, no ScrollView ── */}
@@ -135,10 +139,10 @@ export default function SignInScreen() {
         <View style={s.formPanel}>
           {/* Email */}
           <View style={s.field}>
-            <Text style={s.label}>{t.auth_email_label}</Text>
+            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_email_label}</Text>
             <View style={[s.inputBox, emailError ? s.inputBoxError : null]}>
               <TextInput
-                style={s.input}
+                style={[s.input, isRTL && s.rtlText]}
                 placeholder={t.auth_email_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 value={email}
@@ -150,15 +154,15 @@ export default function SignInScreen() {
                 onBlur={() => { if (email) validateEmail(email); }}
               />
             </View>
-            {emailError ? <Text style={s.fieldErr}>{emailError}</Text> : null}
+            {emailError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{emailError}</Text> : null}
           </View>
 
           {/* Password */}
           <View style={s.field}>
-            <Text style={s.label}>{t.auth_password_label}</Text>
-            <View style={[s.inputBox, s.inputRow]}>
+            <Text style={[s.label, isRTL && s.rtlText]}>{t.auth_password_label}</Text>
+            <View style={[s.inputBox, s.inputRow, isRTL && s.rowReverse]}>
               <TextInput
-                style={[s.input, { flex: 1 }]}
+                style={[s.input, { flex: 1 }, isRTL && s.rtlText]}
                 placeholder={t.auth_password_ph}
                 placeholderTextColor={COLORS.textTertiary}
                 secureTextEntry={!showPass}
@@ -174,7 +178,7 @@ export default function SignInScreen() {
                   : <EyeIcon    size={20} color={COLORS.textTertiary} strokeWidth={2} />}
               </TouchableOpacity>
             </View>
-            <TouchableOpacity style={s.forgotLink} onPress={openForgot}>
+            <TouchableOpacity style={[s.forgotLink, isRTL && s.forgotLinkRtl]} onPress={openForgot}>
               <Text style={s.forgotLinkText}>{t.forgot_link}</Text>
             </TouchableOpacity>
           </View>
@@ -192,7 +196,7 @@ export default function SignInScreen() {
           </TouchableOpacity>
 
           {/* Switch to Sign Up */}
-          <View style={s.switchRow}>
+          <View style={[s.switchRow, isRTL && s.rowReverse]}>
             <Text style={s.switchText}>{t.auth_no_account}</Text>
             <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
               <Text style={s.switchLink}> {t.auth_signup_link}</Text>
@@ -229,7 +233,7 @@ export default function SignInScreen() {
           )}
 
           <TouchableOpacity style={s.guestBtn} onPress={() => navigation.navigate('GuestTabs')} activeOpacity={0.7}>
-            <Text style={s.guestText}>{t.auth_browse_guest} →</Text>
+            <Text style={s.guestText}>{isRTL ? `← ${t.auth_browse_guest}` : `${t.auth_browse_guest} →`}</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -252,11 +256,11 @@ export default function SignInScreen() {
                 </View>
               ) : (
                 <>
-                  <Text style={s.sheetTitle}>{t.forgot_title}</Text>
-                  <Text style={s.sheetSub}>{t.forgot_subtitle}</Text>
+                  <Text style={[s.sheetTitle, isRTL && s.rtlText]}>{t.forgot_title}</Text>
+                  <Text style={[s.sheetSub, isRTL && s.rtlText]}>{t.forgot_subtitle}</Text>
                   <View style={[s.inputBox, forgotError ? s.inputBoxError : null]}>
                     <TextInput
-                      style={s.input}
+                      style={[s.input, isRTL && s.rtlText]}
                       placeholder={t.auth_email_ph}
                       placeholderTextColor={COLORS.textTertiary}
                       value={forgotEmail}
@@ -268,7 +272,7 @@ export default function SignInScreen() {
                       onSubmitEditing={handleForgot}
                     />
                   </View>
-                  {forgotError ? <Text style={s.fieldErr}>{forgotError}</Text> : null}
+                  {forgotError ? <Text style={[s.fieldErr, isRTL && s.rtlText]}>{forgotError}</Text> : null}
                   <TouchableOpacity
                     style={[s.btn, forgotLoading && s.btnOff]}
                     onPress={handleForgot} disabled={forgotLoading} activeOpacity={0.85}
@@ -300,13 +304,15 @@ const s = StyleSheet.create({
   deco1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(255,255,255,0.05)', top: -60, right: -50 },
   deco2: { position: 'absolute', width: 140, height: 140, borderRadius: 70,  backgroundColor: 'rgba(255,255,255,0.04)', bottom: -40, left: -30 },
   langBtn: {
-    position: 'absolute', top: Platform.OS === 'ios' ? 60 : 44, right: 20,
+    position: 'absolute', top: Platform.OS === 'ios' ? 60 : 44,
     flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: 'rgba(255,255,255,0.12)',
     paddingHorizontal: 12, paddingVertical: 6,
     borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)',
     zIndex: 10,
   },
+  langBtnLtr: { right: 20 },
+  langBtnRtl: { left: 20 },
   langBtnText: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.85)' },
 
   logoRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 14 },
@@ -399,4 +405,9 @@ const s = StyleSheet.create({
   successIcon:  { width: 80, height: 80, borderRadius: 40, backgroundColor: COLORS.successBg, alignItems: 'center', justifyContent: 'center' },
   successTitle: { fontSize: 22, fontWeight: '800', color: COLORS.text },
   successMsg:   { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20 },
+
+  // ── RTL helpers ──
+  rtlText:      { textAlign: 'right' },
+  rowReverse:   { flexDirection: 'row-reverse' },
+  forgotLinkRtl:{ alignSelf: 'flex-start' },
 });
