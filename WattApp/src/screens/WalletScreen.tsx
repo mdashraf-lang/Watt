@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import type { WalletTransaction } from '../types';
 import { supabase } from '../lib/supabase';
@@ -63,6 +64,16 @@ export default function WalletScreen() {
   const [txFilter, setTxFilter] = useState<'all' | 'topup' | 'charge' | 'refund' | 'bonus'>('all');
 
   useEffect(() => { fetchTransactions(); }, [profile?.id]);
+
+  // Refresh balance + transactions whenever the tab regains focus, so a
+  // charge/top-up made elsewhere is reflected immediately (quiet — no spinner).
+  useFocusEffect(
+    useCallback(() => {
+      if (!profile) return;
+      refreshProfile();
+      fetchTransactions();
+    }, [profile?.id]),
+  );
 
   const fetchTransactions = async () => {
     if (!profile) return;   // wait until the profile loads; effect re-runs on profile.id

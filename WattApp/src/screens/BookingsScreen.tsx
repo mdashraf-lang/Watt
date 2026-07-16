@@ -4,7 +4,7 @@ import {
   ScrollView, StyleSheet, Text, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -96,10 +96,11 @@ export default function BookingsScreen() {
 
   // ── Data fetch ───────────────────────────────────────────────
 
-  const fetchBookings = useCallback(async (quiet = false) => {
+  const fetchBookings = useCallback(async (quiet: boolean | 'silent' = false) => {
     if (!profile) return;
-    if (!quiet) setLoading(true);
-    else setRefreshing(true);
+    if (quiet === false) setLoading(true);
+    else if (quiet === true) setRefreshing(true);
+    // 'silent': no spinner at all (focus refetch)
     const { data, error } = await supabase
       .from('bookings')
       .select('*, station:stations(name, name_ar, governorate)')
@@ -112,6 +113,11 @@ export default function BookingsScreen() {
   }, [profile]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
+
+  // Silent refetch on tab focus so a booking made/cancelled elsewhere shows up.
+  useFocusEffect(
+    useCallback(() => { fetchBookings('silent'); }, [fetchBookings]),
+  );
 
   // ── Derived data ─────────────────────────────────────────────
 

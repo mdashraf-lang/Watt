@@ -4,6 +4,7 @@ import {
   TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { supabase } from '../../lib/supabase';
@@ -43,9 +44,9 @@ export default function InvestorEarningsScreen() {
 
   const hasBank = !!(profile?.payout_iban && profile.payout_iban.trim());
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (silent = false) => {
     if (!profile) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const [{ data: tx, error: txErr }, { data: pr }] = await Promise.all([
         supabase.from('wallet_transactions').select('*')
@@ -62,6 +63,14 @@ export default function InvestorEarningsScreen() {
   }, [profile?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Silent refetch on tab focus: reflects new earnings/payout status changes.
+  useFocusEffect(
+    useCallback(() => {
+      refreshProfile();
+      fetchData(true);
+    }, [fetchData]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);

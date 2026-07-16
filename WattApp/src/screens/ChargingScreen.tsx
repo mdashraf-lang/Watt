@@ -22,6 +22,29 @@ type Route = RouteProp<MainStackParamList, 'Charging'>;
 const PRICE_PER_KWH_DEFAULT = 0.028;
 const KW_RATE_DEFAULT = 22;          // fallback estimate when device has no metering
 const ENERGY_POLL_MS  = 15_000;      // how often we read real data from the hardware
+const METRICS_TICK_MS = 5_000;       // how often kWh/cost states update (re-render)
+
+function formatTime(seconds: number) {
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// The HH:MM:SS clock owns its own 1-second interval, so only this small text
+// re-renders every second — not the whole charging screen (metrics update on
+// a slower 5 s cadence, saving battery over a long session).
+const ElapsedClock = React.memo(function ElapsedClock({ startedAt, style }: { startedAt: number | null; style: any }) {
+  const [elapsed, setElapsed] = useState(0);
+  useEffect(() => {
+    if (!startedAt) return;
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - startedAt) / 1000)));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+  return <Text style={style}>{formatTime(elapsed)}</Text>;
+});
 
 export default function ChargingScreen() {
   const navigation = useNavigation<Nav>();
@@ -34,7 +57,6 @@ export default function ChargingScreen() {
   const [session,        setSession]        = useState<ChargingSession | null>(null);
   const [kwhDelivered,   setKwhDelivered]   = useState(0);
   const [cost,           setCost]           = useState(0);
-  const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [stopLoading,    setStopLoading]    = useState(false);
   const [pricePerKwh,    setPricePerKwh]    = useState(PRICE_PER_KWH_DEFAULT);
   const [livePowerKw,    setLivePowerKw]    = useState<number | null>(null);
@@ -63,13 +85,16 @@ export default function ChargingScreen() {
     startPulse();
   }, [sessionId]);
 
+  // Live kWh/cost from hardware readings (or rated-power estimate). Updates
+  // every 5 s — at typical charge rates the display doesn't change faster —
+  // while the HH:MM:SS clock ticks independently in ElapsedClock.
+  const lastSyncRef = useRef(0);
   useEffect(() => {
     if (!session) return;
     const startTime = new Date(session.started_at).getTime();
     const ratedKw   = (session as any).listing?.power_kw ?? KW_RATE_DEFAULT;
-    const interval = setInterval(async () => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setElapsedSeconds(elapsed);
+    const tick = async () => {
+      const elapsed = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
       // Real measured kWh from the hardware when available;
       // otherwise estimate from the charger's rated power.
       const kwh = realRef.current.metering
@@ -78,14 +103,17 @@ export default function ChargingScreen() {
       const c = kwh * pricePerKwh;
       setKwhDelivered(kwh);
       setCost(c);
-      // Sync to DB every 30 s
-      if (elapsed % 30 === 0 && elapsed > 0) {
+      // Sync to DB roughly every 30 s
+      if (elapsed - lastSyncRef.current >= 30) {
+        lastSyncRef.current = elapsed;
         await supabase
           .from('charging_sessions')
           .update({ kwh_delivered: kwh, cost: c })
           .eq('id', sessionId);
       }
-    }, 1000);
+    };
+    tick();
+    const interval = setInterval(tick, METRICS_TICK_MS);
     return () => clearInterval(interval);
   }, [session, pricePerKwh]);
 
@@ -231,14 +259,23 @@ export default function ChargingScreen() {
           .catch(e => console.warn('[ChargingScreen] switch off failed:', e));
       }
 
+      // Compute fresh values at stop time (metrics state updates on a 5 s
+      // cadence, so it can be slightly behind the actual moment of stopping).
+      const startTime  = new Date(session.started_at).getTime();
+      const elapsedNow = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+      const ratedKw    = (session as any).listing?.power_kw ?? KW_RATE_DEFAULT;
+      const kwhNow     = realRef.current.metering
+        ? realRef.current.kwh
+        : (elapsedNow / 3600) * ratedKw;
+
       // Billing happens SERVER-SIDE: the RPC recomputes the cost from the
       // admin-set price, caps kWh at physical limits, and atomically
       // completes session + booking + wallet. Idempotent — a double tap
       // never double-charges.
-      const batteryEnd = Math.min(100, Math.floor(20 + kwhDelivered * 4));
+      const batteryEnd = Math.min(100, Math.floor(20 + kwhNow * 4));
       const { data: result, error: rpcErr } = await supabase.rpc('complete_charging_session', {
         p_session:     sessionId,
-        p_kwh:         kwhDelivered,
+        p_kwh:         kwhNow,
         p_battery_end: batteryEnd,
         p_description: isRTL ? `شحن في ${stationName}` : `Charging at ${stationName}`,
       });
@@ -257,7 +294,7 @@ export default function ChargingScreen() {
       navigation.replace('SessionSummary', {
         kwhDelivered: finalKwh,
         cost: finalCost,
-        durationSeconds: elapsedSeconds,
+        durationSeconds: elapsedNow,
         stationName,
       });
     } catch (e: any) {
@@ -265,13 +302,6 @@ export default function ChargingScreen() {
     } finally {
       setStopLoading(false);
     }
-  };
-
-  const formatTime = (seconds: number) => {
-    const h = Math.floor(seconds / 3600);
-    const m = Math.floor((seconds % 3600) / 60);
-    const s = seconds % 60;
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
   };
 
   const remainingBalance = (profile?.wallet_balance ?? 0) - cost;
@@ -317,8 +347,11 @@ export default function ChargingScreen() {
         </View>
       </View>
 
-      {/* ── Timer ──────────────────────────────── */}
-      <Text style={styles.timer}>{formatTime(elapsedSeconds)}</Text>
+      {/* ── Timer — isolated so its 1 s tick doesn't re-render the screen ── */}
+      <ElapsedClock
+        startedAt={session ? new Date(session.started_at).getTime() : null}
+        style={styles.timer}
+      />
       <Text style={styles.timerLabel}>{t.charging_duration}</Text>
 
       {/* ── Metrics ────────────────────────────── */}
