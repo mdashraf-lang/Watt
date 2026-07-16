@@ -14,7 +14,7 @@ import {
 import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../components/OSMMap';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Station, ChargerListing } from '../types';
 import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
@@ -22,6 +22,7 @@ import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
+import { useTabBarHeight } from '../navigation/tabBarLayout';
 import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon } from '../components/icons';
 
 function listingToStation(l: ChargerListing): Station {
@@ -67,7 +68,7 @@ export default function MapScreen() {
     offline: t.status_offline,
   };
   const navigation = useNavigation<any>();
-  const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
   const { session, devProfile, profile } = useAuth();
   const { activeSessionId, activeStationName } = useCharging();
   const isAuthenticated = !!session || !!devProfile;
@@ -333,7 +334,7 @@ export default function MapScreen() {
 
       {/* Nearby stations pill */}
       {!showList && !selected && !selectedListing && (
-        <View style={styles.pillRow}>
+        <View style={[styles.pillRow, { bottom: tabBarHeight + 12 }]}>
           <TouchableOpacity style={styles.pill} onPress={toggleList} activeOpacity={0.85}>
             <ZapIcon size={14} color="#fff" strokeWidth={2.5} />
             <Text style={styles.pillText}>{t.map_nearby}</Text>
@@ -359,7 +360,7 @@ export default function MapScreen() {
               keyExtractor={item => item.id}
               renderItem={renderStationCard}
               showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+              contentContainerStyle={{ paddingBottom: tabBarHeight + 32 }}
             />
           )}
         </Animated.View>
@@ -367,7 +368,7 @@ export default function MapScreen() {
 
       {/* Selected listing card (other home charger) */}
       {selectedListing && !showList && (
-        <View style={styles.selectedCard}>
+        <View style={[styles.selectedCard, { bottom: tabBarHeight + 12 }]}>
           <View style={styles.selectedCardRow}>
             <View style={styles.selectedInfo}>
               <View style={styles.selectedNameRow}>
@@ -421,7 +422,7 @@ export default function MapScreen() {
 
       {/* Selected station card */}
       {selected && !showList && (
-        <View style={styles.selectedCard}>
+        <View style={[styles.selectedCard, { bottom: tabBarHeight + 12 }]}>
           <View style={styles.selectedCardRow}>
             <View style={styles.selectedInfo}>
               <View style={styles.selectedNameRow}>

@@ -177,9 +177,26 @@ export type AdminTabParamList = {
   AdminProfile: undefined;
 };
 
+export interface AdminCustomer {
+  id: string;
+  full_name: string;
+  phone: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  wallet_balance: number;
+  total_sessions: number;
+  total_kwh: number;
+  car_model?: string;
+  avatar_url?: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export type AdminStackParamList = {
   AdminTabs: undefined;
-  AdminApplicationDetail: { applicationId: string };
+  AdminApplicationDetail: { application: ChargerApplication };
+  AdminCustomerDetail: { customer: AdminCustomer };
 };
 
 export type InvestorTabParamList = {

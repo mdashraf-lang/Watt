@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
+import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
 import type { ChargerListing, Booking } from '../../types';
@@ -19,6 +20,7 @@ import {
 export default function InvestorChargerScreen() {
   const { profile } = useAuth();
   const { t } = useLang();
+  const tabBarHeight = useTabBarHeight();
   const navigation = useNavigation<any>();
 
   const [listing,  setListing]  = useState<ChargerListing | null | undefined>(undefined);
@@ -259,7 +261,7 @@ export default function InvestorChargerScreen() {
         <Text style={s.welcomeSub}>{t.inv_congratulations_sub}</Text>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: tabBarHeight + 16 }} showsVerticalScrollIndicator={false}>
         <SetupStep num={1} title={t.inv_setup_step1_title} sub={t.inv_setup_step1_sub} done />
         <SetupStep num={2} title={t.inv_setup_step2_title} sub={t.inv_setup_step2_sub} active />
         <SetupStep num={3} title={t.inv_setup_step3_title} sub={t.inv_setup_step3_sub} />
@@ -281,7 +283,7 @@ export default function InvestorChargerScreen() {
   // ── Full management view ──────────────────────────────────────
   return (
     <SafeAreaView style={s.root} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 32 }}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}>
 
         {/* ── Hero status card ── */}
         <View style={[s.hero, isOnline ? s.heroOn : s.heroOff]}>

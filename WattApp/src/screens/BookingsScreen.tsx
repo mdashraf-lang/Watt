@@ -14,6 +14,7 @@ import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
+import { useTabBarHeight } from '../navigation/tabBarLayout';
 import {
   CalendarIcon, ZapIcon, MapPinIcon, ClockIcon, TimerIcon,
   CoinsIcon, XIcon, CheckIcon,
@@ -57,6 +58,7 @@ type ListItem =
 
 export default function BookingsScreen() {
   const { t, isRTL } = useLang();
+  const tabBarHeight = useTabBarHeight();
   const locale = isRTL ? 'ar-OM' : 'en-GB';
   const navigation = useNavigation<Nav>();
   const { profile } = useAuth();
@@ -335,7 +337,7 @@ export default function BookingsScreen() {
             item.type === 'section' ? `section-${i}` : item.data.id
           }
           renderItem={renderItem}
-          contentContainerStyle={styles.list}
+          contentContainerStyle={[styles.list, { paddingBottom: tabBarHeight + 16 }]}
           showsVerticalScrollIndicator={false}
           onRefresh={() => fetchBookings(true)}
           refreshing={refreshing}

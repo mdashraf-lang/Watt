@@ -1,36 +1,58 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  Alert, Modal, Platform, ScrollView, StyleSheet,
+  Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet,
   Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
+import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
-import { ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon } from '../../components/icons';
+import { useTabBarHeight } from '../../navigation/tabBarLayout';
+import {
+  ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon,
+  UserIcon, MailIcon, AwardIcon, UsersIcon,
+} from '../../components/icons';
 
 export default function AdminProfileScreen() {
-  const { profile, signOut, updateProfile } = useAuth();
-  const { t, toggleLanguage } = useLang();
+  const { profile, session, signOut, updateProfile } = useAuth();
+  const { t, toggleLanguage, isRTL } = useLang();
+  const tabBarHeight = useTabBarHeight();
 
   const [editModal, setEditModal] = useState(false);
+  const [editName,  setEditName]  = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [saving,    setSaving]    = useState(false);
 
+  // Network-wide counts for the stats card
+  const [stationCount, setStationCount] = useState<number | null>(null);
+  const [userCount,    setUserCount]    = useState<number | null>(null);
+
+  const email = session?.user?.email ?? '';
+
+  useEffect(() => {
+    supabase.from('stations').select('*', { count: 'exact', head: true })
+      .then(({ count }) => setStationCount(count ?? 0));
+    supabase.from('profiles').select('*', { count: 'exact', head: true })
+      .then(({ count }) => setUserCount(count ?? 0));
+  }, []);
+
   const openEdit = () => {
+    setEditName(profile?.full_name ?? '');
     setEditPhone(profile?.phone ?? '');
     setEditModal(true);
   };
 
   const handleSave = async () => {
-    const trimmed = editPhone.trim();
-    if (!trimmed) {
-      Alert.alert(t.error, t.auth_error_phone);
+    const name  = editName.trim();
+    const phone = editPhone.trim();
+    if (!name) {
+      Alert.alert(t.error, t.auth_error_name);
       return;
     }
     setSaving(true);
     try {
-      await updateProfile({ phone: trimmed });
+      await updateProfile({ full_name: name, phone: phone || undefined });
       setEditModal(false);
     } catch (e: any) {
       Alert.alert(t.error, e.message);
@@ -50,49 +72,55 @@ export default function AdminProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
 
-        {/* ── Hero ── */}
-        <View style={styles.hero}>
-          <View style={styles.heroDeco1} />
-          <View style={styles.heroDeco2} />
-
-          <View style={styles.avatarWrap}>
+      {/* ── Header ── */}
+      <View style={[styles.header, isRTL && styles.rowReverse]}>
+        <View style={styles.avatarWrap}>
+          <View style={styles.avatarRing}>
             <View style={styles.avatar}>
               <Text style={styles.avatarInitial}>{initials}</Text>
             </View>
-            <View style={styles.shieldBadge}>
-              <ShieldIcon size={11} color="#fff" strokeWidth={2.5} />
-            </View>
           </View>
-
-          <Text style={styles.heroName}>{profile?.full_name || 'Admin'}</Text>
-
-          <View style={styles.adminBadge}>
-            <ZapIcon size={12} color={COLORS.gold} strokeWidth={2.5} />
-            <Text style={styles.adminBadgeText}>{t.admin_profile_badge}</Text>
+          <View style={styles.avatarBadge}>
+            <ShieldIcon size={11} color="#fff" strokeWidth={2.5} />
           </View>
         </View>
 
-        {/* ── Info section ── */}
-        <View style={styles.section}>
-          <View style={styles.infoRow}>
-            <View style={styles.infoIcon}>
-              <PhoneIcon size={15} color={COLORS.textSecondary} strokeWidth={2} />
-            </View>
-            <Text style={styles.infoLabel}>{t.admin_profile_phone}</Text>
-            <Text style={styles.infoValue}>{profile?.phone || '—'}</Text>
-            <TouchableOpacity style={styles.editChip} onPress={openEdit} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-              <Text style={styles.editChipText}>{t.profile_edit_clean}</Text>
-            </TouchableOpacity>
+        <View style={styles.headerTextWrap}>
+          <Text style={[styles.headerEyebrow, isRTL && styles.rtlText]}>{t.admin_profile_title}</Text>
+          <Text style={[styles.headerTitle, isRTL && styles.rtlText]} numberOfLines={1}>{profile?.full_name || 'Admin'}</Text>
+          <View style={[styles.adminBadge, isRTL && styles.selfEnd]}>
+            <Text style={styles.adminBadgeText}>{t.admin_profile_badge}</Text>
           </View>
+        </View>
+      </View>
+
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
+
+        {/* ── Stats ── */}
+        <View style={styles.statsCard}>
+          <StatBox label={t.admin_profile_stat_stations} value={stationCount == null ? '—' : String(stationCount)} Icon={ZapIcon}   color={COLORS.primary} />
+          <View style={styles.statsDivider} />
+          <StatBox label={t.admin_profile_stat_users}    value={userCount == null ? '—' : String(userCount)}       Icon={UsersIcon} color="#3b82f6" />
+        </View>
+
+        {/* ── My Info ── */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t.profile_my_info}</Text>
+          <InfoRow Icon={UserIcon}  label={t.profile_name}  value={profile?.full_name || '—'} isRTL={isRTL} />
+          <InfoRow Icon={MailIcon}  label={t.profile_email} value={email || '—'} isRTL={isRTL} />
+          <InfoRow Icon={PhoneIcon} label={t.profile_phone} value={profile?.phone || '—'} isRTL={isRTL} />
+          <InfoRow Icon={AwardIcon} label={t.profile_joined} value={profile ? new Date(profile.created_at).toLocaleDateString() : '—'} isRTL={isRTL} />
+          <TouchableOpacity style={[styles.editBtn, isRTL && styles.selfStart]} onPress={openEdit}>
+            <Text style={styles.editBtnText}>{t.profile_edit_clean}</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ── Settings ── */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t.admin_profile_settings}</Text>
-          <TouchableOpacity style={[styles.settingRow, styles.settingRowLast]} onPress={toggleLanguage} activeOpacity={0.7}>
-            <View style={styles.settingLeft}>
+          <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t.admin_profile_settings}</Text>
+          <TouchableOpacity style={[styles.settingRow, styles.settingRowLast, isRTL && styles.rowReverse]} onPress={toggleLanguage} activeOpacity={0.7}>
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
               <View style={[styles.settingIconWrap, { backgroundColor: '#eff6ff' }]}>
                 <GlobeIcon size={16} color="#3b82f6" strokeWidth={2} />
               </View>
@@ -103,7 +131,7 @@ export default function AdminProfileScreen() {
         </View>
 
         {/* ── Sign out ── */}
-        <TouchableOpacity style={styles.logoutBtn} onPress={handleSignOut} activeOpacity={0.85}>
+        <TouchableOpacity style={[styles.logoutBtn, isRTL && styles.rowReverse]} onPress={handleSignOut} activeOpacity={0.85}>
           <LogOutIcon size={18} color={COLORS.error} strokeWidth={2} />
           <Text style={styles.logoutText}>{t.profile_logout_clean}</Text>
         </TouchableOpacity>
@@ -111,99 +139,168 @@ export default function AdminProfileScreen() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* ── Edit Phone Modal ── */}
-      <Modal visible={editModal} transparent animationType="slide" onRequestClose={() => setEditModal(false)}>
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => !saving && setEditModal(false)}>
-          <TouchableOpacity activeOpacity={1}>
-            <View style={styles.modalSheet}>
-              <View style={styles.modalHandle} />
+      {/* ── Edit Info Modal — centered iOS-style dialog ── */}
+      <Modal visible={editModal} transparent animationType="fade" statusBarTranslucent onRequestClose={() => setEditModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <TouchableOpacity style={StyleSheet.absoluteFill} activeOpacity={1} onPress={() => !saving && setEditModal(false)} />
 
-              <View style={styles.modalTitleRow}>
-                <Text style={styles.modalTitle}>{t.profile_edit_phone}</Text>
-                <TouchableOpacity onPress={() => !saving && setEditModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Input field */}
-              <View style={styles.inputRow}>
-                <View style={styles.inputIcon}>
-                  <PhoneIcon size={16} color={COLORS.primary} strokeWidth={2} />
-                </View>
-                <TextInput
-                  style={styles.input}
-                  value={editPhone}
-                  onChangeText={setEditPhone}
-                  placeholder={t.profile_edit_phone_ph}
-                  placeholderTextColor={COLORS.textTertiary}
-                  keyboardType="phone-pad"
-                  autoFocus
-                  returnKeyType="done"
-                  onSubmitEditing={handleSave}
-                />
-                {editPhone.length > 0 && (
-                  <TouchableOpacity onPress={() => setEditPhone('')} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <XIcon size={16} color={COLORS.textTertiary} strokeWidth={2} />
-                  </TouchableOpacity>
-                )}
-              </View>
-
-              {/* Save */}
-              <TouchableOpacity
-                style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving
-                  ? <Text style={styles.saveBtnText}>{t.saving}</Text>
-                  : <>
-                      <CheckIcon size={16} color="#fff" strokeWidth={2.5} />
-                      <Text style={styles.saveBtnText}>{t.save}</Text>
-                    </>
-                }
+          <View style={styles.dialogCard}>
+            <View style={[styles.modalTitleRow, isRTL && styles.rowReverse]}>
+              <Text style={[styles.modalTitle, isRTL && styles.rtlText]}>{t.profile_edit_title}</Text>
+              <TouchableOpacity onPress={() => !saving && setEditModal(false)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
               </TouchableOpacity>
             </View>
-          </TouchableOpacity>
-        </TouchableOpacity>
+
+            {/* Full name */}
+            <EditField Icon={UserIcon} label={t.profile_edit_name} isRTL={isRTL}>
+              <TextInput
+                style={[styles.editInput, isRTL && styles.rtlText]}
+                value={editName}
+                onChangeText={setEditName}
+                placeholder={t.profile_edit_name_ph}
+                placeholderTextColor={COLORS.textTertiary}
+                autoCapitalize="words"
+                autoFocus
+                returnKeyType="next"
+              />
+            </EditField>
+
+            {/* Phone */}
+            <EditField Icon={PhoneIcon} label={t.profile_edit_phone} isRTL={isRTL} last>
+              <TextInput
+                style={[styles.editInput, isRTL && styles.rtlText]}
+                value={editPhone}
+                onChangeText={setEditPhone}
+                placeholder={t.profile_edit_phone_ph}
+                placeholderTextColor={COLORS.textTertiary}
+                keyboardType="phone-pad"
+                returnKeyType="done"
+                onSubmitEditing={handleSave}
+              />
+            </EditField>
+
+            {/* Save */}
+            <TouchableOpacity
+              style={[styles.saveBtn, isRTL && styles.rowReverse, saving && styles.saveBtnDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              {saving
+                ? <Text style={styles.saveBtnText}>{t.saving}</Text>
+                : <>
+                    <CheckIcon size={16} color="#fff" strokeWidth={2.5} />
+                    <Text style={styles.saveBtnText}>{t.save}</Text>
+                  </>
+              }
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
+  );
+}
+
+// ── Sub-components (mirror ProfileScreen for a consistent look) ──
+
+function StatBox({ label, value, Icon, color }: { label: string; value: string; Icon: any; color: string }) {
+  return (
+    <View style={styles.statBox}>
+      <View style={[styles.statIconWrap, { backgroundColor: color + '18' }]}>
+        <Icon size={18} color={color} strokeWidth={2} />
+      </View>
+      <Text style={[styles.statValue, { color }]}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
+
+function InfoRow({ Icon, label, value, isRTL }: { Icon: any; label: string; value: string; isRTL?: boolean }) {
+  return (
+    <View style={[styles.infoRow, isRTL && styles.rowReverse]}>
+      <View style={styles.infoIconWrap}>
+        <Icon size={15} color={COLORS.textSecondary} strokeWidth={2} />
+      </View>
+      <Text style={[styles.infoLabel, isRTL && styles.rtlText]}>{label}</Text>
+      <Text style={[styles.infoValue, isRTL && styles.ltrText]}>{value}</Text>
+    </View>
+  );
+}
+
+function EditField({ Icon, label, last, isRTL, children }: { Icon: any; label: string; last?: boolean; isRTL?: boolean; children: React.ReactNode }) {
+  return (
+    <View style={[styles.editField, last && styles.editFieldLast, isRTL && styles.rowReverse]}>
+      <View style={styles.editFieldIcon}>
+        <Icon size={15} color={COLORS.primary} strokeWidth={2} />
+      </View>
+      <View style={styles.editFieldBody}>
+        <Text style={[styles.editFieldLabel, isRTL && styles.rtlText]}>{label}</Text>
+        {children}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: COLORS.background },
 
-  hero: {
-    backgroundColor: '#1E1B4B',
-    paddingTop: 32, paddingBottom: 40, paddingHorizontal: 24,
-    alignItems: 'center', gap: 10, overflow: 'hidden',
-  },
-  heroDeco1: { position: 'absolute', width: 220, height: 220, borderRadius: 110, backgroundColor: 'rgba(139,92,246,0.12)', top: -60, right: -50 },
-  heroDeco2: { position: 'absolute', width: 150, height: 150, borderRadius: 75,  backgroundColor: 'rgba(255,255,255,0.04)', bottom: -30, left: -20 },
+  // RTL helpers
+  rtlText:    { textAlign: 'right' },
+  ltrText:    { textAlign: 'left' },
+  rowReverse: { flexDirection: 'row-reverse' },
+  selfEnd:    { alignSelf: 'flex-end' },
+  selfStart:  { alignSelf: 'flex-start' },
 
-  avatarWrap: { position: 'relative', marginBottom: 4 },
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    paddingHorizontal: 20, paddingTop: 12, paddingBottom: 18,
+  },
+  avatarWrap: { position: 'relative' },
+  avatarRing: {
+    width: 62, height: 62, borderRadius: 31,
+    borderWidth: 2, borderColor: COLORS.primaryTint,
+    alignItems: 'center', justifyContent: 'center',
+  },
   avatar: {
-    width: 84, height: 84, borderRadius: 42,
-    backgroundColor: 'rgba(139,92,246,0.25)',
-    borderWidth: 2.5, borderColor: 'rgba(139,92,246,0.5)',
+    width: 52, height: 52, borderRadius: 26,
+    backgroundColor: COLORS.primaryBg,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarInitial: { fontSize: 36, fontWeight: '800', color: '#fff' },
-  shieldBadge: {
+  avatarInitial: { fontSize: 22, fontWeight: '800', color: COLORS.primary },
+  avatarBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#7C3AED',
-    borderWidth: 2, borderColor: '#1E1B4B',
+    width: 22, height: 22, borderRadius: 11,
+    backgroundColor: COLORS.primary,
+    borderWidth: 2.5, borderColor: COLORS.background,
     alignItems: 'center', justifyContent: 'center',
   },
-  heroName:   { fontSize: 22, fontWeight: '800', color: '#fff' },
+  headerTextWrap: { flex: 1, gap: 3 },
+  headerEyebrow: { fontSize: 11, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 1 },
+  headerTitle: { fontSize: 21, fontWeight: '800', color: COLORS.text },
   adminBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20,
-    borderWidth: 1.5, borderColor: 'rgba(212,175,55,0.4)',
-    backgroundColor: 'rgba(212,175,55,0.1)',
+    flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start',
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginTop: 3,
+    borderWidth: 1, borderColor: COLORS.goldTint,
+    backgroundColor: COLORS.goldBg,
   },
-  adminBadgeText: { fontSize: 12, fontWeight: '700', color: COLORS.gold },
+  adminBadgeText: { fontSize: 11, fontWeight: '700', color: COLORS.gold, letterSpacing: 0.2 },
+
+  // Stats (mirror ProfileScreen)
+  statsCard: {
+    flexDirection: 'row', backgroundColor: COLORS.card,
+    marginHorizontal: 16, marginTop: 4, borderRadius: 22, padding: 16,
+    borderWidth: 1, borderColor: COLORS.border,
+    shadowColor: '#000', shadowOpacity: 0.06, shadowOffset: { width: 0, height: 2 }, shadowRadius: 8, elevation: 2,
+  },
+  statBox: { flex: 1, alignItems: 'center', gap: 4 },
+  statIconWrap: { width: 36, height: 36, borderRadius: 12, alignItems: 'center', justifyContent: 'center', marginBottom: 2 },
+  statValue: { fontSize: 22, fontWeight: '800' },
+  statLabel: { fontSize: 11, color: COLORS.textSecondary },
+  statsDivider: { width: 1, backgroundColor: COLORS.border, marginVertical: 4 },
 
   section: {
     backgroundColor: COLORS.card, borderRadius: 22,
@@ -212,45 +309,47 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 },
 
-  infoRow:   { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoIcon:  { width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.backgroundAlt, alignItems: 'center', justifyContent: 'center' },
-  infoLabel: { flex: 1, fontSize: 14, color: COLORS.textSecondary },
-  infoValue: { fontSize: 14, fontWeight: '600', color: COLORS.text },
-  editChip:  { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, backgroundColor: COLORS.primaryBg, borderWidth: 1, borderColor: COLORS.primaryTint },
-  editChipText: { fontSize: 12, fontWeight: '700', color: COLORS.primary },
+  infoRow:      { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+  infoIconWrap: { width: 28, height: 28, borderRadius: 8, backgroundColor: COLORS.backgroundAlt, alignItems: 'center', justifyContent: 'center' },
+  infoLabel:    { flex: 1, fontSize: 14, color: COLORS.textSecondary },
+  infoValue:    { fontSize: 14, fontWeight: '600', color: COLORS.text, textAlign: 'right' },
+  editBtn:      { paddingTop: 12, alignItems: 'flex-end' },
+  editBtnText:  { fontSize: 13, fontWeight: '700', color: COLORS.primary },
 
   settingRow:      { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   settingRowLast:  { borderBottomWidth: 0 },
   settingLeft:     { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  settingIconWrap: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  settingIconWrap: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center' },
   settingLabel:    { fontSize: 14, color: COLORS.text, fontWeight: '500' },
   langToggle:      { fontSize: 12, fontWeight: '700', color: COLORS.primary, backgroundColor: COLORS.primaryBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
 
   logoutBtn:  { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, marginHorizontal: 16, marginTop: 16, padding: 16, backgroundColor: COLORS.errorBg, borderRadius: 18, borderWidth: 1, borderColor: '#fecaca' },
   logoutText: { fontSize: 15, fontWeight: '700', color: COLORS.error },
 
-  // Modal
-  modalOverlay: { flex: 1, backgroundColor: COLORS.overlay, justifyContent: 'flex-end' },
-  modalSheet: {
-    backgroundColor: COLORS.card,
-    borderTopLeftRadius: 32, borderTopRightRadius: 32,
-    padding: 24, paddingBottom: Platform.OS === 'ios' ? 44 : 28,
+  // Modal — centered iOS-style dialog
+  modalOverlay: {
+    flex: 1, backgroundColor: COLORS.overlay,
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 24,
   },
-  modalHandle:   { width: 40, height: 4, backgroundColor: COLORS.borderStrong, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  dialogCard: {
+    width: '100%', maxWidth: 400,
+    backgroundColor: COLORS.card, borderRadius: 28,
+    padding: 24,
+    shadowColor: '#000', shadowOpacity: 0.25, shadowOffset: { width: 0, height: 12 }, shadowRadius: 28, elevation: 12,
+  },
   modalTitleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle:    { fontSize: 20, fontWeight: '800', color: COLORS.text },
 
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: COLORS.background, borderRadius: 16,
-    paddingHorizontal: 14, paddingVertical: 4,
-    borderWidth: 1.5, borderColor: COLORS.primary,
-    marginBottom: 20,
-  },
-  inputIcon: { width: 32, height: 32, borderRadius: 10, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center' },
-  input:     { flex: 1, fontSize: 16, color: COLORS.text, paddingVertical: 12 },
+  // Edit fields (mirror ProfileScreen)
+  editField:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12, borderBottomWidth: 1, borderBottomColor: COLORS.border, paddingVertical: 14 },
+  editFieldLast:  { borderBottomWidth: 0, marginBottom: 20 },
+  editFieldIcon:  { width: 34, height: 34, borderRadius: 10, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2 },
+  editFieldBody:  { flex: 1, gap: 3 },
+  editFieldLabel: { fontSize: 11, fontWeight: '600', color: COLORS.textTertiary, textTransform: 'uppercase', letterSpacing: 0.5 },
+  editInput:      { fontSize: 15, color: COLORS.text, paddingVertical: 4 },
 
-  saveBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15 },
+  saveBtn:         { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4 },
   saveBtnDisabled: { opacity: 0.55 },
   saveBtnText:     { color: '#fff', fontWeight: '700', fontSize: 16 },
 });
