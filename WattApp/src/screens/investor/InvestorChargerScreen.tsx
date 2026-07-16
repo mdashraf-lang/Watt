@@ -158,6 +158,17 @@ export default function InvestorChargerScreen() {
     const newVal = !listing.is_available;
     setToggling(true);
     try {
+      // Never cut power on a customer mid-charge: block turning OFF while an
+      // active session is running on this charger (checked server-side since
+      // RLS hides the customer's session from the host).
+      if (!newVal) {
+        const { data: busy } = await supabase.rpc('listing_has_active_session', { p_listing: listing.id });
+        if (busy) {
+          Alert.alert(t.warning, t.inv_toggle_busy);
+          setToggling(false);
+          return;
+        }
+      }
       if (listing.tuya_device_id) {
         const { data, error: tuyaErr } = await supabase.functions.invoke(
           'control-tuya-switch',

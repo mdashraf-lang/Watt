@@ -558,6 +558,7 @@ const en: Translations = {
   inv_charge_confirm_msg: 'This will turn on your charger and start a session. Cost will be deducted from your wallet at your listed rate.',
   inv_charge_no_device: 'Please link your Tuya device first to enable charging.',
   inv_charge_not_verified: 'Your device is pending admin verification. Please wait until verified.',
+  inv_toggle_busy: 'A customer is charging right now. You can\'t turn the charger off until the session ends.',
   inv_charge_starting: 'Starting charger...',
   inv_tab_my_charger: 'My Charger',
 
