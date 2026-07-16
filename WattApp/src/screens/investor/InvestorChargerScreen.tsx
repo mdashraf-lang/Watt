@@ -30,7 +30,7 @@ export default function InvestorChargerScreen() {
   const [selfCharging, setSelfCharging] = useState(false);
   const deviceRef = useRef<TextInput>(null);
 
-  // Edit form — price is NOT editable here: pricing is set by Watt admin
+  // Edit form — price is NOT editable here: pricing is set by Go Watt admin
   const [editAddress,  setEditAddress]  = useState('');
   const [editPowerKw,  setEditPowerKw]  = useState('');
   const [editStart,    setEditStart]    = useState('08:00');
@@ -456,7 +456,7 @@ export default function InvestorChargerScreen() {
                   keyboardType="decimal-pad" returnKeyType="next" />
               </EditField>
 
-              {/* Price is read-only — set centrally by Watt admin */}
+              {/* Price is read-only — set centrally by Go Watt admin */}
               <EditField label={t.host_charger_price}>
                 <View style={[s.input, { justifyContent: 'center' }]}>
                   <Text style={{ color: COLORS.text, fontSize: 15 }}>

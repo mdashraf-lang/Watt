@@ -2,7 +2,7 @@ import type { Translations } from './ar';
 
 const en: Translations = {
   // Common
-  app_name: 'Watt',
+  app_name: 'Go Watt',
   app_tagline: 'EV Charging Network',
   back: '←',
   save: 'Save Changes',
@@ -51,7 +51,7 @@ const en: Translations = {
   splash_tap_hint: 'Tap anywhere to continue',
 
   // Auth - Role Select
-  auth_role_title: 'Welcome to Watt',
+  auth_role_title: 'Welcome to Go Watt',
   auth_role_subtitle: 'How would you like to use the app?',
   auth_role_customer_title: 'I Want to Charge',
   auth_role_customer_sub: 'Find and book EV chargers near you',
@@ -60,7 +60,7 @@ const en: Translations = {
 
   // Auth - Sign In
   auth_signin_title: 'Sign In',
-  auth_signin_subtitle: 'Welcome back to Watt',
+  auth_signin_subtitle: 'Welcome back to Go Watt',
   auth_phone_label: 'Phone Number',
   auth_phone_ph: '+968 9xxx xxxx',
   auth_email_label: 'Email Address',
@@ -78,7 +78,7 @@ const en: Translations = {
 
   // Auth - Sign Up
   auth_signup_title: 'Create Account',
-  auth_signup_subtitle: 'Join the Watt network',
+  auth_signup_subtitle: 'Join the Go Watt network',
   auth_name_label: 'Full Name',
   auth_name_ph: 'Mohammed Ahmed',
   auth_signup_btn: 'Create Account',
@@ -99,7 +99,7 @@ const en: Translations = {
 
   // Reset password (deep link screen)
   reset_title: 'Set a New Password',
-  reset_subtitle: 'Choose a new password for your Watt account.',
+  reset_subtitle: 'Choose a new password for your Go Watt account.',
   reset_new_label: 'New Password',
   reset_new_ph: 'Enter new password',
   reset_confirm_label: 'Confirm Password',
@@ -295,7 +295,7 @@ const en: Translations = {
   pay_now: 'Pay Now',
   pay_later: 'Pay Later',
   pay_later_note: 'We couldn\'t complete the payment right now. The amount has been recorded and will be settled from your wallet later.',
-  inv_price_admin_note: 'Pricing is set by Watt — contact support to discuss rates.',
+  inv_price_admin_note: 'Pricing is set by Go Watt — contact support to discuss rates.',
   booking_debt_title: 'Outstanding Balance',
   booking_debt_msg: 'Please settle your unpaid balance before booking again:',
   admin_price_section: 'Pricing (OMR per kWh)',
@@ -379,7 +379,7 @@ const en: Translations = {
   wallet_payment_error: 'Payment could not be processed. Please try again.',
 
   // Profile
-  profile_dev_name: 'Watt User',
+  profile_dev_name: 'Go Watt User',
   profile_sessions: 'Sessions',
   profile_kwh: 'Total kWh',
   profile_my_info: 'My Info',
@@ -390,7 +390,7 @@ const en: Translations = {
   profile_phone: 'Phone Number',
   profile_joined: 'Joined',
   profile_edit: '✏️ Edit Info',
-  profile_investor_title: 'Become a Watt Investor',
+  profile_investor_title: 'Become a Go Watt Investor',
   profile_investor_sub: 'Add a station at your location and earn monthly income',
   profile_settings: 'Settings',
   profile_notifications: 'Notifications',
@@ -418,7 +418,7 @@ const en: Translations = {
   investor_monthly: 'Monthly Revenue (OMR)',
   investor_net: 'Net Profit (OMR)',
   investor_recovery: 'Months to Recover',
-  investor_commission: '* Watt takes a 10% commission on revenue',
+  investor_commission: '* Go Watt takes a 10% commission on revenue',
   investor_personal_info: 'Personal Information',
   investor_full_name: 'Full Name *',
   investor_full_name_ph: 'Mohammed Ahmed',
@@ -443,7 +443,7 @@ const en: Translations = {
   investor_choose_package: 'Choose Your Package',
   investor_package_basic: 'Basic',
   investor_package_pro: 'Pro',
-  investor_watt_box: 'Watt Box',
+  investor_watt_box: 'Go Watt Box',
   investor_watt_box_sub: 'Smart device for charging management',
   investor_summary_title: 'Request Summary',
   investor_summary_package: 'Package',
@@ -456,7 +456,7 @@ const en: Translations = {
   investor_submit: 'Submit Request 🚀',
   investor_fill_required: 'Please fill in all required fields',
   investor_success_title: 'Request Submitted!',
-  investor_success_sub: 'The Watt team will contact you within 48 hours to discuss details',
+  investor_success_sub: 'The Go Watt team will contact you within 48 hours to discuss details',
   investor_step1: 'Application Review',
   investor_step2: 'Site Visit',
   investor_step3: 'Contract Signing',
@@ -511,13 +511,13 @@ const en: Translations = {
   about_title: 'About',
   about_version: 'Version',
   about_tagline: 'EV Charging Network in Oman',
-  about_desc: 'Watt is a comprehensive EV charging platform in the Sultanate of Oman. We aim to build the largest reliable and smart charging network in the region.',
+  about_desc: 'Go Watt is a comprehensive EV charging platform in the Sultanate of Oman. We aim to build the largest reliable and smart charging network in the region.',
   about_legal: 'Legal',
   about_terms: 'Terms of Use',
   about_privacy: 'Privacy Policy',
   about_licenses: 'Licenses',
   about_social: 'Follow Us',
-  about_copyright: '© 2025 Watt. All rights reserved.',
+  about_copyright: '© 2025 Go Watt. All rights reserved.',
 
   // Investor screens (My Charger + Earnings)
   inv_charger_tab: 'My Charger',
@@ -567,7 +567,7 @@ const en: Translations = {
   payout_bank_saved: 'Bank details saved.',
   payout_amount: 'Amount to withdraw (OMR)',
   payout_request_btn: 'Request Payout',
-  payout_note: 'Watt will transfer the amount to your bank account within a few working days.',
+  payout_note: 'Go Watt will transfer the amount to your bank account within a few working days.',
   payout_min_note: 'Minimum payout is 1 OMR.',
   payout_exceeds: 'Amount exceeds your available balance.',
   payout_fill_all: 'Please fill in all bank details.',
@@ -752,7 +752,7 @@ const en: Translations = {
   inv_app_submitting: 'Submitting...',
   inv_app_validation: 'Please fill in all required fields',
   inv_app_success_title: 'Application Submitted!',
-  inv_app_success_sub: 'The Watt team will review your application and contact you soon',
+  inv_app_success_sub: 'The Go Watt team will review your application and contact you soon',
   inv_app_back: 'Back to Profile',
   inv_app_status_pending: 'Under Review',
   inv_app_status_under_review: 'Under Review',
@@ -760,7 +760,7 @@ const en: Translations = {
   inv_app_status_rejected: 'Not Approved',
   inv_app_status_needs_info: 'Additional Info Required',
   inv_app_reapply: 'Submit New Application',
-  inv_app_admin_note: 'Note from Watt Team:',
+  inv_app_admin_note: 'Note from Go Watt Team:',
   inv_app_view_status: 'View Application Status',
   inv_app_status_title: 'Application Status',
   inv_app_submitted_on: 'Submitted on',
@@ -795,7 +795,7 @@ const en: Translations = {
   guest_create_account: 'Create an Account',
 
   // Guest — profile screen
-  guest_profile_name: 'Watt Guest',
+  guest_profile_name: 'Go Watt Guest',
   guest_profile_tagline: 'Sign up for the full experience',
   guest_feature_sessions: 'Book & manage charging sessions',
   guest_feature_stations: 'Save favourite stations',
@@ -804,13 +804,13 @@ const en: Translations = {
 
   // Profile — investor application statuses (new)
   profile_app_under_review: 'Application Under Review',
-  profile_app_under_review_sub: 'Submitted · Watt team will contact you within 48h',
+  profile_app_under_review_sub: 'Submitted · Go Watt team will contact you within 48h',
   profile_app_not_approved: 'Application Not Approved',
   profile_app_not_approved_sub: 'Tap to submit a new application',
-  profile_app_needs_info_title: 'Watt Team Needs More Info',
+  profile_app_needs_info_title: 'Go Watt Team Needs More Info',
   profile_app_needs_info_default: 'The admin has reviewed your application and needs additional information.',
   profile_app_reapply: 'Submit updated application →',
-  profile_app_become_investor: 'Become a Watt Investor',
+  profile_app_become_investor: 'Become a Go Watt Investor',
   profile_app_become_investor_sub: 'Add a station at your location and earn monthly income',
 
   // Profile — photo
@@ -895,14 +895,14 @@ const en: Translations = {
 
   // Investor welcome modal (shown once after admin approval)
   inv_welcome_title: 'Application Approved! 🎉',
-  inv_welcome_subtitle: 'You are now a Watt Investor',
+  inv_welcome_subtitle: 'You are now a Go Watt Investor',
   inv_welcome_body: 'Your charger location is pinned on the map. Complete the setup to start accepting bookings and earning income.',
   inv_welcome_charger_label: 'Your Charger Location',
   inv_welcome_btn: 'Continue',
 
   // Session Summary / Receipt
   session_summary_title: 'Charging Complete!',
-  session_summary_sub: 'Thank you for using Watt',
+  session_summary_sub: 'Thank you for using Go Watt',
   session_summary_kwh: 'Energy Delivered',
   session_summary_cost: 'Total Cost',
   session_summary_duration: 'Duration',

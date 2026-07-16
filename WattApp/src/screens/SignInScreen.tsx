@@ -168,7 +168,7 @@ export default function SignInScreen() {
           <View style={s.logoBadge}>
             <ZapIcon size={24} color={COLORS.gold} strokeWidth={2} />
           </View>
-          <Text style={s.logoText}>WATT</Text>
+          <Text style={s.logoText}>GO WATT</Text>
         </View>
         <Text style={s.title}>{t.auth_signin_title}</Text>
         <Text style={s.subtitle}>{t.auth_signin_subtitle}</Text>

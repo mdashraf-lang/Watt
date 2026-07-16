@@ -106,7 +106,7 @@ export default function SplashScreen() {
             <ZapIcon size={logoSize * 0.46} color={COLORS.gold} strokeWidth={2} />
           </Animated.View>
         </View>
-        <Animated.Text entering={FadeInDown.delay(250).duration(600)} style={styles.logoText}>WATT</Animated.Text>
+        <Animated.Text entering={FadeInDown.delay(250).duration(600)} style={styles.logoText}>GO WATT</Animated.Text>
         <Animated.Text entering={FadeInDown.delay(400).duration(600)} style={styles.logoTagline}>{t.app_tagline}</Animated.Text>
       </View>
 

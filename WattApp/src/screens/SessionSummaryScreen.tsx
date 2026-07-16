@@ -67,7 +67,7 @@ export default function SessionSummaryScreen() {
           <View style={styles.receiptHeader}>
             <View style={styles.receiptBrand}>
               <ZapIcon size={14} color={COLORS.primary} strokeWidth={2.5} />
-              <Text style={styles.receiptBrandText}>Watt</Text>
+              <Text style={styles.receiptBrandText}>Go Watt</Text>
             </View>
             <Text style={styles.receiptLabel}>{t.session_receipt_header}</Text>
           </View>

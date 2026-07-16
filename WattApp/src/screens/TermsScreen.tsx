@@ -12,11 +12,11 @@ interface Props {
 const TERMS_AR = [
   {
     title: '1. القبول والموافقة',
-    body: 'باستخدامك لتطبيق واط، فإنك توافق على الالتزام بهذه الشروط والأحكام. إذا كنت لا توافق على أي من هذه الشروط، يرجى عدم استخدام التطبيق.',
+    body: 'باستخدامك لتطبيق جو واط، فإنك توافق على الالتزام بهذه الشروط والأحكام. إذا كنت لا توافق على أي من هذه الشروط، يرجى عدم استخدام التطبيق.',
   },
   {
     title: '2. وصف الخدمة',
-    body: 'يوفر تطبيق واط منصة لحجز وإدارة محطات شحن السيارات الكهربائية في سلطنة عُمان. تشمل الخدمات: البحث عن المحطات، الحجز المسبق، الدفع الإلكتروني، وإدارة المحفظة الرقمية.',
+    body: 'يوفر تطبيق جو واط منصة لحجز وإدارة محطات شحن السيارات الكهربائية في سلطنة عُمان. تشمل الخدمات: البحث عن المحطات، الحجز المسبق، الدفع الإلكتروني، وإدارة المحفظة الرقمية.',
   },
   {
     title: '3. حساب المستخدم',
@@ -40,15 +40,15 @@ const TERMS_AR = [
   },
   {
     title: '8. إخلاء المسؤولية',
-    body: 'لا تتحمل واط المسؤولية عن أي أضرار تنشأ عن الاستخدام غير السليم للمحطات، أو الأعطال الناجمة عن عوامل خارجة عن إرادتنا، أو أي خسائر غير مباشرة.',
+    body: 'لا تتحمل جو واط المسؤولية عن أي أضرار تنشأ عن الاستخدام غير السليم للمحطات، أو الأعطال الناجمة عن عوامل خارجة عن إرادتنا، أو أي خسائر غير مباشرة.',
   },
   {
     title: '9. الملكية الفكرية',
-    body: 'جميع حقوق الملكية الفكرية الخاصة بالتطبيق، بما تشمل العلامات التجارية والمحتوى والتصميم، محفوظة لشركة واط. لا يُسمح بنسخ أو توزيع أي محتوى دون إذن مسبق.',
+    body: 'جميع حقوق الملكية الفكرية الخاصة بالتطبيق، بما تشمل العلامات التجارية والمحتوى والتصميم، محفوظة لشركة جو واط. لا يُسمح بنسخ أو توزيع أي محتوى دون إذن مسبق.',
   },
   {
     title: '10. تعديل الشروط',
-    body: 'تحتفظ واط بالحق في تعديل هذه الشروط في أي وقت. سيتم إخطار المستخدمين بالتغييرات الجوهرية عبر البريد الإلكتروني أو الإشعارات داخل التطبيق. استمرار استخدام التطبيق يُعد قبولاً للشروط المحدّثة.',
+    body: 'تحتفظ جو واط بالحق في تعديل هذه الشروط في أي وقت. سيتم إخطار المستخدمين بالتغييرات الجوهرية عبر البريد الإلكتروني أو الإشعارات داخل التطبيق. استمرار استخدام التطبيق يُعد قبولاً للشروط المحدّثة.',
   },
   {
     title: '11. القانون المطبق',
@@ -63,11 +63,11 @@ const TERMS_AR = [
 const TERMS_EN = [
   {
     title: '1. Acceptance of Terms',
-    body: 'By using the Watt app, you agree to be bound by these Terms and Conditions. If you do not agree to any of these terms, please do not use the application.',
+    body: 'By using the Go Watt app, you agree to be bound by these Terms and Conditions. If you do not agree to any of these terms, please do not use the application.',
   },
   {
     title: '2. Service Description',
-    body: 'Watt provides a platform for booking and managing EV charging stations across the Sultanate of Oman. Services include: station search, advance booking, digital payments, and wallet management.',
+    body: 'Go Watt provides a platform for booking and managing EV charging stations across the Sultanate of Oman. Services include: station search, advance booking, digital payments, and wallet management.',
   },
   {
     title: '3. User Account',
@@ -91,15 +91,15 @@ const TERMS_EN = [
   },
   {
     title: '8. Limitation of Liability',
-    body: 'Watt is not liable for damages arising from improper use of charging stations, failures caused by factors beyond our control, or any indirect or consequential losses.',
+    body: 'Go Watt is not liable for damages arising from improper use of charging stations, failures caused by factors beyond our control, or any indirect or consequential losses.',
   },
   {
     title: '9. Intellectual Property',
-    body: 'All intellectual property rights in the app, including trademarks, content, and design, are owned by Watt. No content may be copied or distributed without prior written permission.',
+    body: 'All intellectual property rights in the app, including trademarks, content, and design, are owned by Go Watt. No content may be copied or distributed without prior written permission.',
   },
   {
     title: '10. Amendments',
-    body: 'Watt reserves the right to modify these terms at any time. Users will be notified of material changes via email or in-app notifications. Continued use of the app constitutes acceptance of the updated terms.',
+    body: 'Go Watt reserves the right to modify these terms at any time. Users will be notified of material changes via email or in-app notifications. Continued use of the app constitutes acceptance of the updated terms.',
   },
   {
     title: '11. Governing Law',
@@ -143,7 +143,7 @@ export default function TermsScreen({ visible, onClose }: Props) {
           ))}
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>© 2025 Watt. All rights reserved.</Text>
+            <Text style={styles.footerText}>© 2025 Go Watt. All rights reserved.</Text>
           </View>
         </ScrollView>
       </SafeAreaView>

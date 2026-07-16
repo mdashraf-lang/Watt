@@ -135,7 +135,7 @@ export default function PrivacyScreen({ visible, onClose }: Props) {
           ))}
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>© 2025 Watt. All rights reserved.</Text>
+            <Text style={styles.footerText}>© 2025 Go Watt. All rights reserved.</Text>
           </View>
         </ScrollView>
       </SafeAreaView>

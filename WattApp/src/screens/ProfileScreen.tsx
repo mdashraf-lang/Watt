@@ -610,7 +610,7 @@ export default function ProfileScreen() {
               <View style={styles.aboutLogoWrap}>
                 <ZapIcon size={32} color={COLORS.primary} strokeWidth={2} />
               </View>
-              <Text style={styles.aboutAppName}>WATT</Text>
+              <Text style={styles.aboutAppName}>GO WATT</Text>
               <Text style={styles.aboutTagline}>{t.about_tagline}</Text>
               <View style={styles.versionBadge}>
                 <Text style={styles.versionText}>{t.about_version} 1.0.0</Text>
