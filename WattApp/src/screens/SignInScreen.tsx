@@ -11,7 +11,7 @@ import type { GuestStackParamList } from '../types';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import { ZapIcon, EyeIcon, EyeOffIcon, GlobeIcon } from '../components/icons';
+import { ZapIcon, EyeIcon, EyeOffIcon, GlobeIcon, PhoneIcon } from '../components/icons';
 
 type Nav = NativeStackNavigationProp<GuestStackParamList, 'SignIn'>;
 
@@ -39,7 +39,7 @@ function AppleLogo({ size = 20, color = '#fff' }: { size?: number; color?: strin
 export default function SignInScreen() {
   const navigation = useNavigation<Nav>();
   const { t, toggleLanguage } = useLang();
-  const { signIn, signInWithGoogle, signInWithApple, sendPasswordReset } = useAuth();
+  const { signIn, signInWithGoogle, signInWithApple, sendPasswordReset, signInWithPhone, verifyPhoneOtp } = useAuth();
 
   const [email,         setEmail]         = useState('');
   const [password,      setPassword]      = useState('');
@@ -47,6 +47,14 @@ export default function SignInScreen() {
   const [loading,       setLoading]       = useState(false);
   const [socialLoading, setSocialLoading] = useState<'google' | 'apple' | null>(null);
   const [emailError,    setEmailError]    = useState<string | null>(null);
+
+  // Phone (OTP) login
+  const [phoneVisible, setPhoneVisible] = useState(false);
+  const [phoneStep,    setPhoneStep]    = useState<'phone' | 'otp'>('phone');
+  const [phoneNumber,  setPhoneNumber]  = useState('');
+  const [otpCode,      setOtpCode]      = useState('');
+  const [phoneLoading, setPhoneLoading] = useState(false);
+  const [phoneError,   setPhoneError]   = useState<string | null>(null);
 
   // Forgot password
   const [forgotVisible, setForgotVisible] = useState(false);
@@ -87,6 +95,46 @@ export default function SignInScreen() {
     try { setSocialLoading('apple'); await signInWithApple(); }
     catch (e: any) { Alert.alert(t.error, e.message ?? t.auth_error_credentials); }
     finally { setSocialLoading(null); }
+  };
+
+  // ── Phone OTP flow ──
+  const fullPhone = () => `+968${phoneNumber.replace(/\D/g, '')}`;
+
+  const openPhone = () => {
+    setPhoneNumber(''); setOtpCode(''); setPhoneError(null); setPhoneStep('phone');
+    setPhoneVisible(true);
+  };
+
+  const handleSendCode = async () => {
+    const digits = phoneNumber.replace(/\D/g, '');
+    if (digits.length !== 8) { setPhoneError(t.phone_error_invalid); return; }
+    setPhoneLoading(true); setPhoneError(null);
+    try {
+      await signInWithPhone(fullPhone());
+      setPhoneStep('otp');
+    } catch (e: any) {
+      const msg = (e?.message ?? '').toLowerCase();
+      setPhoneError(
+        msg.includes('provider') || msg.includes('not enabled') || msg.includes('disabled')
+          ? t.phone_not_configured
+          : e.message ?? t.error,
+      );
+    } finally {
+      setPhoneLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (otpCode.replace(/\D/g, '').length !== 6) { setPhoneError(t.otp_error_invalid); return; }
+    setPhoneLoading(true); setPhoneError(null);
+    try {
+      await verifyPhoneOtp(fullPhone(), otpCode.trim());
+      setPhoneVisible(false);   // session established — navigator switches automatically
+    } catch {
+      setPhoneError(t.otp_error_invalid);
+    } finally {
+      setPhoneLoading(false);
+    }
   };
 
   const openForgot = () => {
@@ -228,11 +276,92 @@ export default function SignInScreen() {
             </TouchableOpacity>
           )}
 
+          <TouchableOpacity
+            style={[s.socialBtn, isSocialLoading && s.btnOff]}
+            onPress={openPhone} disabled={isSocialLoading} activeOpacity={0.85}
+          >
+            <PhoneIcon size={19} color={COLORS.primary} strokeWidth={2} />
+            <Text style={s.socialText}>{t.auth_phone}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={s.guestBtn} onPress={() => navigation.navigate('GuestTabs')} activeOpacity={0.7}>
             <Text style={s.guestText}>{t.auth_browse_guest} →</Text>
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
+
+      {/* ── Phone (OTP) login modal ── */}
+      <Modal visible={phoneVisible} transparent animationType="slide" onRequestClose={() => setPhoneVisible(false)}>
+        <View style={s.modalOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => !phoneLoading && setPhoneVisible(false)} />
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+            <View style={s.sheet}>
+              <View style={s.sheetHandle} />
+              {phoneStep === 'phone' ? (
+                <>
+                  <Text style={s.sheetTitle}>{t.phone_title}</Text>
+                  <Text style={s.sheetSub}>{t.phone_subtitle}</Text>
+                  <View style={[s.inputBox, s.inputRow, phoneError ? s.inputBoxError : null]}>
+                    <Text style={s.phonePrefix}>+968</Text>
+                    <TextInput
+                      style={[s.input, { flex: 1 }]}
+                      placeholder="9XXXXXXX"
+                      placeholderTextColor={COLORS.textTertiary}
+                      value={phoneNumber}
+                      onChangeText={v => { setPhoneNumber(v.replace(/\D/g, '').slice(0, 8)); if (phoneError) setPhoneError(null); }}
+                      keyboardType="phone-pad"
+                      maxLength={8}
+                      returnKeyType="send"
+                      onSubmitEditing={handleSendCode}
+                      autoFocus
+                    />
+                  </View>
+                  {phoneError ? <Text style={s.fieldErr}>{phoneError}</Text> : null}
+                  <TouchableOpacity
+                    style={[s.btn, phoneLoading && s.btnOff]}
+                    onPress={handleSendCode} disabled={phoneLoading} activeOpacity={0.85}
+                  >
+                    {phoneLoading
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={s.btnText}>{t.phone_send_btn}</Text>}
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={s.sheetTitle}>{t.phone_otp_title}</Text>
+                  <Text style={s.sheetSub}>{t.phone_otp_subtitle} +968 {phoneNumber}</Text>
+                  <View style={[s.inputBox, phoneError ? s.inputBoxError : null]}>
+                    <TextInput
+                      style={[s.input, s.otpInput]}
+                      placeholder="••••••"
+                      placeholderTextColor={COLORS.textTertiary}
+                      value={otpCode}
+                      onChangeText={v => { setOtpCode(v.replace(/\D/g, '').slice(0, 6)); if (phoneError) setPhoneError(null); }}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                      returnKeyType="done"
+                      onSubmitEditing={handleVerifyOtp}
+                      autoFocus
+                    />
+                  </View>
+                  {phoneError ? <Text style={s.fieldErr}>{phoneError}</Text> : null}
+                  <TouchableOpacity
+                    style={[s.btn, phoneLoading && s.btnOff]}
+                    onPress={handleVerifyOtp} disabled={phoneLoading} activeOpacity={0.85}
+                  >
+                    {phoneLoading
+                      ? <ActivityIndicator color="#fff" size="small" />
+                      : <Text style={s.btnText}>{t.otp_verify_btn}</Text>}
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={handleSendCode} disabled={phoneLoading} style={{ alignSelf: 'center', padding: 6 }}>
+                    <Text style={s.forgotLinkText}>{t.otp_resend}</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* ── Forgot password modal ── */}
       <Modal visible={forgotVisible} transparent animationType="slide" onRequestClose={() => setForgotVisible(false)}>
@@ -343,6 +472,9 @@ const s = StyleSheet.create({
   inputBoxError: { borderColor: COLORS.error },
   inputRow:      { flexDirection: 'row', alignItems: 'center' },
   input:         { paddingVertical: 14, fontSize: 15, color: COLORS.text },
+
+  phonePrefix: { fontSize: 15, fontWeight: '700', color: COLORS.text, marginRight: 8 },
+  otpInput:    { textAlign: 'center', fontSize: 24, letterSpacing: 12, fontWeight: '700' },
 
   forgotLink:     { alignSelf: 'flex-end', marginTop: 5 },
   forgotLinkText: { fontSize: 13, fontWeight: '600', color: COLORS.primary },

@@ -43,6 +43,8 @@ interface AuthContextType {
   signUp:            (email: string, password: string, fullName: string) => Promise<void>;
   signInWithGoogle:   () => Promise<void>;
   signInWithApple:    () => Promise<void>;
+  signInWithPhone:    (phone: string) => Promise<void>;
+  verifyPhoneOtp:     (phone: string, token: string) => Promise<void>;
   sendPasswordReset:  (email: string) => Promise<void>;
   completePasswordRecovery: (newPassword: string) => Promise<void>;
   cancelPasswordRecovery:   () => Promise<void>;
@@ -216,6 +218,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ── Phone (OTP) login ───────────────────────────────────────
+  // Requires an SMS provider (e.g. Twilio Verify) configured on the Supabase
+  // project (Dashboard → Authentication → Providers → Phone). Until then,
+  // signInWithOtp returns a clear "provider not configured" error.
+  const signInWithPhone = async (phone: string) => {
+    const { error } = await supabase.auth.signInWithOtp({ phone });
+    if (error) throw error;
+  };
+
+  const verifyPhoneOtp = async (phone: string, token: string) => {
+    const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
+    if (error) throw error;
+    // First-time phone users have no profile row yet — create one (they can
+    // set their real name later in Profile → Edit), then store the phone.
+    if (data?.user) {
+      await ensureProfile(data.user.id, data.user.phone ?? '');
+      if (data.user.phone) {
+        await supabase.from('profiles')
+          .update({ phone: data.user.phone })
+          .eq('id', data.user.id);
+      }
+    }
+  };
+
   const sendPasswordReset = async (email: string) => {
     const clean = email.trim().toLowerCase();
     // Check if an account with this email exists first
@@ -334,6 +360,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       signUp,
       signInWithGoogle,
       signInWithApple,
+      signInWithPhone,
+      verifyPhoneOtp,
       sendPasswordReset,
       completePasswordRecovery,
       cancelPasswordRecovery,
