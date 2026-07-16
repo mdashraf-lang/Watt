@@ -8,11 +8,11 @@ A dual-role mobile application built with **React Native (Expo)** and **Supabase
 
 | Layer | Technology |
 |---|---|
-| Framework | Expo SDK 54 (React Native 0.81.5) |
+| Framework | Expo SDK 56 (React Native 0.85) |
 | Language | TypeScript |
 | Backend | Supabase (Auth + PostgreSQL + Edge Functions) |
 | Navigation | React Navigation v6 |
-| Maps | React Native Maps (Google Maps) |
+| Maps | OpenStreetMap (WebView, no API key) |
 | State | React Context + TanStack Query |
 | Storage | AsyncStorage + Expo SecureStore |
 | Styling | React Native StyleSheet |
@@ -32,11 +32,25 @@ List your home charger, set availability and pricing, track bookings, and receiv
 ## Features Built
 
 ### Authentication
-- Email + password sign-up and sign-in (no SMS or SMTP required)
-- Single screen with sign-up / sign-in toggle
-- Role selection before login (Customer or Host)
-- Profile auto-created in Supabase on first sign-up
+- Email + password sign-up and sign-in, with forgot-password deep link
+- Sign in with Google (OAuth) and Apple (iOS)
+- Phone sign-in with SMS OTP (+968) — requires an SMS provider, see setup below
+- Profile auto-created in Supabase on first sign-in (any method)
 - Session persistence via AsyncStorage
+- Permanent self-service account deletion (App Store compliant)
+
+#### Phone (OTP) sign-in setup — one time
+The code is fully wired; it activates when an SMS provider is configured on the
+Supabase project (until then the app shows "phone sign-in isn't available yet"):
+
+1. Create a Twilio account (twilio.com) and a **Verify Service**
+   (Console -> Verify -> Services -> Create).
+2. Copy three values: **Account SID**, **Auth Token**, **Verify Service SID**.
+3. Supabase Dashboard -> Authentication -> Providers -> **Phone** -> enable,
+   select **Twilio Verify**, paste the three values, save.
+
+No app rebuild needed — the same build starts sending real SMS immediately.
+No secrets live in the app; everything stays in the Supabase dashboard.
 
 ### Customer Screens
 | Screen | Description |
