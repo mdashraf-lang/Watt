@@ -18,6 +18,7 @@ import {
   CalendarIcon, ZapIcon, MapPinIcon, ClockIcon, TimerIcon,
   CoinsIcon, XIcon, CheckIcon,
 } from '../components/icons';
+import ErrorView from '../components/ErrorView';
 
 type Nav = CompositeNavigationProp<
   BottomTabNavigationProp<CustomerTabParamList, 'Bookings'>,
@@ -87,6 +88,7 @@ export default function BookingsScreen() {
   const [bookings,      setBookings]      = useState<Booking[]>([]);
   const [loading,       setLoading]       = useState(true);
   const [refreshing,    setRefreshing]    = useState(false);
+  const [loadError,     setLoadError]     = useState(false);
   const [filter,        setFilter]        = useState('all');
   const [cancelBooking, setCancelBooking] = useState<Booking | null>(null);
   const [cancelReason,  setCancelReason]  = useState('');
@@ -98,12 +100,13 @@ export default function BookingsScreen() {
     if (!profile) return;
     if (!quiet) setLoading(true);
     else setRefreshing(true);
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('bookings')
       .select('*, station:stations(name, name_ar, governorate)')
       .eq('user_id', profile.id)
       .order('booked_at', { ascending: false });
     if (data) setBookings(data as Booking[]);
+    setLoadError(!!error && !data);
     setLoading(false);
     setRefreshing(false);
   }, [profile]);
@@ -313,6 +316,8 @@ export default function BookingsScreen() {
       {/* ── Content ──────────────────────────────────────── */}
       {loading ? (
         <ActivityIndicator color={COLORS.primary} style={{ marginTop: 48 }} />
+      ) : loadError ? (
+        <ErrorView onRetry={() => fetchBookings()} />
       ) : isEmpty ? (
         <View style={styles.empty}>
           <View style={styles.emptyIconWrap}>

@@ -17,6 +17,7 @@ import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
 import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon } from '../components/icons';
+import ErrorView from '../components/ErrorView';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
 type Route = RouteProp<MainStackParamList, 'StationDetails'>;
@@ -82,7 +83,17 @@ export default function StationDetailsScreen() {
     );
   }
 
-  if (!station) return null;
+  // Fetch failed (offline, etc.) — show retry instead of a blank screen.
+  if (!station) {
+    return (
+      <SafeAreaView style={styles.container} edges={['top']}>
+        <ErrorView onRetry={() => { setLoading(true); fetchStation(); fetchConnectors(); }} />
+        <TouchableOpacity onPress={() => navigation.goBack()} style={{ alignSelf: 'center', padding: 12 }}>
+          <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>{t.cancel}</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   const canBook = station.status === 'available' && station.available_connectors > 0;
 

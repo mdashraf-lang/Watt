@@ -21,6 +21,7 @@ import {
   WalletIcon, PlusIcon, XIcon, CheckIcon,
   ArrowUpIcon, ZapIcon, RotateCcwIcon, GiftIcon, CreditCardIcon,
 } from '../components/icons';
+import ErrorView from '../components/ErrorView';
 
 const TOP_UP_AMOUNTS = [5, 10, 20, 50];
 
@@ -55,6 +56,7 @@ export default function WalletScreen() {
   const insets = useSafeAreaInsets();
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [showTopUp, setShowTopUp] = useState(false);
   const [selectedAmount, setSelectedAmount] = useState(10);
   const [topUpLoading, setTopUpLoading] = useState(false);
@@ -65,13 +67,14 @@ export default function WalletScreen() {
   const fetchTransactions = async () => {
     if (!profile) return;   // wait until the profile loads; effect re-runs on profile.id
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('wallet_transactions')
         .select('*')
         .eq('user_id', profile.id)
         .order('created_at', { ascending: false })
         .limit(50);
       if (data) setTransactions(data as WalletTransaction[]);
+      setLoadError(!!error && !data);
     } finally {
       setLoading(false);
     }
@@ -216,6 +219,8 @@ export default function WalletScreen() {
 
         {loading ? (
           <ActivityIndicator color={COLORS.primary} style={{ marginTop: 32 }} />
+        ) : loadError ? (
+          <ErrorView onRetry={fetchTransactions} />
         ) : transactions.filter(tx => txFilter === 'all' || tx.type === txFilter).length === 0 ? (
           <View style={styles.emptyState}>
             <View style={styles.emptyIconWrap}>

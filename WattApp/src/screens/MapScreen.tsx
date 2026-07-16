@@ -12,6 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../components/OSMMap';
+import ErrorView from '../components/ErrorView';
 import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -78,6 +79,7 @@ export default function MapScreen() {
   const [myListing, setMyListing]       = useState<ChargerListing | null>(null);
   const [filtered, setFiltered]         = useState<Station[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [loadError, setLoadError]       = useState(false);
   const [search, setSearch]             = useState('');
   const [selected, setSelected]         = useState<Station | null>(null);
   const [selectedListing, setSelectedListing] = useState<ChargerListing | null>(null);
@@ -141,7 +143,13 @@ export default function MapScreen() {
 
   const fetchStations = async () => {
     const { data, error } = await supabase.from('stations').select('*').order('name');
-    if (!error && data) { setStations(data as Station[]); setFiltered(data as Station[]); }
+    if (!error && data) {
+      setStations(data as Station[]);
+      setFiltered(data as Station[]);
+      setLoadError(false);
+    } else if (error) {
+      setLoadError(true);
+    }
     setLoading(false);
   };
 
@@ -288,6 +296,15 @@ export default function MapScreen() {
         onMarkerPress={handleMarkerPress}
         showsUserLocation
       />
+
+      {/* Stations failed to load and we have nothing to show — offer retry */}
+      {loadError && !loading && stations.length === 0 && (
+        <View style={styles.errorOverlay} pointerEvents="box-none">
+          <View style={styles.errorCard}>
+            <ErrorView compact onRetry={() => { setLoading(true); fetchStations(); fetchListings(); }} />
+          </View>
+        </View>
+      )}
 
       {/* Search bar */}
       <SafeAreaView edges={['top']} style={styles.topOverlay}>
@@ -466,6 +483,12 @@ export default function MapScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  errorOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' },
+  errorCard: {
+    backgroundColor: COLORS.card, borderRadius: 20, marginHorizontal: 32,
+    borderWidth: 1, borderColor: COLORS.border,
+    shadowColor: '#000', shadowOpacity: 0.12, shadowOffset: { width: 0, height: 6 }, shadowRadius: 16, elevation: 8,
+  },
   topOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0,
     paddingHorizontal: 16, paddingBottom: 8, gap: 8,

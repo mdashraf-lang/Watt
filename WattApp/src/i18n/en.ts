@@ -10,6 +10,9 @@ const en: Translations = {
   cancel: 'Cancel',
   confirm: 'Confirm',
   error: 'Error',
+  error_load_title: 'Couldn\'t load data',
+  error_load_msg: 'Check your internet connection and try again.',
+  retry: 'Retry',
   warning: 'Warning',
   close: 'Close',
 

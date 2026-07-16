@@ -10,6 +10,7 @@ import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
 import type { WalletTransaction, PayoutRequest } from '../../types';
 import { TrendingUpIcon, WalletIcon, XIcon } from '../../components/icons';
+import ErrorView from '../../components/ErrorView';
 
 const TX_ICON: Record<string, string> = {
   topup: '⬆️', charge: '⚡', refund: '↩️', bonus: '🎁', earning: '💰', withdrawal: '🏦',
@@ -30,6 +31,7 @@ export default function InvestorEarningsScreen() {
   const [payouts, setPayouts]           = useState<PayoutRequest[]>([]);
   const [loading, setLoading]           = useState(true);
   const [refreshing, setRefreshing]     = useState(false);
+  const [loadError, setLoadError]       = useState(false);
 
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [bankName, setBankName]   = useState('');
@@ -45,7 +47,7 @@ export default function InvestorEarningsScreen() {
     if (!profile) return;
     setLoading(true);
     try {
-      const [{ data: tx }, { data: pr }] = await Promise.all([
+      const [{ data: tx, error: txErr }, { data: pr }] = await Promise.all([
         supabase.from('wallet_transactions').select('*')
           .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50),
         supabase.from('payout_requests').select('*')
@@ -53,6 +55,7 @@ export default function InvestorEarningsScreen() {
       ]);
       setTransactions((tx ?? []) as WalletTransaction[]);
       setPayouts((pr ?? []) as PayoutRequest[]);
+      setLoadError(!!txErr && !tx);
     } finally {
       setLoading(false);
     }
@@ -204,6 +207,8 @@ export default function InvestorEarningsScreen() {
         ListEmptyComponent={
           loading ? (
             <View style={styles.loadingWrap}><ActivityIndicator color={COLORS.primary} /></View>
+          ) : loadError ? (
+            <ErrorView onRetry={fetchData} />
           ) : (
             <View style={styles.emptyWrap}>
               <WalletIcon size={32} color={COLORS.textTertiary} strokeWidth={1.5} />

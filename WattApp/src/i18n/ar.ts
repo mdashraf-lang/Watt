@@ -9,6 +9,9 @@ const ar = {
   confirm: 'تأكيد',
   close: 'إغلاق',
   error: 'خطأ',
+  error_load_title: 'تعذّر تحميل البيانات',
+  error_load_msg: 'تحقق من اتصالك بالإنترنت وحاول مرة أخرى.',
+  retry: 'إعادة المحاولة',
   warning: 'تنبيه',
 
   // Status
