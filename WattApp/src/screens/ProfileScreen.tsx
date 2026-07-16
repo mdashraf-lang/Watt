@@ -53,7 +53,7 @@ const AVATAR_KEY = (id: string) => `watt_avatar_${id}`;
 type NavProp = NativeStackNavigationProp<CustomerStackParamList>;
 
 export default function ProfileScreen() {
-  const { profile, session, signOut, updateProfile, deactivateAccount } = useAuth();
+  const { profile, session, signOut, updateProfile, deleteAccount } = useAuth();
   const { t, toggleLanguage } = useLang();
   const navigation = useNavigation<NavProp>();
 
@@ -211,7 +211,9 @@ export default function ProfileScreen() {
     ]);
   };
 
-  const handleDeactivate = () => {
+  // Permanent account deletion (App Store requirement). Two-step confirmation
+  // because it is irreversible and erases all the user's data.
+  const handleDelete = () => {
     Alert.alert(
       t.profile_deactivate_title,
       t.profile_deactivate_msg,
@@ -220,12 +222,25 @@ export default function ProfileScreen() {
         {
           text: t.profile_deactivate_confirm,
           style: 'destructive',
-          onPress: async () => {
-            try {
-              await deactivateAccount();
-            } catch (e: any) {
-              Alert.alert(t.error, e.message);
-            }
+          onPress: () => {
+            Alert.alert(
+              t.profile_delete_final_title,
+              t.profile_delete_final_msg,
+              [
+                { text: t.cancel, style: 'cancel' },
+                {
+                  text: t.profile_delete_final_confirm,
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      await deleteAccount();
+                    } catch (e: any) {
+                      Alert.alert(t.error, e.message);
+                    }
+                  },
+                },
+              ],
+            );
           },
         },
       ],
@@ -355,7 +370,7 @@ export default function ProfileScreen() {
         </TouchableOpacity>
 
         {/* ── Delete / Deactivate account ───────────────────── */}
-        <TouchableOpacity style={styles.deactivateBtn} onPress={handleDeactivate} activeOpacity={0.85}>
+        <TouchableOpacity style={styles.deactivateBtn} onPress={handleDelete} activeOpacity={0.85}>
           <Text style={styles.deactivateBtnText}>{t.profile_deactivate_btn}</Text>
         </TouchableOpacity>
 

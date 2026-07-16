@@ -820,8 +820,11 @@ const en: Translations = {
   profile_logout_clean: 'Sign Out',
   profile_deactivate_btn: 'Delete Account',
   profile_deactivate_title: 'Delete Account',
-  profile_deactivate_msg: 'Are you sure you want to delete your account? You will be signed out and your account will be deactivated. Contact support to reactivate.',
+  profile_deactivate_msg: 'This permanently deletes your account and all your data — bookings, wallet balance, and history. This cannot be undone.',
   profile_deactivate_confirm: 'Delete My Account',
+  profile_delete_final_title: 'This is permanent',
+  profile_delete_final_msg: 'Your account and all data will be permanently erased now. Continue?',
+  profile_delete_final_confirm: 'Delete Permanently',
 
   // Bookings — active session (no emoji)
   bookings_session_active_clean: 'Charging Session Active',

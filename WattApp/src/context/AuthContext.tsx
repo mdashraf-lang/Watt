@@ -38,6 +38,7 @@ interface AuthContextType {
   refreshProfile:    () => Promise<void>;
   updateProfile:     (data: Partial<Profile>) => Promise<void>;
   deactivateAccount: () => Promise<void>;
+  deleteAccount:     () => Promise<void>;
   signIn:            (email: string, password: string) => Promise<void>;
   signUp:            (email: string, password: string, fullName: string) => Promise<void>;
   signInWithGoogle:   () => Promise<void>;
@@ -285,6 +286,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  // Permanent account deletion (App Store requirement). Deletes the auth user
+  // server-side (cascades to all owned data), then signs out.
+  const deleteAccount = async () => {
+    if (!session) return;
+    if (session.user.id) await unregisterPushNotifications(session.user.id).catch(() => {});
+    const { error } = await supabase.rpc('delete_own_account');
+    if (error) throw error;
+    await supabase.auth.signOut();
+  };
+
   const refreshProfile = async () => {
     if (session) await fetchProfile(session.user.id);
   };
@@ -328,6 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       cancelPasswordRecovery,
       signOut,
       deactivateAccount,
+      deleteAccount,
       refreshProfile,
       updateProfile,
     }}>

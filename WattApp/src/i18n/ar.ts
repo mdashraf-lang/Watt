@@ -818,8 +818,11 @@ const ar = {
   profile_logout_clean: 'تسجيل الخروج',
   profile_deactivate_btn: 'حذف الحساب',
   profile_deactivate_title: 'حذف الحساب',
-  profile_deactivate_msg: 'هل أنت متأكد من حذف حسابك؟ سيتم تسجيل خروجك وتعطيل الحساب. تواصل مع الدعم لإعادة التفعيل.',
+  profile_deactivate_msg: 'سيؤدي هذا إلى حذف حسابك وجميع بياناتك نهائياً — الحجوزات ورصيد المحفظة والسجل. لا يمكن التراجع عن هذا.',
   profile_deactivate_confirm: 'حذف حسابي',
+  profile_delete_final_title: 'هذا إجراء نهائي',
+  profile_delete_final_msg: 'سيتم حذف حسابك وجميع بياناتك نهائياً الآن. هل تريد المتابعة؟',
+  profile_delete_final_confirm: 'حذف نهائي',
 
   // Bookings — active session (no emoji)
   bookings_session_active_clean: 'جلسة الشحن نشطة',
