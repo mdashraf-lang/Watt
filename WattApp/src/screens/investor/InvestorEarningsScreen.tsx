@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator, FlatList, Modal, ScrollView, StyleSheet, Text,
+  ActivityIndicator, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text,
   TextInput, TouchableOpacity, View, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,6 +29,7 @@ export default function InvestorEarningsScreen() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [payouts, setPayouts]           = useState<PayoutRequest[]>([]);
   const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
 
   const [showWithdraw, setShowWithdraw] = useState(false);
   const [bankName, setBankName]   = useState('');
@@ -58,6 +59,12 @@ export default function InvestorEarningsScreen() {
   }, [profile?.id]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try { await Promise.all([refreshProfile(), fetchData()]); }
+    finally { setRefreshing(false); }
+  };
 
   // Prefill the bank form from the profile.
   useEffect(() => {
@@ -135,6 +142,7 @@ export default function InvestorEarningsScreen() {
         data={transactions}
         keyExtractor={item => item.id}
         showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.primary} />}
         ListHeaderComponent={
           <>
             {/* Balance card */}
