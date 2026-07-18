@@ -13,3 +13,15 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Personal / sensitive documents — never commit
+Bills/
+hardware.pdf
+lastupdate.md
+index.html
+
+# Local tooling / IDE / temp — not part of the app
+.idea_backup/
+.mcp.json
+.claude/
+WattApp/supabase/.temp/
