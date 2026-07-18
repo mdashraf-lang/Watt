@@ -632,6 +632,9 @@ const en: Translations = {
   // Admin — map
   admin_map_title: 'Station Network',
   admin_map_total: 'Total',
+  admin_map_all: 'All',
+  admin_map_search: 'Search stations',
+  admin_map_no_results: 'No stations match your search',
   admin_map_available: 'Available',
   admin_map_busy: 'Busy',
   admin_map_fault: 'Fault',
@@ -649,6 +652,10 @@ const en: Translations = {
   admin_customers_search: 'Search by name or phone...',
   admin_customers_empty: 'No customers yet',
   admin_customers_empty_sub: 'Customers will appear here once they sign up',
+  admin_customer_detail_title: 'Customer Details',
+  admin_customer_status_active: 'Active',
+  admin_customer_contact_section: 'Contact & Account',
+  admin_customer_balance_available: 'Available balance',
   admin_customer_joined: 'Joined',
   admin_customer_sessions: 'Sessions',
   admin_customer_kwh: 'kWh',
@@ -657,7 +664,6 @@ const en: Translations = {
   admin_customer_wallet: 'Wallet Balance',
   admin_customer_membership: 'Membership',
   admin_customer_no_vehicle: 'No vehicle added',
-  admin_customer_detail_title: 'Customer Details',
   admin_delete_title: 'Delete Customer',
   admin_delete_msg: 'Are you sure you want to permanently delete',
   admin_delete_warning: 'This will remove the account and all data. This cannot be undone.',
@@ -774,6 +780,8 @@ const en: Translations = {
   admin_profile_phone: 'Phone Number',
   admin_profile_settings: 'Settings',
   admin_profile_language: 'Language',
+  admin_profile_stat_stations: 'Stations',
+  admin_profile_stat_users: 'Users',
 
   // Wallet filter — "all" chip
   wallet_tx_all: 'All',

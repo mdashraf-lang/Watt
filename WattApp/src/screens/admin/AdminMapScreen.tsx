@@ -1,17 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator, ScrollView, StyleSheet, Text,
+  ActivityIndicator, ScrollView, StyleSheet, Text, TextInput,
   TouchableOpacity, View,
 } from 'react-native';
 import OSMMap, { OSMMapHandle, OSMMarkerSpec, OSMRegion as Region } from '../../components/OSMMap';
 import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import type { Station } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../../i18n/govMap';
-import { ZapIcon, LocateIcon, XIcon } from '../../components/icons';
+import { ZapIcon, LocateIcon, XIcon, SearchIcon } from '../../components/icons';
 
 const STATUS_COLOR: Record<string, string> = {
   available: COLORS.available,
@@ -24,6 +25,7 @@ const OMAN_REGION: Region = {
   latitude: 23.588, longitude: 58.383,
   latitudeDelta: 3.5, longitudeDelta: 3.5,
 };
+
 
 export default function AdminMapScreen() {
   const { t, isRTL } = useLang();
@@ -38,6 +40,11 @@ export default function AdminMapScreen() {
   const [stations, setStations]   = useState<Station[]>([]);
   const [loading,  setLoading]    = useState(true);
   const [selected, setSelected]   = useState<Station | null>(null);
+  const [search,   setSearch]     = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | string>('all');
+  const [cardHeight, setCardHeight] = useState(0);
+  const tabBarHeight = useTabBarHeight();
+  const cardBottom = tabBarHeight + 12;
 
   useEffect(() => {
     fetchStations();
@@ -71,17 +78,55 @@ export default function AdminMapScreen() {
     }
   };
 
-  // Status summary counts
+  // Status summary counts (always over the full set, so chips show network totals)
   const counts = stations.reduce((acc, s) => {
     acc[s.status] = (acc[s.status] ?? 0) + 1;
     return acc;
   }, {} as Record<string, number>);
 
-  const SUMMARY = [
-    { key: 'available', color: COLORS.available, label: t.admin_map_available },
-    { key: 'busy',      color: COLORS.busy,      label: t.admin_map_busy },
-    { key: 'fault',     color: COLORS.fault,     label: t.admin_map_fault },
-    { key: 'offline',   color: COLORS.offline,   label: t.admin_map_offline },
+  // Stations after search + status filter — drives the map pins
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return stations.filter(s => {
+      if (statusFilter !== 'all' && s.status !== statusFilter) return false;
+      if (!q) return true;
+      return (
+        s.name.toLowerCase().includes(q) ||
+        (s.name_ar ?? '').toLowerCase().includes(q) ||
+        s.governorate.toLowerCase().includes(q) ||
+        translateGov(s.governorate, isRTL).toLowerCase().includes(q)
+      );
+    });
+  }, [stations, search, statusFilter, isRTL]);
+
+  // Keep the map framed on results as the admin searches/filters
+  useEffect(() => {
+    if (!loading && visible.length > 0 && (search.trim() || statusFilter !== 'all')) {
+      const lats = visible.map(s => s.latitude);
+      const lngs = visible.map(s => s.longitude);
+      const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+      const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
+      const spanLat = Math.max(...lats) - Math.min(...lats);
+      const spanLng = Math.max(...lngs) - Math.min(...lngs);
+      mapRef.current?.animateToRegion({
+        latitude: midLat, longitude: midLng,
+        latitudeDelta: Math.max(spanLat * 1.6, 0.05),
+        longitudeDelta: Math.max(spanLng * 1.6, 0.05),
+      }, 500);
+    }
+  }, [search, statusFilter, loading]);
+
+  // Drop the selected card if it no longer matches the active filter/search
+  useEffect(() => {
+    if (selected && !visible.some(s => s.id === selected.id)) setSelected(null);
+  }, [visible, selected]);
+
+  const CHIPS = [
+    { key: 'all',       color: COLORS.text,      label: t.admin_map_all,       count: stations.length },
+    { key: 'available', color: COLORS.available, label: t.admin_map_available, count: counts.available ?? 0 },
+    { key: 'busy',      color: COLORS.busy,      label: t.admin_map_busy,      count: counts.busy ?? 0 },
+    { key: 'fault',     color: COLORS.fault,     label: t.admin_map_fault,     count: counts.fault ?? 0 },
+    { key: 'offline',   color: COLORS.offline,   label: t.admin_map_offline,   count: counts.offline ?? 0 },
   ];
 
   return (
@@ -91,7 +136,7 @@ export default function AdminMapScreen() {
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         initialRegion={OMAN_REGION}
-        markers={stations.map((s): OSMMarkerSpec => ({
+        markers={visible.map((s): OSMMarkerSpec => ({
           id: s.id,
           latitude: s.latitude, longitude: s.longitude,
           color: STATUS_COLOR[s.status] ?? COLORS.offline,
@@ -104,38 +149,101 @@ export default function AdminMapScreen() {
         showsUserLocation
       />
 
-      {/* Top overlay */}
+      {/* Top overlay — Google-Maps-style search + filter */}
       <SafeAreaView edges={['top']} style={styles.topOverlay} pointerEvents="box-none">
-        {/* Title bar */}
-        <View style={styles.titleBar}>
-          <Text style={styles.titleText}>{t.admin_map_title}</Text>
-          {loading && <ActivityIndicator size="small" color={COLORS.primary} style={{ marginLeft: 8 }} />}
-          <TouchableOpacity style={styles.locateBtn} onPress={requestLocation}>
-            <LocateIcon size={18} color={COLORS.primary} strokeWidth={2} />
-          </TouchableOpacity>
+        {/* Floating pill search bar */}
+        <View style={[styles.searchBar, isRTL && styles.rowReverse]}>
+          <View style={styles.searchIconWrap}>
+            <SearchIcon size={19} color={COLORS.primary} strokeWidth={2.4} />
+          </View>
+          <TextInput
+            style={[styles.searchInput, { textAlign: isRTL ? 'right' : 'left' }]}
+            placeholder={t.admin_map_search}
+            placeholderTextColor={COLORS.textTertiary}
+            value={search}
+            onChangeText={setSearch}
+            returnKeyType="search"
+          />
+          {loading ? (
+            <ActivityIndicator size="small" color={COLORS.primary} style={{ marginHorizontal: 4 }} />
+          ) : search.length > 0 ? (
+            <TouchableOpacity
+              onPress={() => setSearch('')}
+              style={styles.clearBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <XIcon size={13} color={COLORS.textSecondary} strokeWidth={2.6} />
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.countBadge}>
+              <ZapIcon size={11} color={COLORS.primary} strokeWidth={2.6} />
+              <Text style={styles.countBadgeText}>{visible.length}</Text>
+            </View>
+          )}
         </View>
 
-        {/* Status summary pills */}
-        {!loading && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.summaryRow}>
-            <View style={styles.summaryPill}>
-              <Text style={[styles.summaryCount, { color: COLORS.text }]}>{stations.length}</Text>
-              <Text style={styles.summaryLabel}>{t.admin_map_total}</Text>
-            </View>
-            {SUMMARY.map(s => (
-              <View key={s.key} style={styles.summaryPill}>
-                <View style={[styles.summaryDot, { backgroundColor: s.color }]} />
-                <Text style={[styles.summaryCount, { color: s.color }]}>{counts[s.key] ?? 0}</Text>
-                <Text style={styles.summaryLabel}>{s.label}</Text>
-              </View>
-            ))}
-          </ScrollView>
+        {/* Category-style filter chips — full-bleed so they scroll off the true screen edges */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.chipScroll}
+          contentContainerStyle={[styles.chipRow, isRTL && styles.rowReverse]}
+          keyboardShouldPersistTaps="handled"
+        >
+          {CHIPS.map(c => {
+            const active = statusFilter === c.key;
+            return (
+              <TouchableOpacity
+                key={c.key}
+                activeOpacity={0.85}
+                onPress={() => setStatusFilter(active && c.key !== 'all' ? 'all' : c.key)}
+                style={[
+                  styles.chip,
+                  active && { backgroundColor: c.color, borderColor: c.color },
+                ]}
+              >
+                {c.key !== 'all' && (
+                  <View style={[styles.chipDot, { backgroundColor: active ? '#fff' : c.color }]} />
+                )}
+                <Text style={[styles.chipLabel, active && styles.chipLabelActive]}>
+                  {c.label}
+                </Text>
+                <View style={[styles.chipCount, active && styles.chipCountActive]}>
+                  <Text style={[styles.chipCountText, active && styles.chipCountTextActive]}>{c.count}</Text>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Empty state */}
+        {!loading && visible.length === 0 && (
+          <View style={styles.emptyPill}>
+            <Text style={styles.emptyText}>{t.admin_map_no_results}</Text>
+          </View>
         )}
       </SafeAreaView>
 
+      {/* Locate FAB — floating bottom corner like Google Maps (lifts above the station card) */}
+      <TouchableOpacity
+        style={[
+          styles.locateFab,
+          isRTL ? { left: 16 } : { right: 16 },
+          // Sits just above the floating nav bar by default; above the card when a station is open.
+          { bottom: selected ? cardBottom + cardHeight + 14 : tabBarHeight + 12 },
+        ]}
+        onPress={requestLocation}
+        activeOpacity={0.85}
+      >
+        <LocateIcon size={22} color={COLORS.primary} strokeWidth={2.2} />
+      </TouchableOpacity>
+
       {/* Selected station admin card */}
       {selected && (
-        <View style={styles.stationCard}>
+        <View
+          style={[styles.stationCard, { bottom: cardBottom }]}
+          onLayout={e => setCardHeight(e.nativeEvent.layout.height)}
+        >
           <TouchableOpacity style={styles.cardDismiss} onPress={() => setSelected(null)}>
             <XIcon size={14} color={COLORS.textSecondary} strokeWidth={2.5} />
           </TouchableOpacity>
@@ -194,31 +302,75 @@ const styles = StyleSheet.create({
 
   topOverlay: {
     position: 'absolute', top: 0, left: 0, right: 0,
-    paddingHorizontal: 16, paddingBottom: 8, gap: 8,
+    paddingHorizontal: 14, paddingBottom: 8, gap: 10,
   },
-  titleBar: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: COLORS.card, borderRadius: 16,
-    paddingHorizontal: 16, paddingVertical: 12,
-    shadowColor: '#000', shadowOpacity: 0.1, shadowOffset: { width: 0, height: 3 }, elevation: 4,
+  rowReverse: { flexDirection: 'row-reverse' },
+
+  // ── Floating pill search bar ──
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: COLORS.card, borderRadius: 28,
+    paddingLeft: 6, paddingRight: 8, paddingVertical: 6,
+    shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 6,
   },
-  titleText: { flex: 1, fontSize: 17, fontWeight: '800', color: COLORS.text },
-  locateBtn: {
-    width: 36, height: 36, borderRadius: 12,
+  searchIconWrap: {
+    width: 38, height: 38, borderRadius: 19,
     backgroundColor: COLORS.primaryBg,
     alignItems: 'center', justifyContent: 'center',
   },
-
-  summaryRow: { gap: 8, paddingRight: 4 },
-  summaryPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: COLORS.card, borderRadius: 20,
-    paddingHorizontal: 12, paddingVertical: 8,
-    shadowColor: '#000', shadowOpacity: 0.08, shadowOffset: { width: 0, height: 2 }, elevation: 2,
+  searchInput: { flex: 1, fontSize: 15, fontWeight: '500', color: COLORS.text, paddingVertical: 0 },
+  clearBtn: {
+    width: 26, height: 26, borderRadius: 13,
+    backgroundColor: COLORS.backgroundAlt,
+    alignItems: 'center', justifyContent: 'center',
   },
-  summaryDot:   { width: 8, height: 8, borderRadius: 4 },
-  summaryCount: { fontSize: 16, fontWeight: '800' },
-  summaryLabel: { fontSize: 11, color: COLORS.textSecondary, fontWeight: '500' },
+  countBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: COLORS.primaryBg, borderRadius: 14,
+    paddingHorizontal: 9, paddingVertical: 5,
+  },
+  countBadgeText: { fontSize: 13, fontWeight: '800', color: COLORS.primary },
+
+  // ── Category-style filter chips ──
+  // Full-bleed: cancel the topOverlay's 14px side padding so chips slide off the real edges…
+  chipScroll: { marginHorizontal: -14 },
+  // …then re-add that inset inside the scroll content (plus vertical room so shadows aren't clipped).
+  chipRow: { gap: 8, paddingHorizontal: 14, paddingVertical: 4 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: COLORS.card, borderRadius: 22,
+    borderWidth: 1.5, borderColor: 'transparent',
+    paddingLeft: 12, paddingRight: 8, paddingVertical: 8,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
+  chipDot:   { width: 9, height: 9, borderRadius: 5 },
+  chipLabel: { fontSize: 13, fontWeight: '600', color: COLORS.text },
+  chipLabelActive: { color: '#fff', fontWeight: '800' },
+  chipCount: {
+    minWidth: 22, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 11,
+    backgroundColor: COLORS.backgroundAlt, alignItems: 'center', justifyContent: 'center',
+  },
+  chipCountActive: { backgroundColor: 'rgba(255,255,255,0.28)' },
+  chipCountText: { fontSize: 11, fontWeight: '800', color: COLORS.textSecondary },
+  chipCountTextActive: { color: '#fff' },
+
+  // ── Empty state ──
+  emptyPill: {
+    alignSelf: 'center',
+    backgroundColor: COLORS.card, borderRadius: 20,
+    paddingHorizontal: 16, paddingVertical: 10,
+    shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 3,
+  },
+  emptyText: { fontSize: 13, fontWeight: '600', color: COLORS.textSecondary },
+
+  // ── Locate FAB ──
+  locateFab: {
+    position: 'absolute',
+    width: 48, height: 48, borderRadius: 24,
+    backgroundColor: COLORS.card,
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#000', shadowOpacity: 0.18, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 6,
+  },
 
   pin: {
     width: 34, height: 34, borderRadius: 17,
@@ -228,7 +380,7 @@ const styles = StyleSheet.create({
   },
 
   stationCard: {
-    position: 'absolute', bottom: 90, left: 16, right: 16,
+    position: 'absolute', left: 16, right: 16,
     backgroundColor: COLORS.card, borderRadius: 22, padding: 16,
     shadowColor: '#000', shadowOpacity: 0.15, shadowOffset: { width: 0, height: 4 }, elevation: 10,
   },

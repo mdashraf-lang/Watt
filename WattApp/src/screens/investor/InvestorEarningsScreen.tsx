@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
+import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import { supabase } from '../../lib/supabase';
 import { COLORS } from '../../constants/colors';
 import type { WalletTransaction, PayoutRequest } from '../../types';
@@ -22,6 +23,7 @@ export default function InvestorEarningsScreen() {
   const { profile, updateProfile, refreshProfile } = useAuth();
   const { t, isRTL } = useLang();
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useTabBarHeight();
 
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [payouts, setPayouts]           = useState<PayoutRequest[]>([]);
@@ -212,7 +214,7 @@ export default function InvestorEarningsScreen() {
             </View>
           )
         }
-        contentContainerStyle={{ paddingBottom: 32 }}
+        contentContainerStyle={{ paddingBottom: tabBarHeight + 16 }}
         renderItem={({ item }) => (
           <View style={styles.txRow}>
             <View style={[styles.txIconWrap, item.amount > 0 ? styles.txIconPlus : styles.txIconMinus]}>

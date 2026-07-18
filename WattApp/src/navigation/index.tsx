@@ -1,12 +1,14 @@
-import React, { useEffect, useState, Suspense, lazy } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet,
 } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, FadeIn } from 'react-native-reanimated';
+import { TAB_BAR_TOP, TAB_PILL_HEIGHT } from './tabBarLayout';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
@@ -27,59 +29,38 @@ import type {
   InvestorStackParamList,
 } from '../types';
 
-// Auth screens — kept eager: they are the pre-login flow, small, and needed
-// immediately, so lazy-loading them would only add a spinner at first paint.
+// Auth screens
 import LandingScreen       from '../screens/SplashScreen';
 import SignInScreen        from '../screens/SignInScreen';
 import SignUpScreen        from '../screens/SignUpScreen';
 import ResetPasswordScreen from '../screens/ResetPasswordScreen';
+import GuestProfileScreen  from '../screens/GuestProfileScreen';
+import GuestLockedScreen   from '../screens/GuestLockedScreen';
 
-// ── Lazy loading ──────────────────────────────────────────────
-// Post-login screens are code-split with React.lazy so their (often large)
-// modules are only evaluated the first time the user navigates to them,
-// instead of all at app startup. Each is wrapped in its own Suspense so a
-// slow load shows a small spinner for that screen only — never the whole app.
-function ScreenFallback() {
-  return (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background }}>
-      <ActivityIndicator size="large" color={COLORS.primary} />
-    </View>
-  );
-}
+// Customer screens
+import MapScreen                  from '../screens/MapScreen';
+import StationDetailsScreen       from '../screens/StationDetailsScreen';
+import BookingScreen              from '../screens/BookingScreen';
+import ActiveBookingScreen        from '../screens/ActiveBookingScreen';
+import ChargingScreen             from '../screens/ChargingScreen';
+import SessionSummaryScreen       from '../screens/SessionSummaryScreen';
+import BookingsScreen             from '../screens/BookingsScreen';
+import WalletScreen               from '../screens/WalletScreen';
+import ProfileScreen              from '../screens/ProfileScreen';
+import InvestorApplicationScreen  from '../screens/InvestorApplicationScreen';
 
-function lazyScreen<T extends React.ComponentType<any>>(factory: () => Promise<{ default: T }>) {
-  const Component = lazy(factory);
-  return function LazyScreen(props: any) {
-    return (
-      <Suspense fallback={<ScreenFallback />}>
-        <Component {...props} />
-      </Suspense>
-    );
-  };
-}
+// Admin screens
+import AdminMapScreen       from '../screens/admin/AdminMapScreen';
+import AdminUsersScreen     from '../screens/admin/AdminUsersScreen';
+import AdminCustomerDetailScreen from '../screens/admin/AdminCustomerDetailScreen';
+import AdminInvestorsScreen from '../screens/admin/AdminInvestorsScreen';
+import AdminApplicationDetailScreen from '../screens/admin/AdminApplicationDetailScreen';
+import AdminProfileScreen   from '../screens/admin/AdminProfileScreen';
+import AdminPayoutsScreen   from '../screens/admin/AdminPayoutsScreen';
 
-const GuestProfileScreen        = lazyScreen(() => import('../screens/GuestProfileScreen'));
-const GuestLockedScreen         = lazyScreen(() => import('../screens/GuestLockedScreen'));
-
-const MapScreen                 = lazyScreen(() => import('../screens/MapScreen'));
-const StationDetailsScreen      = lazyScreen(() => import('../screens/StationDetailsScreen'));
-const BookingScreen             = lazyScreen(() => import('../screens/BookingScreen'));
-const ActiveBookingScreen       = lazyScreen(() => import('../screens/ActiveBookingScreen'));
-const ChargingScreen            = lazyScreen(() => import('../screens/ChargingScreen'));
-const SessionSummaryScreen      = lazyScreen(() => import('../screens/SessionSummaryScreen'));
-const BookingsScreen            = lazyScreen(() => import('../screens/BookingsScreen'));
-const WalletScreen              = lazyScreen(() => import('../screens/WalletScreen'));
-const ProfileScreen             = lazyScreen(() => import('../screens/ProfileScreen'));
-const InvestorApplicationScreen = lazyScreen(() => import('../screens/InvestorApplicationScreen'));
-
-const AdminMapScreen            = lazyScreen(() => import('../screens/admin/AdminMapScreen'));
-const AdminUsersScreen          = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
-const AdminInvestorsScreen      = lazyScreen(() => import('../screens/admin/AdminInvestorsScreen'));
-const AdminProfileScreen        = lazyScreen(() => import('../screens/admin/AdminProfileScreen'));
-const AdminPayoutsScreen        = lazyScreen(() => import('../screens/admin/AdminPayoutsScreen'));
-
-const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
-const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
+// Investor screens
+import InvestorChargerScreen  from '../screens/investor/InvestorChargerScreen';
+import InvestorEarningsScreen from '../screens/investor/InvestorEarningsScreen';
 
 // Root navigator — switches between Guest, Customer, and Admin
 const RootStack      = createNativeStackNavigator();
@@ -92,67 +73,132 @@ const AdminTab       = createBottomTabNavigator<AdminTabParamList>();
 const InvestorStack  = createNativeStackNavigator<InvestorStackParamList>();
 const InvestorTab    = createBottomTabNavigator<InvestorTabParamList>();
 
+// Match the app background so the floating tab bar's surroundings stay seamless.
+const navTheme = {
+  ...DefaultTheme,
+  colors: { ...DefaultTheme.colors, background: COLORS.background },
+};
+
 // ── Tab Bar ────────────────────────────────────────────────────
+// Geometry + useTabBarHeight live in ./tabBarLayout (no app imports) to avoid
+// a circular dependency with the screens that consume the hook.
+
+// A single tab: icon lifts + scales and label emphasises when it becomes active.
+function TabItem({
+  focused, label, accentColor, icon, onPress,
+}: {
+  focused: boolean; label: string; accentColor: string;
+  icon: React.ReactNode; onPress: () => void;
+}) {
+  const p = useSharedValue(focused ? 1 : 0);
+  useEffect(() => {
+    p.value = withTiming(focused ? 1 : 0, { duration: 260, easing: Easing.out(Easing.cubic) });
+  }, [focused]);
+
+  const iconStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 + p.value * 0.16 }, { translateY: -p.value * 2 }],
+  }));
+
+  return (
+    <TouchableOpacity style={tabStyles.tab} onPress={onPress} activeOpacity={0.8}>
+      <Animated.View style={iconStyle}>{icon}</Animated.View>
+      {focused && (
+        <Animated.Text
+          entering={FadeIn.duration(200)}
+          style={[tabStyles.label, { color: accentColor, fontWeight: '700' }]}
+          numberOfLines={1}
+        >
+          {label}
+        </Animated.Text>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 function CustomTabBar({ state, descriptors, navigation, accentColor }: BottomTabBarProps & { accentColor: string }) {
   const insets = useSafeAreaInsets();
+  const [barWidth, setBarWidth] = useState(0);
+  const tabCount = state.routes.length;
+  const tabWidth = barWidth > 0 ? barWidth / tabCount : 0;
+
+  // Sliding highlight that glides to the active tab — the "transfer" motion.
+  const pos = useSharedValue(state.index);
+  useEffect(() => {
+    pos.value = withTiming(state.index, { duration: 300, easing: Easing.out(Easing.cubic) });
+  }, [state.index]);
+  const indicatorStyle = useAnimatedStyle(() => ({ transform: [{ translateX: pos.value * tabWidth }] }));
+
   return (
-    <View style={[tabStyles.container, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-      {state.routes.map((route, index) => {
-        const { options } = descriptors[route.key];
-        const label =
-          typeof options.tabBarLabel === 'string' ? options.tabBarLabel :
-          typeof options.title       === 'string' ? options.title       :
-          route.name;
-        const isFocused = state.index === index;
+    <View style={[tabStyles.outer, { paddingBottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">
+      <View style={tabStyles.pill} onLayout={e => setBarWidth(e.nativeEvent.layout.width)} pointerEvents="auto">
+        {tabWidth > 0 && (
+          <Animated.View
+            style={[tabStyles.indicator, { width: tabWidth - 16, backgroundColor: accentColor + '1A' }, indicatorStyle]}
+          />
+        )}
+        {state.routes.map((route, index) => {
+          const { options } = descriptors[route.key];
+          const label =
+            typeof options.tabBarLabel === 'string' ? options.tabBarLabel :
+            typeof options.title       === 'string' ? options.title       :
+            route.name;
+          const isFocused = state.index === index;
 
-        const onPress = () => {
-          const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
-          if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
-        };
+          const onPress = () => {
+            const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
+            if (!isFocused && !event.defaultPrevented) navigation.navigate(route.name);
+          };
 
-        const color = isFocused ? accentColor : COLORS.textTertiary;
+          const color = isFocused ? accentColor : COLORS.textTertiary;
 
-        return (
-          <TouchableOpacity
-            key={route.key}
-            style={tabStyles.tab}
-            onPress={onPress}
-            activeOpacity={0.7}
-            accessibilityRole="tab"
-            accessibilityLabel={label}
-            accessibilityState={{ selected: isFocused }}
-          >
-            <View style={[tabStyles.iconWrap, isFocused && { backgroundColor: accentColor + '1A' }]}>
-              {options.tabBarIcon?.({ focused: isFocused, color, size: 22 })}
-            </View>
-            <Text style={[tabStyles.label, isFocused && { color: accentColor, fontWeight: '700' }]}>
-              {label}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+          return (
+            <TabItem
+              key={route.key}
+              focused={isFocused}
+              label={label}
+              accentColor={accentColor}
+              icon={options.tabBarIcon?.({ focused: isFocused, color, size: 22 })}
+              onPress={onPress}
+            />
+          );
+        })}
+      </View>
     </View>
   );
 }
 
 const tabStyles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.card,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.border,
-    paddingTop: 10,
-    paddingHorizontal: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
-    elevation: 16,
+  // Absolute, transparent wrapper — the bar floats OVER the screen content.
+  outer: {
+    position: 'absolute',
+    left: 0, right: 0, bottom: 0,
+    backgroundColor: 'transparent',
+    paddingHorizontal: 16,
+    paddingTop: TAB_BAR_TOP,
   },
-  tab:      { flex: 1, alignItems: 'center', gap: 4 },
-  iconWrap: { width: 52, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
-  label:    { fontSize: 11, fontWeight: '500', color: COLORS.textTertiary },
+  // The floating bar itself — gently rounded, sits above the content.
+  pill: {
+    height: TAB_PILL_HEIGHT,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F2F3F5',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.10,
+    shadowRadius: 18,
+    elevation: 12,
+  },
+  // Sliding active highlight behind the focused tab.
+  indicator: {
+    position: 'absolute',
+    left: 8, top: 6, bottom: 6,
+    borderRadius: 12,
+  },
+  tab:   { flex: 1, alignItems: 'center', gap: 4, paddingVertical: 2 },
+  label: { fontSize: 11, fontWeight: '500', color: COLORS.textTertiary },
 });
 
 // ── GUEST ─────────────────────────────────────────────────────
@@ -529,6 +575,8 @@ function AdminNavigator() {
   return (
     <AdminStack.Navigator screenOptions={{ headerShown: false }}>
       <AdminStack.Screen name="AdminTabs" component={AdminTabs} />
+      <AdminStack.Screen name="AdminCustomerDetail" component={AdminCustomerDetailScreen} />
+      <AdminStack.Screen name="AdminApplicationDetail" component={AdminApplicationDetailScreen} />
       <AdminStack.Screen name="AdminPayouts" component={AdminPayoutsScreen} />
     </AdminStack.Navigator>
   );
@@ -555,7 +603,7 @@ export default function AppNavigator() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={navTheme}>
       <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
         {!isLoggedIn ? (
           <RootStack.Screen name="GuestMain" component={GuestNavigator} />

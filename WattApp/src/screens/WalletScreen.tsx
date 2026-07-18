@@ -18,6 +18,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
+import { useTabBarHeight } from '../navigation/tabBarLayout';
 import {
   WalletIcon, PlusIcon, XIcon, CheckIcon,
   ArrowUpIcon, ZapIcon, RotateCcwIcon, GiftIcon, CreditCardIcon,
@@ -54,6 +55,7 @@ const TX_ICON_BG: Record<string, string> = {
 export default function WalletScreen() {
   const { t, isRTL } = useLang();
   const locale = isRTL ? 'ar-OM' : 'en-GB';
+  const tabBarHeight = useTabBarHeight();
   const TX_LABEL: Record<string, string> = {
     topup: t.wallet_tx_topup,
     charge: t.wallet_tx_charge,
@@ -253,7 +255,7 @@ export default function WalletScreen() {
             keyExtractor={item => item.id}
             renderItem={renderTransaction}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ gap: 8, paddingBottom: 32 }}
+            contentContainerStyle={{ gap: 8, paddingBottom: tabBarHeight + 16 }}
           />
         )}
       </View>

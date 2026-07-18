@@ -38,8 +38,6 @@
         }
       ],
       "expo-apple-authentication",
-      "expo-web-browser",
-      "expo-status-bar",
       [
         "expo-notifications",
         {

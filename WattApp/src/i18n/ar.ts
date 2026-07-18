@@ -630,6 +630,9 @@ const ar = {
   // Admin — map
   admin_map_title: 'شبكة المحطات',
   admin_map_total: 'الإجمالي',
+  admin_map_all: 'الكل',
+  admin_map_search: 'ابحث عن محطة',
+  admin_map_no_results: 'لا توجد محطات مطابقة لبحثك',
   admin_map_available: 'متاحة',
   admin_map_busy: 'مشغولة',
   admin_map_fault: 'عطل',
@@ -647,6 +650,10 @@ const ar = {
   admin_customers_search: 'ابحث بالاسم أو الهاتف...',
   admin_customers_empty: 'لا يوجد عملاء بعد',
   admin_customers_empty_sub: 'سيظهر العملاء هنا بمجرد تسجيلهم',
+  admin_customer_detail_title: 'تفاصيل العميل',
+  admin_customer_status_active: 'نشط',
+  admin_customer_contact_section: 'الاتصال والحساب',
+  admin_customer_balance_available: 'الرصيد المتاح',
   admin_customer_joined: 'تاريخ الانضمام',
   admin_customer_sessions: 'الجلسات',
   admin_customer_kwh: 'كيلوواط',
@@ -655,7 +662,6 @@ const ar = {
   admin_customer_wallet: 'رصيد المحفظة',
   admin_customer_membership: 'العضوية',
   admin_customer_no_vehicle: 'لم تُضف سيارة',
-  admin_customer_detail_title: 'تفاصيل العميل',
   admin_delete_title: 'حذف العميل',
   admin_delete_msg: 'هل أنت متأكد من حذف',
   admin_delete_warning: 'سيتم حذف الحساب وجميع البيانات بشكل نهائي ولا يمكن التراجع.',
@@ -772,6 +778,8 @@ const ar = {
   admin_profile_phone: 'رقم الهاتف',
   admin_profile_settings: 'الإعدادات',
   admin_profile_language: 'اللغة',
+  admin_profile_stat_stations: 'المحطات',
+  admin_profile_stat_users: 'المستخدمون',
 
   // Wallet filter — "all" chip
   wallet_tx_all: 'الكل',

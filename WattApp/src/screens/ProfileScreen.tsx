@@ -17,6 +17,7 @@ import { COLORS } from '../constants/colors';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
 import type { ChargingSession, ChargerApplication, CustomerStackParamList } from '../types';
+import { useTabBarHeight } from '../navigation/tabBarLayout';
 import {
   BellIcon, ShieldIcon, HelpCircleIcon, InfoIcon, GlobeIcon,
   LogOutIcon, ChevronRightIcon, UserIcon, CarIcon, PhoneIcon, MailIcon,
@@ -55,6 +56,7 @@ type NavProp = NativeStackNavigationProp<CustomerStackParamList>;
 export default function ProfileScreen() {
   const { profile, session, signOut, updateProfile, deleteAccount } = useAuth();
   const { t, toggleLanguage } = useLang();
+  const tabBarHeight = useTabBarHeight();
   const navigation = useNavigation<NavProp>();
 
   // Modal visibility
@@ -255,7 +257,7 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: tabBarHeight }}>
 
         {/* ── Hero ──────────────────────────────────────────── */}
         <View style={styles.hero}>
