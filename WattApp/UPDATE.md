@@ -468,4 +468,17 @@ The host is a property owner or business who installs a Watt charger at their lo
   4. Ongoing cycles: re-check build status, resolve issues, until both an .aab (Android) and .ipa (iOS) exist
 
 
+after configer the device id and accept from the admin the investor can't change from the edit page of the device  
+change the my charger UI 
+add the calculation for both hard ware and the application how we can wair them fast and make good contral 
+use the server database 
+use the domin 
+rating is not working after chargeing 
+the wallet we need to change it 
+the correct logic of paying money so they don't go away without paying 
+no payout requests need in the admin page   find the good & fast logic for both customer and the investor 
+create the busnise model 
+
+later if they don't have charger in their home they can apply from our app to request installing the charger ( need busines model)
+
 
