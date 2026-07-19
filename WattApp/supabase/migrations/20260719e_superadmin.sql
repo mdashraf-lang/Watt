@@ -71,9 +71,9 @@ end $$;
 
 -- ── 4) Admin management RPCs (superadmin only) ──────────────────────────────
 -- Promote a user to admin (p_make = true) or demote an admin back to customer
--- (p_make = false), found by their registered phone number. Never touches a
--- superadmin.
-create or replace function public.sa_set_admin(p_phone text, p_make boolean)
+-- (p_make = false), found by their registered EMAIL or phone number. Never
+-- touches a superadmin.
+create or replace function public.sa_set_admin(p_identifier text, p_make boolean)
 returns jsonb
 language plpgsql
 security definer
@@ -81,17 +81,23 @@ set search_path = public
 as $$
 declare
   v_target profiles%rowtype;
+  v_id     text := trim(coalesce(p_identifier, ''));
 begin
   if not (select public.is_superadmin()) then
     raise exception 'Permission denied: superadmin only';
   end if;
-  if p_phone is null or length(trim(p_phone)) = 0 then
-    raise exception 'Enter a phone number';
+  if length(v_id) = 0 then
+    raise exception 'Enter an email or phone number';
   end if;
 
-  select * into v_target from profiles
-    where phone = trim(p_phone) order by created_at limit 1;
-  if not found then raise exception 'No user found with that phone number'; end if;
+  -- Match by email (auth.users) or phone (profiles).
+  select p.* into v_target
+  from profiles p
+  left join auth.users u on u.id = p.id
+  where lower(u.email) = lower(v_id) or p.phone = v_id
+  order by p.created_at
+  limit 1;
+  if not found then raise exception 'No user found with that email or phone'; end if;
   if v_target.role = 'superadmin' then
     raise exception 'Cannot change a superadmin'; end if;
 
@@ -107,14 +113,15 @@ grant  execute on function public.sa_set_admin(text, boolean) to authenticated;
 
 -- List current admins (and superadmins) for the management screen.
 create or replace function public.sa_list_admins()
-returns table(id uuid, full_name text, phone text, role text, created_at timestamptz)
+returns table(id uuid, full_name text, email text, phone text, role text, created_at timestamptz)
 language sql
 security definer
 stable
 set search_path = public
 as $$
-  select p.id, p.full_name, p.phone, p.role, p.created_at
+  select p.id, p.full_name, u.email, p.phone, p.role, p.created_at
   from profiles p
+  left join auth.users u on u.id = p.id
   where p.role in ('admin', 'superadmin') and (select public.is_superadmin())
   order by p.role desc, p.created_at;
 $$;
@@ -166,7 +173,10 @@ grant  execute on function public.sa_set_setting(text, text) to authenticated;
 
 -- ── 6) Bootstrap the first superadmin ───────────────────────────────────────
 -- There is no superadmin yet, and only a superadmin can create admins — so the
--- very first one must be seeded here. Promotes the founder's account if present.
+-- very first one must be seeded here. Promotes the founder's existing admin
+-- account (admin@watt-test.com, "محمد اشرف") — confirmed to exist in the DB.
+-- To move superadmin to another account later, do it from the in-app Superadmin
+-- page (add the new account as admin, then it can be elevated), or change this.
 update public.profiles set role = 'superadmin'
-where id in (select id from auth.users where email = 'mdashraf@ankaa.om')
+where id in (select id from auth.users where email = 'admin@watt-test.com')
   and role <> 'superadmin';

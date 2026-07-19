@@ -706,9 +706,11 @@ counts. Minor; can be excluded later if you want only customer ratings to count.
 
 ### ⚠️ First superadmin — how you become one
 There can't be a superadmin until one exists, and only a superadmin can make more.
-So the migration **automatically promotes your account** (`mdashraf@ankaa.om`) to
-superadmin the first time it's deployed. If you want a different first superadmin,
-tell me the email before we deploy.
+So the migration **automatically promotes your existing admin account**
+(`admin@watt-test.com`, "محمد اشرف") to superadmin the first time it's deployed.
+(Your other email `mdashraf@ankaa.om` isn't registered in the database, so it
+can't be used until you sign up with it.) To use a different account, tell me
+before we deploy.
 
 ### What changed (files)
 - **New migration** `20260719e_superadmin.sql` — the role, `is_superadmin()`,

@@ -10,7 +10,7 @@ import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { ArrowLeftIcon, ShieldIcon, UsersIcon, XIcon } from '../../components/icons';
 
-type Admin = { id: string; full_name: string; phone: string; role: string; created_at: string };
+type Admin = { id: string; full_name: string; email: string | null; phone: string; role: string; created_at: string };
 
 export default function SuperAdminScreen() {
   const { t } = useLang();
@@ -28,7 +28,7 @@ export default function SuperAdminScreen() {
 
   // Admin management
   const [admins, setAdmins]       = useState<Admin[]>([]);
-  const [newPhone, setNewPhone]   = useState('');
+  const [newContact, setNewContact] = useState('');
   const [promoting, setPromoting] = useState(false);
 
   const load = useCallback(async () => {
@@ -78,12 +78,12 @@ export default function SuperAdminScreen() {
   };
 
   const makeAdmin = async () => {
-    if (!newPhone.trim()) return;
+    if (!newContact.trim()) return;
     setPromoting(true);
     try {
-      const { data, error } = await supabase.rpc('sa_set_admin', { p_phone: newPhone.trim(), p_make: true });
+      const { data, error } = await supabase.rpc('sa_set_admin', { p_identifier: newContact.trim(), p_make: true });
       if (error) throw error;
-      setNewPhone('');
+      setNewContact('');
       await load();
       Alert.alert('', `${(data as any)?.name ?? 'User'} ${t.sa_now_admin}`);
     } catch (e: any) {
@@ -94,13 +94,13 @@ export default function SuperAdminScreen() {
   };
 
   const removeAdmin = (a: Admin) =>
-    Alert.alert(t.sa_remove_admin_title, `${t.sa_remove_admin_msg} ${a.full_name || a.phone}?`, [
+    Alert.alert(t.sa_remove_admin_title, `${t.sa_remove_admin_msg} ${a.full_name || a.email || a.phone}?`, [
       { text: t.cancel, style: 'cancel' },
       {
         text: t.sa_remove_admin_confirm, style: 'destructive',
         onPress: async () => {
           try {
-            const { error } = await supabase.rpc('sa_set_admin', { p_phone: a.phone, p_make: false });
+            const { error } = await supabase.rpc('sa_set_admin', { p_identifier: a.email || a.phone, p_make: false });
             if (error) throw error;
             await load();
           } catch (e: any) { Alert.alert(t.error, e.message); }
@@ -192,7 +192,7 @@ export default function SuperAdminScreen() {
                 <View key={a.id} style={s.adminRow}>
                   <View style={{ flex: 1 }}>
                     <Text style={s.adminName}>{a.full_name || '—'}</Text>
-                    <Text style={s.adminPhone}>{a.phone || '—'}</Text>
+                    <Text style={s.adminPhone}>{a.email || a.phone || '—'}</Text>
                   </View>
                   {a.role === 'superadmin' ? (
                     <View style={s.superBadge}><Text style={s.superBadgeText}>{t.sa_you}</Text></View>
@@ -208,12 +208,14 @@ export default function SuperAdminScreen() {
               <Text style={s.addLabel}>{t.sa_add_admin}</Text>
               <View style={s.inlineRow}>
                 <TextInput
-                  style={[s.smallInput, { flex: 1 }]}
-                  value={newPhone}
-                  onChangeText={setNewPhone}
+                  style={[s.smallInput, { flex: 1, textAlign: 'left' }]}
+                  value={newContact}
+                  onChangeText={setNewContact}
                   placeholder={t.sa_phone_ph}
                   placeholderTextColor={COLORS.textTertiary}
-                  keyboardType="phone-pad"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
                 />
                 <TouchableOpacity style={s.makeAdminBtn} onPress={makeAdmin} disabled={promoting} activeOpacity={0.85}>
                   {promoting
