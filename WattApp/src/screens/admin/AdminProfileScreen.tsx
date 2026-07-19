@@ -121,6 +121,20 @@ export default function AdminProfileScreen() {
         {/* ── Settings ── */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>{t.admin_profile_settings}</Text>
+
+          {/* Superadmin-only: platform control + admin management */}
+          {profile?.role === 'superadmin' && (
+            <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('SuperAdmin')} activeOpacity={0.7}>
+              <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+                <View style={[styles.settingIconWrap, { backgroundColor: '#EEE7FB' }]}>
+                  <ShieldIcon size={16} color="#7C3AED" strokeWidth={2} />
+                </View>
+                <Text style={styles.settingLabel}>{t.sa_title}</Text>
+              </View>
+              <Text style={styles.langToggle}>›</Text>
+            </TouchableOpacity>
+          )}
+
           <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminPayouts')} activeOpacity={0.7}>
             <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
               <View style={[styles.settingIconWrap, { backgroundColor: COLORS.goldBg }]}>

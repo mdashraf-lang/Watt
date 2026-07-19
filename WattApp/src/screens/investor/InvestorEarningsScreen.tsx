@@ -35,9 +35,7 @@ export default function InvestorEarningsScreen() {
   const [bankName, setBankName]   = useState('');
   const [holder, setHolder]       = useState('');
   const [iban, setIban]           = useState('');
-  const [amount, setAmount]       = useState('');
   const [savingBank, setSavingBank]   = useState(false);
-  const [submitting, setSubmitting]   = useState(false);
 
   const hasBank = !!(profile?.payout_iban && profile.payout_iban.trim());
 
@@ -115,26 +113,6 @@ export default function InvestorEarningsScreen() {
     }
   };
 
-  const submitPayout = async () => {
-    const amt = parseFloat(amount);
-    if (!amt || amt < 1) { Alert.alert(t.warning, t.payout_min_note); return; }
-    if (amt > (profile?.wallet_balance ?? 0)) { Alert.alert(t.warning, t.payout_exceeds); return; }
-    if (!hasBank) { Alert.alert(t.warning, t.payout_add_bank_first); return; }
-    setSubmitting(true);
-    try {
-      const { error } = await supabase.rpc('request_payout', { p_amount: amt });
-      if (error) throw error;
-      setShowWithdraw(false);
-      await refreshProfile();
-      await fetchData();
-      Alert.alert('', t.payout_success);
-    } catch (e: any) {
-      Alert.alert(t.error, e.message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -160,11 +138,18 @@ export default function InvestorEarningsScreen() {
               <Text style={styles.balanceCurrency}>OMR</Text>
               <TouchableOpacity
                 style={styles.withdrawBtn}
-                onPress={() => { setAmount(''); setShowWithdraw(true); }}
+                onPress={() => setShowWithdraw(true)}
                 activeOpacity={0.85}
               >
-                <Text style={styles.withdrawBtnText}>{t.inv_earnings_withdraw}</Text>
+                <Text style={styles.withdrawBtnText}>{t.inv_earnings_bank_btn}</Text>
               </TouchableOpacity>
+            </View>
+
+            {/* Automatic payout info */}
+            <View style={styles.autoInfo}>
+              <Text style={styles.autoInfoText}>
+                {hasBank ? t.inv_earnings_auto_on : t.inv_earnings_auto_setup}
+              </Text>
             </View>
 
             {/* Stats row */}
@@ -239,19 +224,19 @@ export default function InvestorEarningsScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <View style={[styles.modalSheet, { paddingBottom: Math.max(insets.bottom, 24) + 8 }]}>
             <View style={styles.modalTitleRow}>
-              <Text style={styles.modalTitle}>{t.payout_title}</Text>
+              <Text style={styles.modalTitle}>{t.payout_bank_title}</Text>
               <TouchableOpacity onPress={() => setShowWithdraw(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                 <XIcon size={20} color={COLORS.textSecondary} strokeWidth={2} />
               </TouchableOpacity>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-              <View style={styles.availRow}>
-                <Text style={styles.availLabel}>{t.payout_available}</Text>
-                <Text style={styles.availValue}>{profile?.wallet_balance.toFixed(3) ?? '0.000'} OMR</Text>
+              {/* How automatic payouts work */}
+              <View style={styles.autoBox}>
+                <Text style={styles.autoBoxText}>{t.payout_auto_explain}</Text>
               </View>
 
-              {/* Bank details */}
+              {/* Bank details — required so we can send your earnings */}
               <Text style={styles.formLabel}>{t.payout_bank_details}</Text>
               <TextInput style={styles.input} value={bankName} onChangeText={setBankName}
                 placeholder={t.payout_bank_name} placeholderTextColor={COLORS.textTertiary} />
@@ -259,26 +244,13 @@ export default function InvestorEarningsScreen() {
                 placeholder={t.payout_account_holder} placeholderTextColor={COLORS.textTertiary} />
               <TextInput style={styles.input} value={iban} onChangeText={setIban}
                 placeholder={t.payout_iban} placeholderTextColor={COLORS.textTertiary} autoCapitalize="characters" />
-              <TouchableOpacity style={styles.secondaryBtn} onPress={saveBank} disabled={savingBank} activeOpacity={0.85}>
-                {savingBank ? <ActivityIndicator color={COLORS.primary} />
-                  : <Text style={styles.secondaryBtnText}>{t.payout_save_bank}</Text>}
-              </TouchableOpacity>
-
-              {/* Amount */}
-              <Text style={[styles.formLabel, { marginTop: 18 }]}>{t.payout_amount}</Text>
-              <TextInput style={styles.input} value={amount} onChangeText={setAmount}
-                placeholder="10.000" placeholderTextColor={COLORS.textTertiary} keyboardType="decimal-pad" />
-
-              <Text style={styles.note}>{t.payout_note}</Text>
 
               <TouchableOpacity
-                style={[styles.primaryBtn, (submitting || !hasBank) && { opacity: 0.55 }]}
-                onPress={submitPayout}
-                disabled={submitting}
-                activeOpacity={0.85}
+                style={[styles.primaryBtn, savingBank && { opacity: 0.55 }]}
+                onPress={saveBank} disabled={savingBank} activeOpacity={0.85}
               >
-                {submitting ? <ActivityIndicator color="#fff" />
-                  : <Text style={styles.primaryBtnText}>{t.payout_request_btn}</Text>}
+                {savingBank ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.primaryBtnText}>{t.payout_save_bank}</Text>}
               </TouchableOpacity>
             </ScrollView>
           </View>
@@ -309,6 +281,17 @@ const styles = StyleSheet.create({
   balanceCurrency: { fontSize: 14, fontWeight: '600', color: 'rgba(255,255,255,0.7)', marginBottom: 16 },
   withdrawBtn: { backgroundColor: COLORS.gold, paddingHorizontal: 28, paddingVertical: 11, borderRadius: 14 },
   withdrawBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+
+  autoInfo: {
+    marginHorizontal: 16, marginBottom: 14, padding: 12, borderRadius: 12,
+    backgroundColor: COLORS.primaryBg, borderWidth: 1, borderColor: COLORS.primaryTint,
+  },
+  autoInfoText: { fontSize: 12, color: COLORS.primary, fontWeight: '600', lineHeight: 17, textAlign: 'center' },
+  autoBox: {
+    padding: 14, borderRadius: 14, marginBottom: 18,
+    backgroundColor: COLORS.background, borderWidth: 1, borderColor: COLORS.border,
+  },
+  autoBoxText: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 19 },
 
   statsRow: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 14, gap: 10 },
   statCard: {

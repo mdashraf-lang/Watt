@@ -1,15 +1,16 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  Animated, ScrollView, StyleSheet, Text, TouchableOpacity, View,
+  ActivityIndicator, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { CustomerStackParamList } from '../types';
+import { supabase } from '../lib/supabase';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
-import { CheckIcon, ZapIcon, LeafIcon, HomeIcon } from '../components/icons';
+import { CheckIcon, ZapIcon, LeafIcon, HomeIcon, StarIcon } from '../components/icons';
 
 type Nav   = NativeStackNavigationProp<CustomerStackParamList, 'SessionSummary'>;
 type Route = RouteProp<CustomerStackParamList, 'SessionSummary'>;
@@ -18,7 +19,25 @@ export default function SessionSummaryScreen() {
   const navigation = useNavigation<Nav>();
   const route      = useRoute<Route>();
   const { t, isRTL } = useLang();
-  const { kwhDelivered, cost, durationSeconds, stationName } = route.params;
+  const { kwhDelivered, cost, durationSeconds, stationName, sessionId } = route.params;
+
+  const [stars, setStars]         = useState(0);
+  const [comment, setComment]     = useState('');
+  const [rating, setRating]       = useState(false);
+  const [rated, setRated]         = useState(false);
+
+  const submitRating = async () => {
+    if (!sessionId || stars < 1) return;
+    setRating(true);
+    try {
+      const { error } = await supabase.rpc('rate_session', {
+        p_session: sessionId, p_rating: stars, p_comment: comment.trim() || null,
+      });
+      if (!error) setRated(true);
+    } finally {
+      setRating(false);
+    }
+  };
 
   const scaleAnim = useRef(new Animated.Value(0)).current;
 
@@ -146,10 +165,55 @@ export default function SessionSummaryScreen() {
           </View>
         </View>
 
+        {/* Rate this charger */}
+        {sessionId && (
+          <View style={styles.rateCard}>
+            {rated ? (
+              <View style={styles.ratedDone}>
+                <CheckIcon size={20} color={COLORS.success} strokeWidth={2.5} />
+                <Text style={styles.ratedDoneText}>{t.rate_thanks}</Text>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.rateTitle}>{t.rate_title}</Text>
+                <View style={styles.starsRow}>
+                  {[1, 2, 3, 4, 5].map(n => (
+                    <TouchableOpacity key={n} onPress={() => setStars(n)} hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }} activeOpacity={0.7}>
+                      <StarIcon
+                        size={38}
+                        color={n <= stars ? COLORS.gold : COLORS.borderStrong}
+                        filled={n <= stars}
+                      />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                {stars > 0 && (
+                  <>
+                    <TextInput
+                      style={styles.rateInput}
+                      value={comment}
+                      onChangeText={setComment}
+                      placeholder={t.rate_comment_ph}
+                      placeholderTextColor={COLORS.textTertiary}
+                      multiline
+                      maxLength={280}
+                    />
+                    <TouchableOpacity style={styles.rateBtn} onPress={submitRating} disabled={rating} activeOpacity={0.85}>
+                      {rating
+                        ? <ActivityIndicator color="#fff" size="small" />
+                        : <Text style={styles.rateBtnText}>{t.rate_submit}</Text>}
+                    </TouchableOpacity>
+                  </>
+                )}
+              </>
+            )}
+          </View>
+        )}
+
         {/* Bottom done button */}
         <TouchableOpacity style={styles.doneBtn} onPress={goHome} activeOpacity={0.85}>
           <HomeIcon size={18} color="#fff" strokeWidth={2.5} />
-          <Text style={styles.doneBtnText}>{t.session_summary_done}</Text>
+          <Text style={styles.doneBtnText}>{rated || !sessionId ? t.session_summary_done : t.rate_skip}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 24 }} />
@@ -219,6 +283,27 @@ const styles = StyleSheet.create({
   co2Badge:     { flexDirection: 'row', alignItems: 'center', gap: 6 },
   co2BadgeText: { fontSize: 13, fontWeight: '600', color: COLORS.success },
   co2Val:       { fontSize: 14, fontWeight: '700', color: COLORS.success, flex: 1, textAlign: 'right' },
+
+  // Rate card
+  rateCard: {
+    backgroundColor: COLORS.card, borderRadius: 20, padding: 20, marginBottom: 16,
+    borderWidth: 1, borderColor: COLORS.border, alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.05, shadowOffset: { width: 0, height: 3 }, elevation: 3,
+  },
+  rateTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text, marginBottom: 14 },
+  starsRow:  { flexDirection: 'row', gap: 8, marginBottom: 6 },
+  rateInput: {
+    width: '100%', minHeight: 44, marginTop: 12, borderRadius: 12,
+    borderWidth: 1, borderColor: COLORS.border, backgroundColor: COLORS.background,
+    paddingHorizontal: 12, paddingTop: 10, fontSize: 14, color: COLORS.text, textAlignVertical: 'top',
+  },
+  rateBtn: {
+    width: '100%', marginTop: 12, backgroundColor: COLORS.primary,
+    borderRadius: 14, paddingVertical: 13, alignItems: 'center',
+  },
+  rateBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  ratedDone:  { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4 },
+  ratedDoneText: { fontSize: 15, fontWeight: '700', color: COLORS.success },
 
   // Tear-off perforated edge
   tearOff: {

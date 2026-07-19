@@ -32,6 +32,11 @@ export default function InvestorChargerScreen() {
   const [selfCharging, setSelfCharging] = useState(false);
   const deviceRef = useRef<TextInput>(null);
 
+  // Earnings summary (today / this month / this month's session count)
+  const [earnToday, setEarnToday] = useState(0);
+  const [earnMonth, setEarnMonth] = useState(0);
+  const [sessMonth, setSessMonth] = useState(0);
+
   // Edit form — price is NOT editable here: pricing is set by Go Watt admin
   const [editAddress,  setEditAddress]  = useState('');
   const [editPowerKw,  setEditPowerKw]  = useState('');
@@ -60,7 +65,29 @@ export default function InvestorChargerScreen() {
     } finally { setLoading(false); }
   }, [profile]);
 
-  useEffect(() => { fetchListing(); }, [fetchListing]);
+  const fetchEarnings = useCallback(async () => {
+    if (!profile) return;
+    const { data } = await supabase
+      .from('wallet_transactions')
+      .select('amount, created_at')
+      .eq('user_id', profile.id)
+      .eq('type', 'earning')
+      .order('created_at', { ascending: false })
+      .limit(300);
+    if (!data) return;
+    const now = new Date();
+    let today = 0, month = 0, count = 0;
+    for (const tx of data as { amount: number; created_at: string }[]) {
+      const d = new Date(tx.created_at);
+      if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) {
+        month += tx.amount; count += 1;
+      }
+      if (d.toDateString() === now.toDateString()) today += tx.amount;
+    }
+    setEarnToday(today); setEarnMonth(month); setSessMonth(count);
+  }, [profile?.id]);
+
+  useEffect(() => { fetchListing(); fetchEarnings(); }, [fetchListing, fetchEarnings]);
 
   // Live-update the charger row (switch_status / is_available) when a
   // session starts, auto-shutoff fires, or an admin changes it.
@@ -101,14 +128,18 @@ export default function InvestorChargerScreen() {
     }
     setSaving(true);
     try {
-      const updates = {
+      const updates: Record<string, any> = {
         address:            editAddress.trim(),
         power_kw:           parseFloat(editPowerKw) || listing.power_kw,
         availability_start: editStart,
         availability_end:   editEnd,
         description:        editDesc.trim() || null,
-        tuya_device_id:     editDeviceId.trim() || null,
       };
+      // Device id is locked once the admin has verified the charger. Only send
+      // it while still editable (the server enforces this too).
+      if (!listing.tuya_verified) {
+        updates.tuya_device_id = editDeviceId.trim() || null;
+      }
       const { error } = await supabase.from('charger_listings').update(updates).eq('id', listing.id);
       if (error) throw error;
       setListing(prev => prev ? { ...prev, ...updates } : prev);
@@ -158,7 +189,8 @@ export default function InvestorChargerScreen() {
       );
       return;
     }
-    const newVal = !listing.is_available;
+    const newVal  = !listing.is_available;
+    const prevVal = listing.is_available;
     setToggling(true);
     try {
       // Never cut power on a customer mid-charge: block turning OFF while an
@@ -172,21 +204,51 @@ export default function InvestorChargerScreen() {
           return;
         }
       }
+
+      // Optimistic: flip the UI instantly so it feels immediate.
+      setListing(prev => prev ? { ...prev, is_available: newVal, switch_status: newVal } : prev);
+
+      // Confirm with the physical switch (with a timeout + one retry). If the
+      // hardware won't respond, roll the UI back — never show "on" when it's off.
       if (listing.tuya_device_id) {
-        const { data, error: tuyaErr } = await supabase.functions.invoke(
-          'control-tuya-switch',
-          { body: { action: newVal ? 'on' : 'off', listing_id: listing.id } },
-        );
-        if (tuyaErr || data?.error)
-          console.warn('[InvestorCharger] Tuya toggle failed:', tuyaErr?.message ?? data?.error);
+        const ok = await sendSwitchCommand(listing.id, newVal);
+        if (!ok) {
+          setListing(prev => prev ? { ...prev, is_available: prevVal, switch_status: prevVal } : prev);
+          Alert.alert(t.error, t.inv_toggle_failed);
+          return;
+        }
       }
+
+      // Hardware confirmed → persist. Roll back the UI if the write fails.
       const { error } = await supabase.from('charger_listings')
         .update({ is_available: newVal, switch_status: newVal }).eq('id', listing.id);
-      if (error) throw error;
-      setListing(prev => prev ? { ...prev, is_available: newVal, switch_status: newVal } : prev);
+      if (error) {
+        setListing(prev => prev ? { ...prev, is_available: prevVal, switch_status: prevVal } : prev);
+        throw error;
+      }
     } catch (e: any) {
       Alert.alert(t.error, e.message);
     } finally { setToggling(false); }
+  };
+
+  // Send an on/off command to the Tuya switch with a 7s timeout and one retry.
+  // Returns true only if the hardware acknowledged the command.
+  const sendSwitchCommand = async (listingId: string, on: boolean): Promise<boolean> => {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const call = supabase.functions.invoke('control-tuya-switch', {
+          body: { action: on ? 'on' : 'off', listing_id: listingId },
+        });
+        const timeout = new Promise<{ data: any; error: any }>((_, rej) =>
+          setTimeout(() => rej(new Error('timeout')), 7000));
+        const { data, error } = await Promise.race([call, timeout]) as any;
+        if (!error && !data?.error) return true;
+        console.warn('[InvestorCharger] Tuya toggle failed:', error?.message ?? data?.error);
+      } catch (e: any) {
+        console.warn('[InvestorCharger] Tuya toggle attempt failed:', e.message);
+      }
+    }
+    return false;
   };
 
   // ── Self-charge ──────────────────────────────────────────────
@@ -329,6 +391,12 @@ export default function InvestorChargerScreen() {
             </View>
           </View>
 
+          {/* Today's earnings strip */}
+          <View style={s.heroEarnRow}>
+            <Text style={s.heroEarnLabel}>{t.inv_earn_today}</Text>
+            <Text style={s.heroEarnValue}>{earnToday.toFixed(3)} OMR</Text>
+          </View>
+
           {/* Tuya device badge */}
           <View style={s.deviceBadgeRow}>
             {!hasDevice ? (
@@ -388,10 +456,10 @@ export default function InvestorChargerScreen() {
           </View>
         )}
 
-        {/* ── Stats ── */}
+        {/* ── This-month stats ── */}
         <View style={s.statsRow}>
-          <StatCard value={String(listing.total_bookings)} label={t.host_today_bookings} color={COLORS.primary} emoji="📅" />
-          <StatCard value={`${listing.price_per_kwh}\nOMR`} label={t.host_charger_price} color={COLORS.gold} emoji="💰" />
+          <StatCard value={earnMonth.toFixed(3)} label={t.inv_earn_month} color={COLORS.gold} emoji="💰" />
+          <StatCard value={String(sessMonth)} label={t.inv_sessions_month} color={COLORS.primary} emoji="⚡" />
           <StatCard
             value={listing.rating > 0 ? listing.rating.toFixed(1) : '—'}
             label={t.host_rating_label} color="#F59E0B" emoji="⭐"
@@ -499,20 +567,36 @@ export default function InvestorChargerScreen() {
                       ? `⏳ ${t.inv_device_pending}`
                       : `⚠ ${t.inv_device_not_linked}`}
                 </Text>
-                <TextInput
-                  ref={deviceRef}
-                  style={[s.input, s.deviceInput]}
-                  value={editDeviceId}
-                  onChangeText={setEditDeviceId}
-                  placeholder={t.tuya_device_id_ph}
-                  placeholderTextColor={COLORS.textTertiary}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  returnKeyType="done"
-                />
-                <Text style={s.deviceHintText}>
-                  Find your device ID in the Tuya / Smart Life app under Device Info.
-                </Text>
+
+                {listing?.tuya_verified ? (
+                  // Verified & accepted by admin → device id is LOCKED. Only the
+                  // admin can re-assign it (also enforced server-side).
+                  <>
+                    <View style={[s.input, s.deviceInput, s.deviceLocked]}>
+                      <Text style={s.deviceLockedText}>
+                        🔒 ••••{(listing.tuya_device_id ?? '').slice(-6)}
+                      </Text>
+                    </View>
+                    <Text style={s.deviceHintText}>{t.inv_device_locked_note}</Text>
+                  </>
+                ) : (
+                  <>
+                    <TextInput
+                      ref={deviceRef}
+                      style={[s.input, s.deviceInput]}
+                      value={editDeviceId}
+                      onChangeText={setEditDeviceId}
+                      placeholder={t.tuya_device_id_ph}
+                      placeholderTextColor={COLORS.textTertiary}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                      returnKeyType="done"
+                    />
+                    <Text style={s.deviceHintText}>
+                      Find your device ID in the Tuya / Smart Life app under Device Info.
+                    </Text>
+                  </>
+                )}
               </View>
 
               <TouchableOpacity
@@ -768,6 +852,14 @@ const s = StyleSheet.create({
   heroAddress:   { fontSize: 12, color: 'rgba(255,255,255,0.5)', maxWidth: 220 },
   toggleWrap:    { minWidth: 60, alignItems: 'center', justifyContent: 'center' },
 
+  heroEarnRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginTop: 14, marginBottom: 12, paddingTop: 12,
+    borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.12)',
+  },
+  heroEarnLabel: { fontSize: 12, color: 'rgba(255,255,255,0.6)', fontWeight: '600' },
+  heroEarnValue: { fontSize: 20, color: '#fff', fontWeight: '800' },
+
   selfChargeBtn: {
     marginTop: 14,
     backgroundColor: COLORS.gold,
@@ -857,6 +949,8 @@ const s = StyleSheet.create({
     paddingVertical: 8, fontSize: 15,
   },
   deviceHintText: { fontSize: 11, color: COLORS.textTertiary, lineHeight: 16 },
+  deviceLocked:     { justifyContent: 'center', backgroundColor: COLORS.backgroundAlt, borderRadius: 10, paddingHorizontal: 12 },
+  deviceLockedText: { fontSize: 15, fontWeight: '700', color: COLORS.textSecondary, letterSpacing: 1 },
 
   saveBtn:    { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginTop: 20, shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, shadowRadius: 10, elevation: 4 },
   saveBtnOff: { opacity: 0.55 },

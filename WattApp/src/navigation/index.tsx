@@ -81,6 +81,7 @@ const AdminInvestorsScreen         = lazyScreen(() => import('../screens/admin/A
 const AdminApplicationDetailScreen = lazyScreen(() => import('../screens/admin/AdminApplicationDetailScreen'));
 const AdminProfileScreen           = lazyScreen(() => import('../screens/admin/AdminProfileScreen'));
 const AdminPayoutsScreen           = lazyScreen(() => import('../screens/admin/AdminPayoutsScreen'));
+const SuperAdminScreen             = lazyScreen(() => import('../screens/admin/SuperAdminScreen'));
 
 const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
 const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
@@ -601,6 +602,7 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminCustomerDetail" component={AdminCustomerDetailScreen} />
       <AdminStack.Screen name="AdminApplicationDetail" component={AdminApplicationDetailScreen} />
       <AdminStack.Screen name="AdminPayouts" component={AdminPayoutsScreen} />
+      <AdminStack.Screen name="SuperAdmin" component={SuperAdminScreen} />
     </AdminStack.Navigator>
   );
 }
@@ -630,7 +632,7 @@ export default function AppNavigator() {
       <RootStack.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
         {!isLoggedIn ? (
           <RootStack.Screen name="GuestMain" component={GuestNavigator} />
-        ) : activeProfile?.role === 'admin' ? (
+        ) : activeProfile?.role === 'admin' || activeProfile?.role === 'superadmin' ? (
           <RootStack.Screen name="AdminMain" component={AdminNavigator} />
         ) : activeProfile?.role === 'investor' || activeProfile?.role === 'host' ? (
           <RootStack.Screen name="InvestorMain" component={InvestorNavigator} />

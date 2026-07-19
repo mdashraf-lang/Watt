@@ -2,10 +2,11 @@ export interface Profile {
   id: string;
   phone?: string;
   full_name: string;
-  role: 'customer' | 'host' | 'investor' | 'admin';
+  role: 'customer' | 'host' | 'investor' | 'admin' | 'superadmin';
   is_active: boolean;
   avatar_url?: string;
   wallet_balance: number;
+  held_balance: number;       // money reserved for active sessions (not spendable)
   total_sessions: number;
   total_kwh: number;
   car_model?: string;
@@ -110,6 +111,9 @@ export interface ChargingSession {
   ended_at?: string;
   kwh_delivered: number;
   cost: number;
+  held_amount: number;        // amount reserved from the wallet for this session
+  meter_kwh?: number | null;  // device's own energy reading (reconciliation)
+  flagged_review?: boolean;   // meter vs estimate disagreed — needs admin review
   battery_start_pct?: number;
   battery_end_pct?: number;
   created_at: string;
@@ -177,7 +181,7 @@ export type CustomerStackParamList = {
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
-  SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string };
+  SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string; sessionId?: string };
   InvestorApplication: { reapply?: boolean };
 };
 
@@ -216,6 +220,7 @@ export type AdminStackParamList = {
   AdminApplicationDetail: { application: ChargerApplication };
   AdminCustomerDetail: { customer: AdminCustomer };
   AdminPayouts: undefined;
+  SuperAdmin: undefined;
 };
 
 export type InvestorTabParamList = {
@@ -232,7 +237,7 @@ export type InvestorStackParamList = {
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
-  SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string };
+  SessionSummary: { kwhDelivered: number; cost: number; durationSeconds: number; stationName: string; sessionId?: string };
   InvestorApplication: { reapply?: boolean };
 };
 

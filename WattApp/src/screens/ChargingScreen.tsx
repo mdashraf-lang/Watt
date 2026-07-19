@@ -273,11 +273,15 @@ export default function ChargingScreen() {
       // completes session + booking + wallet. Idempotent — a double tap
       // never double-charges.
       const batteryEnd = Math.min(100, Math.floor(20 + kwhNow * 4));
+      // Pass the device's own meter reading (when the hardware was metering) so
+      // the server can reconcile it against the physics estimate and flag faults.
+      const meterKwh = realRef.current.metering ? realRef.current.kwh : null;
       const { data: result, error: rpcErr } = await supabase.rpc('complete_charging_session', {
         p_session:     sessionId,
         p_kwh:         kwhNow,
         p_battery_end: batteryEnd,
         p_description: isRTL ? `شحن في ${stationName}` : `Charging at ${stationName}`,
+        p_meter_kwh:   meterKwh,
       });
       if (rpcErr) throw rpcErr;
 
@@ -296,6 +300,7 @@ export default function ChargingScreen() {
         cost: finalCost,
         durationSeconds: elapsedNow,
         stationName,
+        sessionId,
       });
     } catch (e: any) {
       Alert.alert(t.error, e.message);

@@ -21,6 +21,15 @@ import {
 type Nav   = NativeStackNavigationProp<MainStackParamList, 'ActiveBooking'>;
 type Route = RouteProp<MainStackParamList, 'ActiveBooking'>;
 
+// The start RPC raises "INSUFFICIENT_BALANCE|required=..|available=..|shortfall=.."
+// when the wallet can't cover the hold. Returns the shortfall in OMR, or null
+// if this wasn't an insufficient-balance error.
+function parseInsufficient(message?: string): number | null {
+  if (!message || !message.includes('INSUFFICIENT_BALANCE')) return null;
+  const m = message.match(/shortfall=([0-9.]+)/);
+  return m ? parseFloat(m[1]) : 0;
+}
+
 export default function ActiveBookingScreen() {
   const navigation = useNavigation<Nav>();
   const route      = useRoute<Route>();
@@ -90,15 +99,38 @@ export default function ActiveBookingScreen() {
     }
 
     setStartLoading(true);
-    let switchedOn = false;
     try {
-      // Private charger booking — activate Tuya switch before creating the session
+      // 1) Reserve the money FIRST. The server verifies the wallet has enough,
+      //    places a hold for the estimated cost, and creates the session — all
+      //    atomically. Nothing is powered on until the money is secured, so a
+      //    customer can never charge without paying.
+      const { data: startRes, error: startErr } = await supabase.rpc('start_charging_session', {
+        p_booking: booking.id,
+      });
+      if (startErr) {
+        const short = parseInsufficient(startErr.message);
+        if (short != null) {
+          Alert.alert(
+            t.charging_insufficient_title,
+            `${t.charging_insufficient_msg} ${short.toFixed(3)} OMR`,
+            [
+              { text: t.cancel, style: 'cancel' },
+              { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
+            ],
+          );
+          return;
+        }
+        throw startErr;
+      }
+      const sessionId = (startRes as any).session_id as string;
+
+      // 2) Power on the Tuya switch for private chargers. If it fails, release
+      //    the hold by finishing the just-started session at zero cost.
       if (booking.listing_id) {
         const { data: switchResult, error: switchError } = await supabase.functions.invoke(
           'control-tuya-switch',
           { body: { action: 'on', booking_id: booking.id } },
         );
-        // Extract the real error message from the response body when possible
         let errMsg: string | null = null;
         if (switchResult?.error) errMsg = switchResult.error;
         else if (switchError) {
@@ -108,28 +140,16 @@ export default function ActiveBookingScreen() {
           } catch { errMsg = switchError.message; }
         }
         if (errMsg) {
+          try {
+            await supabase.rpc('complete_charging_session', {
+              p_session: sessionId, p_kwh: 0, p_battery_end: null,
+              p_description: 'Cancelled — charger did not start',
+            });
+          } catch { /* hold auto-repairs; surfacing the switch error matters more */ }
           Alert.alert(t.active_charger_err_title, errMsg);
           return;
         }
-        switchedOn = true;
       }
-
-      const { data: session, error } = await supabase
-        .from('charging_sessions')
-        .insert({
-          user_id:           profile.id,
-          station_id:        booking.station_id ?? null,
-          listing_id:        (booking as any).listing_id ?? null,
-          connector_id:      booking.connector_id,
-          booking_id:        booking.id,
-          status:            'active',
-          battery_start_pct: 20,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-
-      await supabase.from('bookings').update({ status: 'active' }).eq('id', booking.id);
 
       const listingData = (booking as any).listing;
       const displayName = booking.station?.name
@@ -138,17 +158,10 @@ export default function ActiveBookingScreen() {
         || 'Private Charger';
 
       navigation.replace('Charging', {
-        sessionId:   session.id,
+        sessionId,
         stationName: displayName,
       });
     } catch (e: any) {
-      // If we powered the charger on but couldn't start the session, turn it
-      // back off so it isn't left running untracked (auto-shutoff can't catch
-      // a session that was never created).
-      if (switchedOn && booking.listing_id) {
-        supabase.functions.invoke('control-tuya-switch', { body: { action: 'off', booking_id: booking.id } })
-          .catch(() => {});
-      }
       Alert.alert(t.error, e.message);
     } finally {
       setStartLoading(false);

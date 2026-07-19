@@ -172,6 +172,10 @@ export default function WalletScreen() {
     .filter(tx => tx.type === 'charge')
     .reduce((s, tx) => s + Math.abs(tx.amount), 0);
 
+  // Prepaid-hold model: money reserved for a live session isn't spendable.
+  const heldBalance      = profile?.held_balance ?? 0;
+  const availableBalance = (profile?.wallet_balance ?? 0) - heldBalance;
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Balance card */}
@@ -184,19 +188,33 @@ export default function WalletScreen() {
           <View style={styles.walletIconWrap}>
             <WalletIcon size={20} color="rgba(255,255,255,0.8)" strokeWidth={2} />
           </View>
-          <Text style={styles.balanceLabel}>{t.wallet_balance_label}</Text>
+          <Text style={styles.balanceLabel}>
+            {heldBalance > 0 ? t.wallet_available_label : t.wallet_balance_label}
+          </Text>
         </View>
 
-        <Text style={[styles.balanceAmount, (profile?.wallet_balance ?? 0) < 0 && { color: '#fca5a5' }]}>
-          {profile?.wallet_balance.toFixed(3) ?? '0.000'}
+        <Text style={[styles.balanceAmount, availableBalance < 0 && { color: '#fca5a5' }]}>
+          {availableBalance.toFixed(3)}
         </Text>
         <Text style={styles.balanceCurrency}>OMR</Text>
+
+        {/* On-hold row — only shown while money is reserved for a live session */}
+        {heldBalance > 0 && (
+          <View style={styles.holdRow}>
+            <Text style={styles.holdLabel}>{t.wallet_on_hold_label}</Text>
+            <Text style={styles.holdValue}>{heldBalance.toFixed(3)} OMR</Text>
+          </View>
+        )}
 
         <TouchableOpacity style={styles.topUpBtn} onPress={() => setShowTopUp(true)} activeOpacity={0.85}>
           <PlusIcon size={16} color="#0F172A" strokeWidth={2.5} />
           <Text style={styles.topUpBtnText}>{t.wallet_top_up_clean}</Text>
         </TouchableOpacity>
       </View>
+
+      {heldBalance > 0 && (
+        <Text style={styles.holdHint}>{t.wallet_on_hold_hint}</Text>
+      )}
 
       {/* Stats */}
       <View style={styles.statsRow}>
@@ -406,6 +424,20 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   topUpBtnText: { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+
+  // On-hold (reserved) balance
+  holdRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+    marginBottom: 16,
+  },
+  holdLabel: { fontSize: 12, color: 'rgba(255,255,255,0.7)', fontWeight: '600' },
+  holdValue: { fontSize: 13, color: '#fff', fontWeight: '800' },
+  holdHint: {
+    fontSize: 12, color: COLORS.textSecondary,
+    textAlign: 'center', marginHorizontal: 32, marginTop: -4, marginBottom: 8,
+  },
 
   // Stats
   statsRow: {

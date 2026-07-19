@@ -468,17 +468,287 @@ The host is a property owner or business who installs a Watt charger at their lo
   4. Ongoing cycles: re-check build status, resolve issues, until both an .aab (Android) and .ipa (iOS) exist
 
 
-after configer the device id and accept from the admin the investor can't change from the edit page of the device  
-change the my charger UI 
-add the calculation for both hard ware and the application how we can wair them fast and make good contral 
-use the server database 
-use the domin 
-rating is not working after chargeing 
-the wallet we need to change it 
-the correct logic of paying money so they don't go away without paying 
-no payout requests need in the admin page   find the good & fast logic for both customer and the investor 
-create the busnise model 
+# 🔄 Enhancement Phases — Progress Tracker
 
-later if they don't have charger in their home they can apply from our app to request installing the charger ( need busines model)
+> Full details of every phase are in **ROADMAP.md**. This table is the live status —
+> updated after every work session so Ashraf can review progress at any time.
+>
+> **Working loop:** Build → Ashraf tests in Expo Go → verified → commit → next phase.
+
+| # | Phase | What it covers | Status |
+|---|-------|----------------|--------|
+| 1 | 💰 Payment integrity | Close free-charging security hole · wallet hold (escrow) before charging · auto-shutoff when hold runs out · wallet redesign (Available / On-hold / History) | 🟢 **BUILT — awaiting your review + test** |
+| 2 | 🏦 Auto investor settlement | Remove payout requests — investor credited automatically when session ends · admin page becomes read-only settlement report · commission % in settings | 🟢 **BUILT (needs payout provider to go live)** |
+| 3 | 🔌 Device control & trust | Lock device ID after admin approval (UI + database) · fast optimistic on/off switch · live Tuya status · kWh meter-vs-billed reconciliation | 🟢 **BUILT — awaiting your review + test** |
+| 4 | ⭐ Rating after charging | Star rating card on session summary (was never built — that's why it "doesn't work") · updates station/listing average | 🟢 **BUILT — awaiting your review + test** |
+| 5 | 👑 Superadmin | New superadmin role · promote/demote admins from the app · platform settings page (commission %, prices, hold minimum) | 🟢 **BUILT — awaiting your review + test** |
+| 6 | 🎨 My Charger UI redesign | Hero card with status + today's earnings · quick stats · locked device badge | 🟢 **BUILT — awaiting your review + test** |
+| 7 | 🌐 Production DB + domain | Separate production Supabase · gowatt domain for emails, payments, links | ⚪ Not started |
+| 8 | ✨ Polish & extras | Push notifications for money events · receipts (PDF) · no-show handling · investor onboarding stepper · admin analytics · offline handling · store release · map provider swap (Rashid) | ⚪ Not started |
+| 9 | 📄 Business model document | Revenue streams · unit economics · commission structure · 12-month projection · **includes the charger-installation-request service** | ⚪ Not started |
+| 10 | 🏗️ Charger installation requests | Customers without a home charger apply in-app for GO WATT to install one (new revenue stream — depends on Phase 9 pricing) | ⚪ Not started |
+
+### Phase log
+
+*(newest first — one entry per completed work session)*
+
+- **2026-07-19** — Roadmap created (ROADMAP.md). Progress tracker added. Phase 1 started.
+- **2026-07-19** — **Phase 1 built.** Prepaid wallet-hold model implemented (details below).
+- **2026-07-19** — **Phase 2 built.** Automatic investor payouts (gated off until a payout provider is added). Details below.
+- **2026-07-19** — **Phase 3 built.** Device ID lock after approval, fast on/off, meter reconciliation. Details below.
+- **2026-07-19** — **Phase 4 built.** Star rating after charging (the missing feature). Details below.
+- **2026-07-19** — **Phase 5 built.** Superadmin role, admin management, platform settings page. Details below.
+- **2026-07-19** — **Phase 6 built.** My Charger screen now shows real earnings (today + this month). Details below.
+
+---
+
+## 📋 Phase 1 — Review Notes (Ashraf, please read before testing)
+
+### The problem this fixes
+Before: a customer could book with **no money**, charge their car, let the wallet go
+negative, tap "Pay Later", and walk away. The debt cap was only 0.5 OMR. **Money could leave.**
+
+### The new logic — "Prepaid Hold" (like a hotel deposit)
+1. When the customer taps **Start Charging**, the app now asks the server to
+   **reserve (hold)** the estimated cost of the session from their wallet — *before*
+   the charger is switched on.
+2. If they don't have enough money → charging **will not start**; they're sent to top up.
+   The charger never powers on.
+3. While charging, the real cost is tracked. **The final bill can never be more than
+   what was held**, so the wallet can never go negative.
+4. When they stop, any **unused hold is instantly released** back to their available balance.
+5. This is enforced **on the server**, so even a hacked app can't bypass it.
+
+The wallet now shows two numbers:
+- **Available to Spend** = what a new charge can use
+- **On Hold** = reserved for the session in progress (shown only during charging)
+
+### What changed (files)
+- **New database migration** `supabase/migrations/20260719_prepaid_wallet_hold.sql`
+  - Adds `held_balance` (on the customer) and `held_amount` (on each session)
+  - New `start_charging_session` function — checks money, places the hold, starts the session
+  - Rewrote billing into one shared function used by **both** the app-stop and the
+    automatic-shutoff — so they can never disagree. Caps the bill at the held amount.
+  - Hold-size settings the admin can tune later: 25% buffer, 1.000 OMR minimum
+- **App:** `ActiveBookingScreen` (reserves money first), `WalletScreen` (Available / On-hold),
+  plus Arabic + English text and the auto-shutoff server function.
+
+### ⚠️ Before this works on your phone — ONE step needed from us
+The database migration must be **deployed to your Supabase project**, and the updated
+auto-shutoff function **re-deployed**. I did **not** push these to your live database yet —
+I'll do it with you so you can watch, or you approve and I run it. Until then the app
+code expects columns that don't exist in the DB, so **test only after we deploy**.
+
+### What to test once deployed
+1. Empty wallet → try to charge → should be blocked with "top up" prompt.
+2. Top up → start charging → wallet shows the amount moving to **On Hold**.
+3. Stop early → unused hold returns to Available; you're billed only for what you used.
+4. Let a booking run to its end → auto-shutoff bills correctly and releases the hold.
+
+### Note
+Investor **self-charging** (owner charging their own car) is unchanged — no hold is
+placed there because they're paying themselves.
+
+---
+
+## 📋 Phase 2 — Review Notes (Automatic Investor Payouts)
+
+### Your model (confirmed)
+```
+Customer pays → Company Thawani account → commission kept automatically
+             → the rest becomes the investor's balance
+             → automatically sent to the investor's bank (payout API)
+```
+
+### What was already working
+The **automatic split** already happens on every completed charge: the company
+keeps its commission % and the investor is credited the rest. That part needed
+no change. ✅  (Commission % lives in a setting the admin can change: `host_commission_rate`.)
+
+### What Phase 2 adds — the automatic *outbound* payout
+1. A scheduled server job (`disburse-payouts`) runs on a timer, finds every
+   investor whose balance has reached the payout amount **and** who has saved
+   their bank details, and **sends the money to their bank automatically**.
+2. **No more "request payout" for investors** and **no more approve/reject for you.**
+3. The old admin Payouts screen is now a **read-only log** — you just watch payments
+   go out (Processing → Paid, or Failed if a transfer bounces; failed ones are
+   auto-refunded and retried next run).
+4. The investor Earnings screen no longer has a manual withdraw form — it just asks
+   them to keep their bank details current, and tells them payouts are automatic.
+
+### ⚠️ Important: this needs a payout provider to actually send money
+Thawani (your current gateway) only **collects** money — it can't **send** money out
+to someone's bank automatically. To make auto-payout truly hands-free you need a
+**disbursement/payout provider** in Oman (a bank or fintech with a transfer API).
+
+Because of that, Phase 2 ships **switched OFF and safe**:
+- Master switch `payout_auto_enabled` = **false**
+- `payout_provider` = **empty**
+- Until BOTH are set, the job does nothing — zero risk deploying it.
+
+When you get a provider, we plug its API into one clearly-marked spot in
+`disburse-payouts/index.ts`, set the two config values, and it goes live.
+
+**Interim option (your call):** until a provider exists, you can still pay investors
+by reading the same log and doing the bank transfers by hand — the amounts and IBANs
+are all there. If you'd prefer that as the day-one flow, tell me and I'll switch the
+log into a simple "to-pay" checklist with a mark-as-paid button.
+
+### What changed (files)
+- **New migration** `20260719b_auto_payouts.sql` — settings, `enqueue_auto_payouts`
+  and `settle_auto_payout` functions, extended payout table. All gated OFF by default.
+- **New server function** `supabase/functions/disburse-payouts/` — the scheduled payer
+  (with a labelled slot for the future provider API).
+- **App:** `AdminPayoutsScreen` → read-only log; `InvestorEarningsScreen` → bank-details
+  only + auto-payout info; status badge + Arabic/English text.
+
+### Deploy steps (later, with Phase 1)
+Migration + the new edge function must be deployed, plus a **cron schedule** set for
+`disburse-payouts` (e.g. once daily). Not deployed yet.
+
+---
+
+## 📋 Phase 3 — Review Notes (Device Control & Trust)
+
+### 1) Device ID locks after admin approval (your #1 request)
+- Once you (admin) **verify** a charger's device, the investor **can no longer change
+  the Device ID** on their edit page — it shows as a locked 🔒 field with a
+  "contact support to change" note.
+- This is enforced **on the server too** (a database rule), so even a tampered app
+  can't change or move the device. Only an admin can re-assign it.
+- Bonus security fix: an investor can no longer mark their **own** device as
+  "verified" — only an admin can. (Previously the app's database rules didn't stop that.)
+
+### 2) Fast, reliable on/off switch
+- The charger toggle now flips **instantly** (optimistic) so it feels immediate.
+- It then confirms with the physical device, with a **7-second timeout and one retry**.
+- **Bug fixed:** before, if the hardware command failed, the app still showed the
+  charger as "on" and saved that — so the map could show a charger available that
+  was actually off. Now, if the device doesn't respond, the switch **rolls back**
+  and tells the investor to check the charger.
+
+### 3) Hardware ↔ App reconciliation (catching faulty meters)
+- Every session now records the **device's own energy meter reading** next to the
+  amount we billed.
+- If the two disagree by more than a tolerance (25% and at least 0.5 kWh), the
+  session is **auto-flagged for admin review** — so a faulty meter can't quietly
+  overcharge a customer or shortchange an investor.
+- A `get_flagged_sessions` report is ready for the admin app; a dedicated "flagged
+  sessions" review screen can be added to the admin dashboard in Phase 8.
+
+### What changed (files)
+- **New migration** `20260719c_device_lock_and_reconcile.sql` — device-lock rule,
+  reconciliation columns + flagging, updated billing function, flagged-sessions report.
+- **App:** `InvestorChargerScreen` (locked device field + fast optimistic toggle),
+  `ChargingScreen` (sends the meter reading on stop), types + Arabic/English text.
+
+### To test once deployed
+1. As admin, verify a charger → open the investor edit page → Device ID is locked 🔒.
+2. Toggle the charger on/off → it flips instantly; unplug/disable the device and
+   toggle → it should roll back with a "didn't respond" message.
+3. (Needs hardware) run a session where the meter and estimate differ → the session
+   is flagged.
+
+---
+
+## 📋 Phase 4 — Review Notes (Rating After Charging)
+
+### Why it "wasn't working"
+The rating feature was **never actually built**. The map already showed a star rating
+for each charger, but there was no screen anywhere for a customer to *give* a rating —
+so the number never changed. This adds the missing piece.
+
+### What's new
+- After a charging session ends, the **receipt screen now shows a 5-star rating card**
+  with an optional comment box.
+- Submitting updates that charger's **average rating and rating count** (the numbers
+  already shown on the map and charger cards).
+- **One rating per session** (a customer can change it, but not stack multiple).
+- Fully **skippable** — it never blocks the customer from leaving the screen.
+
+### What changed (files)
+- **New migration** `20260719d_session_ratings.sql` — ratings table + `rate_session`
+  function that recomputes the average.
+- **App:** `SessionSummaryScreen` (star card + comment), `ChargingScreen` (passes the
+  session id through), param types + Arabic/English text.
+
+### To test once deployed
+Finish a charge → on the receipt, tap stars → submit → reopen that charger on the map
+and confirm its rating updated.
+
+### Small note
+If an investor rates a session on **their own** charger (self-charge), it currently
+counts. Minor; can be excluded later if you want only customer ratings to count.
+
+---
+
+## 📋 Phase 5 — Review Notes (Superadmin & Admin Management)
+
+### What's new
+1. **A new top role: `superadmin` (you).** A superadmin sees everything an admin
+   sees, plus a new **Superadmin** page (reached from Admin → Profile → Settings).
+2. **Manage admins from the app** — no more editing the database by hand:
+   - See the list of current admins.
+   - Add a new admin by entering their **phone number** → "Make Admin".
+   - Remove an admin with one tap.
+3. **Platform Settings page** — change these live, no code needed:
+   - **Commission %** (your cut of each charge)
+   - **Default price** for new chargers
+   - **Auto-payout threshold** (when investors get paid)
+   - **Automatic payouts** on/off switch
+   - **Payout provider** (the slot for your future Oman payout provider)
+
+### Security (important)
+- Only a **superadmin** can create or remove admins — enforced **on the server**.
+  A normal admin can no longer promote anyone (previously the database didn't stop
+  that; now it does). An investor also can't secretly mark their own device "verified".
+- The platform settings can only be changed by a superadmin.
+
+### ⚠️ First superadmin — how you become one
+There can't be a superadmin until one exists, and only a superadmin can make more.
+So the migration **automatically promotes your account** (`mdashraf@ankaa.om`) to
+superadmin the first time it's deployed. If you want a different first superadmin,
+tell me the email before we deploy.
+
+### What changed (files)
+- **New migration** `20260719e_superadmin.sql` — the role, `is_superadmin()`,
+  tightened role-change security, admin-management + settings functions, and the
+  one-time bootstrap of your account.
+- **New screen** `SuperAdminScreen.tsx` (settings + admin management).
+- **App:** navigation now routes superadmin like admin + adds the Superadmin page;
+  an entry appears in Admin → Profile only for superadmins; types + AR/EN text.
+
+### To test once deployed
+Log in as your account → Admin → Profile → tap **Superadmin** → change the commission
+and save; add/remove a test admin by phone number.
+
+---
+
+## 📋 Phase 6 — Review Notes (My Charger UI)
+
+### What changed
+The investor's **My Charger** screen now surfaces real money instead of placeholder stats:
+- **Hero card** now shows a **"Today's earnings"** line under the on/off switch.
+- The stats row now shows **This month's earnings**, **sessions this month**, and the
+  charger's **rating** (was: total bookings / price / rating).
+- The **device shows as a locked badge** once verified (from Phase 3), and everything
+  else — edit behind one button, self-charge, bookings list — stays as before.
+
+The earnings numbers are computed from the investor's real "earning" wallet
+transactions (today and current month).
+
+### Note on scope
+This was done as a **focused, safe update** rather than tearing the whole screen apart —
+so the on/off switch, device lock, and self-charge logic from Phase 3 stay intact and
+proven. If you want a bigger visual overhaul (photos, new layout), we can do that once
+you've tested the current version.
+
+### What changed (files)
+- `InvestorChargerScreen.tsx` — earnings fetch + hero earnings strip + new stats row;
+  Arabic/English text.
+
+### To test once deployed
+Open **My Charger** as an investor with earnings → confirm today's + this month's
+numbers look right.
 
 

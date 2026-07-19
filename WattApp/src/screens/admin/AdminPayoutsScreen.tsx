@@ -17,14 +17,15 @@ export default function AdminPayoutsScreen() {
 
   const [requests, setRequests] = useState<PayoutRequest[]>([]);
   const [loading, setLoading]   = useState(true);
-  const [filter, setFilter]     = useState<'pending' | 'all'>('pending');
-  const [busyId, setBusyId]     = useState<string | null>(null);
+  const [filter, setFilter]     = useState<'all' | 'processing' | 'paid' | 'failed'>('all');
 
+  // Read-only settlement log. Payouts are sent to investors' banks
+  // automatically by the disburse-payouts job — no approve/reject here.
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
       const { data } = await supabase.rpc('get_payout_requests', {
-        p_status: filter === 'pending' ? 'pending' : null,
+        p_status: filter === 'all' ? null : filter,
       });
       setRequests((data ?? []) as PayoutRequest[]);
     } finally {
@@ -33,31 +34,6 @@ export default function AdminPayoutsScreen() {
   }, [filter]);
 
   useEffect(() => { fetchRequests(); }, [fetchRequests]);
-
-  const process = async (id: string, action: 'paid' | 'reject') => {
-    setBusyId(id);
-    try {
-      const { error } = await supabase.rpc('process_payout', { p_request: id, p_action: action });
-      if (error) throw error;
-      await fetchRequests();
-    } catch (e: any) {
-      Alert.alert(t.error, e.message);
-    } finally {
-      setBusyId(null);
-    }
-  };
-
-  const confirmPaid = (id: string) =>
-    Alert.alert(t.admin_payout_confirm_paid_title, t.admin_payout_confirm_paid_msg, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.admin_payout_mark_paid, onPress: () => process(id, 'paid') },
-    ]);
-
-  const confirmReject = (id: string) =>
-    Alert.alert(t.admin_payout_confirm_reject_title, t.admin_payout_confirm_reject_msg, [
-      { text: t.cancel, style: 'cancel' },
-      { text: t.admin_payout_reject, style: 'destructive', onPress: () => process(id, 'reject') },
-    ]);
 
   const renderItem = ({ item }: { item: PayoutRequest }) => {
     return (
@@ -79,29 +55,6 @@ export default function AdminPayoutsScreen() {
         </View>
 
         <Text style={styles.date}>{new Date(item.requested_at).toLocaleString()}</Text>
-
-        {item.status === 'pending' && (
-          <View style={styles.actions}>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.rejectBtn]}
-              onPress={() => confirmReject(item.id)}
-              disabled={busyId === item.id}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.rejectText}>{t.admin_payout_reject}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.actionBtn, styles.paidBtn]}
-              onPress={() => confirmPaid(item.id)}
-              disabled={busyId === item.id}
-              activeOpacity={0.85}
-            >
-              {busyId === item.id
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.paidText}>{t.admin_payout_mark_paid}</Text>}
-            </TouchableOpacity>
-          </View>
-        )}
       </View>
     );
   };
@@ -116,15 +69,23 @@ export default function AdminPayoutsScreen() {
         <View style={{ width: 40 }} />
       </View>
 
+      {/* Automatic payouts — this screen is a read-only settlement log */}
+      <View style={styles.infoBanner}>
+        <Text style={styles.infoBannerText}>{t.admin_payout_auto_note}</Text>
+      </View>
+
       <View style={styles.tabs}>
-        {(['pending', 'all'] as const).map(f => (
+        {(['all', 'processing', 'paid', 'failed'] as const).map(f => (
           <TouchableOpacity
             key={f}
             style={[styles.tab, filter === f && styles.tabActive]}
             onPress={() => setFilter(f)}
           >
             <Text style={[styles.tabText, filter === f && styles.tabTextActive]}>
-              {f === 'pending' ? t.admin_payout_tab_pending : t.admin_payout_tab_all}
+              {f === 'all' ? t.admin_payout_tab_all
+                : f === 'processing' ? t.admin_payout_tab_processing
+                : f === 'paid' ? t.admin_payout_tab_paid
+                : t.admin_payout_tab_failed}
             </Text>
           </TouchableOpacity>
         ))}
@@ -155,6 +116,12 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 },
   backBtn: { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
   headerTitle: { fontSize: 18, fontWeight: '800', color: COLORS.text },
+
+  infoBanner: {
+    marginHorizontal: 16, marginBottom: 10, padding: 12, borderRadius: 12,
+    backgroundColor: COLORS.primaryBg, borderWidth: 1, borderColor: COLORS.primaryTint,
+  },
+  infoBannerText: { fontSize: 12, color: COLORS.primary, fontWeight: '600', lineHeight: 17 },
 
   tabs: { flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingBottom: 8 },
   tab: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: COLORS.card, borderWidth: 1.5, borderColor: COLORS.border },
