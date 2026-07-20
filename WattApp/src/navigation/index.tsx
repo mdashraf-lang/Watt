@@ -82,6 +82,7 @@ const AdminApplicationDetailScreen = lazyScreen(() => import('../screens/admin/A
 const AdminProfileScreen           = lazyScreen(() => import('../screens/admin/AdminProfileScreen'));
 const AdminPayoutsScreen           = lazyScreen(() => import('../screens/admin/AdminPayoutsScreen'));
 const SuperAdminScreen             = lazyScreen(() => import('../screens/admin/SuperAdminScreen'));
+const AdminAnalyticsScreen         = lazyScreen(() => import('../screens/admin/AdminAnalyticsScreen'));
 
 const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
 const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
@@ -602,15 +603,54 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminCustomerDetail" component={AdminCustomerDetailScreen} />
       <AdminStack.Screen name="AdminApplicationDetail" component={AdminApplicationDetailScreen} />
       <AdminStack.Screen name="AdminPayouts" component={AdminPayoutsScreen} />
+      <AdminStack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
       <AdminStack.Screen name="SuperAdmin" component={SuperAdminScreen} />
     </AdminStack.Navigator>
   );
 }
 
+// ── Connection error (logged in but profile couldn't load) ────
+function ConnectionErrorScreen({ onRetry, onSignOut }: { onRetry: () => Promise<void>; onSignOut: () => Promise<void> }) {
+  const { t } = useLang();
+  const [retrying, setRetrying] = useState(false);
+  const handleRetry = async () => {
+    setRetrying(true);
+    try { await onRetry(); } finally { setRetrying(false); }
+  };
+  return (
+    <View style={ceStyles.root}>
+      <View style={ceStyles.iconWrap}>
+        <ZapIcon size={34} color={COLORS.primary} strokeWidth={2} />
+      </View>
+      <Text style={ceStyles.title}>{t.conn_error_title}</Text>
+      <Text style={ceStyles.msg}>{t.conn_error_msg}</Text>
+      <TouchableOpacity style={ceStyles.retryBtn} onPress={handleRetry} disabled={retrying} activeOpacity={0.85}>
+        {retrying
+          ? <ActivityIndicator color="#fff" />
+          : <Text style={ceStyles.retryText}>{t.conn_error_retry}</Text>}
+      </TouchableOpacity>
+      <TouchableOpacity style={ceStyles.signOutBtn} onPress={onSignOut} activeOpacity={0.7}>
+        <Text style={ceStyles.signOutText}>{t.conn_error_signout}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const ceStyles = StyleSheet.create({
+  root: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.background, padding: 32, gap: 12 },
+  iconWrap: { width: 76, height: 76, borderRadius: 38, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center', marginBottom: 6 },
+  title: { fontSize: 20, fontWeight: '800', color: COLORS.text, textAlign: 'center' },
+  msg: { fontSize: 14, color: COLORS.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
+  retryBtn: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, paddingHorizontal: 48, alignItems: 'center', minWidth: 200 },
+  retryText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  signOutBtn: { paddingVertical: 10 },
+  signOutText: { color: COLORS.textSecondary, fontWeight: '600', fontSize: 14 },
+});
+
 // ── ROOT ──────────────────────────────────────────────────────
 
 export default function AppNavigator() {
-  const { session, profile, loading, recoveryMode } = useAuth();
+  const { session, profile, loading, profileError, recoveryMode, refreshProfile, signOut } = useAuth();
 
   // Password-reset deep link takes precedence over all normal routing:
   // the recovery session must not drop the user into the app.
@@ -618,6 +658,12 @@ export default function AppNavigator() {
 
   const isLoggedIn    = !!session;
   const activeProfile = profile;
+
+  // Logged in but the profile couldn't load (no connection / server error) —
+  // show a Retry screen instead of hanging forever on the spinner.
+  if (session && !profile && profileError) {
+    return <ConnectionErrorScreen onRetry={refreshProfile} onSignOut={signOut} />;
+  }
 
   if (loading || (session && !profile)) {
     return (

@@ -484,7 +484,7 @@ The host is a property owner or business who installs a Watt charger at their lo
 | 5 | 👑 Superadmin | New superadmin role · promote/demote admins from the app · platform settings page (commission %, prices, hold minimum) | 🟢 **BUILT — awaiting your review + test** |
 | 6 | 🎨 My Charger UI redesign | Hero card with status + today's earnings · quick stats · locked device badge | 🟢 **BUILT — awaiting your review + test** |
 | 7 | 🌐 Production DB + domain | Separate production Supabase · gowatt domain for emails, payments, links | ⚪ Not started |
-| 8 | ✨ Polish & extras | Push notifications for money events · receipts (PDF) · no-show handling · investor onboarding stepper · admin analytics · offline handling · store release · map provider swap (Rashid) | ⚪ Not started |
+| 8 | ✨ Polish & extras | ✅ connection-retry safety net · ✅ admin analytics · ✅ receipt share · ✅ no-show auto-release · ⏳ push (coded, needs dev build) · ⬜ onboarding stepper · ⬜ offline · ⬜ store release · ⬜ map provider | 🔵 **IN PROGRESS** |
 | 9 | 📄 Business model document | Revenue streams · unit economics · commission structure · 12-month projection · **includes the charger-installation-request service** | ⚪ Not started |
 | 10 | 🏗️ Charger installation requests | Customers without a home charger apply in-app for GO WATT to install one (new revenue stream — depends on Phase 9 pricing) | ⚪ Not started |
 
@@ -499,6 +499,56 @@ The host is a property owner or business who installs a Watt charger at their lo
 - **2026-07-19** — **Phase 4 built.** Star rating after charging (the missing feature). Details below.
 - **2026-07-19** — **Phase 5 built.** Superadmin role, admin management, platform settings page. Details below.
 - **2026-07-19** — **Phase 6 built.** My Charger screen now shows real earnings (today + this month). Details below.
+- **2026-07-20** — **Phases 1–5 DEPLOYED** to the cloud Supabase project (all migrations + both edge functions). Verified.
+- **2026-07-20** — **Phase 8 started.** Connection-retry safety net: the app no longer hangs forever if the profile can't load — it shows a "Couldn't connect · Try Again" screen (with Sign out). Files: `AuthContext.tsx`, `navigation/index.tsx`, i18n.
+- **2026-07-20** — **Phase 8 batch.** Admin analytics dashboard, session receipt share, and no-show auto-release built + deployed; push-on-auto-stop coded (not yet deployed). Details below.
+
+---
+
+## 📋 Phase 8 — Review Notes (Polish batch)
+
+### 1) Connection-retry safety net ✅ (deployed in app code)
+If the app is logged in but can't load your profile (no internet, server down), it now
+shows a **"Couldn't connect · Try Again"** screen with a Sign-out option — instead of
+the endless spinner you hit during testing.
+
+### 2) Admin analytics dashboard ✅ (live)
+New **Analytics** page (Admin → Profile → Analytics): revenue, sessions, and kWh for
+**Today / This Month / All Time**, a flagged-sessions count, and the **top 5 chargers**
+this month. Backed by a new admin-only `get_admin_analytics` function (deployed).
+
+### 3) Session receipt share ✅ (in app code)
+The charging summary screen now has a **"Share receipt"** button — sends a clean text
+receipt (station, date, energy, duration, cost, CO₂) via the phone's share sheet
+(WhatsApp, email, etc.). No new dependency. (A formatted PDF version can be added later
+with `expo-print` if you want it.)
+
+### 4) No-show auto-release ✅ (live)
+If a customer books but never starts charging, the booking is automatically marked
+**no-show once its time window fully passes**, which **frees the slot** for others.
+Runs every 10 minutes (pg_cron job `release-no-shows`). No fee is charged (no money was
+ever held). A small no-show fee can be added later if you want one.
+
+### 5) Push notification on auto-stop ⏳ (coded, not deployed)
+When a session is auto-stopped (customer away from phone), the code now sends them a
+**"Charging finished · charged X OMR"** push. This is **written but intentionally not
+deployed yet**, because:
+- Push **can't be tested in Expo Go** — it needs a real **dev build** (EAS).
+- It needs `PUSH_INTERNAL_SECRET` configured as a Supabase secret.
+- It touches the **critical auto-shutoff billing** function, so I won't push it live
+  until it can actually be verified.
+When you do a dev-build testing pass, we deploy the updated `auto-shutoff-chargers`
+and confirm the push arrives.
+
+### Still open in Phase 8 (not started)
+Investor onboarding stepper, offline/poor-network handling, App/Play Store release,
+and the map-provider swap (waiting on Rashid's quote).
+
+### What changed (files)
+- Migrations (live): `20260720_admin_analytics.sql`, `20260720b_no_show_release.sql`
+- App: `AuthContext.tsx`, `navigation/index.tsx`, new `AdminAnalyticsScreen.tsx`,
+  `AdminProfileScreen.tsx`, `SessionSummaryScreen.tsx`, types + AR/EN text
+- Edge fn (repo only, not redeployed): `auto-shutoff-chargers` push block
 
 ---
 

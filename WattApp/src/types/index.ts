@@ -220,6 +220,7 @@ export type AdminStackParamList = {
   AdminApplicationDetail: { application: ChargerApplication };
   AdminCustomerDetail: { customer: AdminCustomer };
   AdminPayouts: undefined;
+  AdminAnalytics: undefined;
   SuperAdmin: undefined;
 };
 

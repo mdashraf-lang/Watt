@@ -122,7 +122,7 @@ serve(async (req) => {
       //    prepaid hold, caps the cost at the held amount (so the wallet can
       //    never go negative), debits the customer, and pays the host — all
       //    atomically and idempotently. Price is resolved server-side.
-      const { error: finErr } = await supabase.rpc('_finalize_charging_session', {
+      const { data: finRes, error: finErr } = await supabase.rpc('_finalize_charging_session', {
         p_session:     row.session_id,
         p_kwh:         kwh,
         p_battery_end: null,
@@ -130,6 +130,25 @@ serve(async (req) => {
         p_ended_at:    row.booking_ends_at,
       })
       if (finErr) throw new Error(`finalize failed: ${finErr.message}`)
+
+      // Best-effort push: the customer is away (that's why it auto-stopped),
+      // so tell them their session ended and what it cost.
+      try {
+        const cost = Number((finRes as any)?.cost ?? 0)
+        await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/send-push`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-internal-secret': Deno.env.get('PUSH_INTERNAL_SECRET') ?? '',
+          },
+          body: JSON.stringify({
+            user_ids: [row.user_id],
+            category: 'charging',
+            title: 'Charging finished',
+            body: `Your charging session ended. Charged ${cost.toFixed(3)} OMR.`,
+          }),
+        })
+      } catch (_) { /* push is best-effort — never fail the shutoff for it */ }
 
       results.push({ session_id: row.session_id, status: 'completed' })
       console.log(`[auto-shutoff] completed session ${row.session_id}`)

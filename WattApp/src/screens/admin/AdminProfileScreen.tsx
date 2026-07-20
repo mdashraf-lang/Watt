@@ -12,7 +12,7 @@ import { COLORS } from '../../constants/colors';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import {
   ShieldIcon, PhoneIcon, GlobeIcon, LogOutIcon, ZapIcon, XIcon, CheckIcon,
-  UserIcon, MailIcon, AwardIcon, UsersIcon, WalletIcon,
+  UserIcon, MailIcon, AwardIcon, UsersIcon, WalletIcon, TrendingUpIcon,
 } from '../../components/icons';
 
 export default function AdminProfileScreen() {
@@ -134,6 +134,16 @@ export default function AdminProfileScreen() {
               <Text style={styles.langToggle}>›</Text>
             </TouchableOpacity>
           )}
+
+          <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminAnalytics')} activeOpacity={0.7}>
+            <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>
+              <View style={[styles.settingIconWrap, { backgroundColor: COLORS.primaryBg }]}>
+                <TrendingUpIcon size={16} color={COLORS.primary} strokeWidth={2} />
+              </View>
+              <Text style={styles.settingLabel}>{t.analytics_title}</Text>
+            </View>
+            <Text style={styles.langToggle}>›</Text>
+          </TouchableOpacity>
 
           <TouchableOpacity style={[styles.settingRow, isRTL && styles.rowReverse]} onPress={() => navigation.navigate('AdminPayouts')} activeOpacity={0.7}>
             <View style={[styles.settingLeft, isRTL && styles.rowReverse]}>

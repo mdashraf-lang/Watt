@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import {
-  ActivityIndicator, Animated, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  ActivityIndicator, Animated, Share, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute } from '@react-navigation/native';
@@ -61,6 +61,22 @@ export default function SessionSummaryScreen() {
 
   const goHome = () => {
     navigation.popToTop();
+  };
+
+  const shareReceipt = async () => {
+    const lines = [
+      `GO WATT — ${t.session_receipt_header}`,
+      '',
+      `${t.session_receipt_station}: ${stationName}`,
+      `${t.session_receipt_date}: ${dateStr} · ${timeStr}`,
+      `${t.session_receipt_energy}: ${kwhDelivered.toFixed(2)} kWh`,
+      `${t.session_receipt_duration_label}: ${formatDuration(durationSeconds)}`,
+      `${t.session_receipt_total}: ${cost.toFixed(3)} OMR`,
+      `${t.session_receipt_co2}: ${co2Saved.toFixed(1)} kg`,
+    ];
+    try {
+      await Share.share({ message: lines.join('\n') });
+    } catch { /* user dismissed the share sheet */ }
   };
 
   const align = isRTL ? 'right' : 'left';
@@ -210,6 +226,11 @@ export default function SessionSummaryScreen() {
           </View>
         )}
 
+        {/* Share receipt */}
+        <TouchableOpacity style={styles.shareBtn} onPress={shareReceipt} activeOpacity={0.85}>
+          <Text style={styles.shareBtnText}>{t.session_share}</Text>
+        </TouchableOpacity>
+
         {/* Bottom done button */}
         <TouchableOpacity style={styles.doneBtn} onPress={goHome} activeOpacity={0.85}>
           <HomeIcon size={18} color="#fff" strokeWidth={2.5} />
@@ -324,4 +345,9 @@ const styles = StyleSheet.create({
     shadowColor: COLORS.primary, shadowOpacity: 0.3, shadowOffset: { width: 0, height: 4 }, elevation: 5,
   },
   doneBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  shareBtn: {
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 14, marginBottom: 10,
+    borderRadius: 18, borderWidth: 1.5, borderColor: COLORS.primary, backgroundColor: COLORS.primaryBg,
+  },
+  shareBtnText: { color: COLORS.primary, fontWeight: '700', fontSize: 15 },
 });

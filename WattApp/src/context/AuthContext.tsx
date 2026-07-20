@@ -33,6 +33,7 @@ interface AuthContextType {
   session:    Session | null;
   profile:    Profile | null;
   loading:    boolean;
+  profileError: boolean;   // logged in but profile failed to load (e.g. no connection)
   recoveryMode: boolean;
   signOut:           () => Promise<void>;
   refreshProfile:    () => Promise<void>;
@@ -56,26 +57,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session,      setSession]      = useState<Session | null>(null);
   const [profile,      setProfile]      = useState<Profile | null>(null);
   const [loading,      setLoading]      = useState(true);
+  const [profileError, setProfileError] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
 
   const isSigningUp = useRef(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
-    if (data) {
-      if (data.is_active === false) {
-        Alert.alert('Account Deactivated', 'This account has been deactivated. Contact support if this was a mistake.');
-        await supabase.auth.signOut();
-        return;
-      }
-      setProfile(data as Profile);
-    } else {
+      .maybeSingle();
+    // Couldn't load the profile (no connection / server error / row missing) —
+    // don't hang forever on the splash spinner. Flag it so the navigator shows
+    // a "Couldn't connect · Retry" screen instead of an endless loader.
+    if (error || !data) {
+      setProfileError(true);
       setLoading(false);
+      return;
     }
+    if (data.is_active === false) {
+      Alert.alert('Account Deactivated', 'This account has been deactivated. Contact support if this was a mistake.');
+      await supabase.auth.signOut();
+      return;
+    }
+    setProfileError(false);
+    setProfile(data as Profile);
+    setLoading(false);
   }, []);
 
   // Creates the profile row for OAuth users who don't have one yet
@@ -113,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (event === 'SIGNED_IN') registerForPushNotifications(session.user.id);
       } else {
         setProfile(null);
+        setProfileError(false);
         setLoading(false);
       }
     });
@@ -355,6 +364,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       loading,
+      profileError,
       recoveryMode,
       signIn,
       signUp,
