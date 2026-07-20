@@ -34,6 +34,11 @@ yarn-error.*
 .env
 .env*.local
 
+# database dumps / backups (contain all user data — never commit)
+*.sql.dump
+gowatt_backup.sql
+*_backup.sql
+
 # typescript
 *.tsbuildinfo
 

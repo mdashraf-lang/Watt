@@ -86,29 +86,47 @@ api.gowatt.om {
 
 ---
 
-## Step 3 — Load the GO WATT database schema  ⚠️ read carefully
+## Step 3 — Load the GO WATT database  ✅ ready-made backup exists
 
-The repo's `supabase/migrations/` are **incomplete** on their own — a few objects
-(`is_admin`, `check_email_exists`, and possibly others created in the current cloud
-dashboard) live only in the existing cloud project. So **don't** rebuild from repo
-migrations alone. Instead:
+**There is already a complete backup: `gowatt_backup.sql`** (in the project root,
+git-ignored). It was taken from the live cloud database **after** all Phase 1–5
+enhancements were deployed, so it is a full, current snapshot — schema **+ all data
++ user accounts** (`public` and `auth` schemas). Just restore this one file; there is
+**no** need to re-apply the repo migrations on top.
 
-1. **Export the complete current schema (+ data)** from the existing cloud project.
-   Ashraf/Claude can produce this with the Supabase CLI:
-   ```bash
-   supabase db dump --db-url "postgresql://...CLOUD..." -f cloud_schema.sql          # structure
-   supabase db dump --db-url "postgresql://...CLOUD..." --data-only -f cloud_data.sql # data (optional)
-   ```
-2. **Restore it** onto the new server's database (psql against the self-host DB).
-3. **Apply the new Phase 1–5 migrations** (these are the enhancements that are NOT
-   yet in the cloud DB — files dated `20260719*` in `supabase/migrations/`), in order.
-4. `20260719f_admin_helper_functions.sql` (in this repo) recreates `is_admin` +
-   `check_email_exists` and is safe to run anywhere — it also upgrades `is_admin`
-   to include the new `superadmin` role.
+### 3a. Restore the backup onto the new server
 
-> If starting **totally fresh with no existing data**, you instead run
-> `supabase/schema.sql` then every file in `supabase/migrations/` in filename order,
-> **plus** `20260719f` (already included) which supplies the two missing helpers.
+On the company server (where the self-hosted Postgres runs):
+```bash
+# Ashraf sends you gowatt_backup.sql (do NOT commit it to git — it has user data)
+psql -U postgres -h localhost -p 5432 -d postgres -f gowatt_backup.sql
+```
+That's it — the new database now matches production exactly.
+
+### 3b. (Reference) How to regenerate the backup from the cloud
+
+If a fresh dump is ever needed, this is the exact command that works. Note the cloud
+project's **direct** host is IPv6-only, so on an IPv4-only network you MUST use the
+**Session Pooler** host (region = `ap-southeast-1` / Singapore for this project):
+
+```bash
+# Session Pooler (IPv4) — full schema + data + auth users
+PGPASSWORD='<db-password>' pg_dump \
+  "host=aws-1-ap-southeast-1.pooler.supabase.com port=5432 \
+   dbname=postgres user=postgres.cnwlmbpmgwmhzzjnmltz sslmode=require" \
+  -f gowatt_backup.sql
+```
+- Get `<db-password>` from **Supabase Dashboard → Project Settings → Database**.
+- Windows: use `C:\Program Files\PostgreSQL\18\bin\pg_dump.exe` (v18+, must be ≥ the
+  server's Postgres version) and set the password with
+  `$env:PGPASSWORD='...'` in PowerShell.
+- The exact pooler host/region is shown in **Dashboard → Connect → Session pooler**
+  if it ever changes.
+
+> Only needed if starting **totally fresh with no cloud snapshot**: run
+> `supabase/schema.sql`, then every file in `supabase/migrations/` in filename order.
+> The repo is now complete (`20260719f` supplies the `is_admin`/`check_email_exists`
+> helpers that used to live only in the cloud).
 
 ---
 
