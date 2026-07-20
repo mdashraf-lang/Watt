@@ -540,6 +540,90 @@ deployed yet**, because:
 When you do a dev-build testing pass, we deploy the updated `auto-shutoff-chargers`
 and confirm the push arrives.
 
+### 🎫 Booking Page Redesign — plan & loop (2026-07-20)
+
+**Goal: a customer books in under 30 seconds with as few taps as possible.**
+
+Why the current page is slow (analysis):
+- Time is chosen with **3 scroll wheels** (hour + minute + AM/PM) — 60 minute
+  options to scroll through, precise flicking, easy to land on a taken time.
+- You only discover a time is booked **after** dialing it in.
+- Duration needs the **keyboard** (typed minutes).
+- Total: ~6–10 fiddly interactions per booking.
+
+New design — "tap · tap · book":
+1. **Day chips** (Today preselected) — 0–1 tap
+2. **Duration chips** (30m/1h/1.5h/2h/3h + a −15/+15 stepper, no keyboard) — 0–1 tap
+3. **Start-time grid**: every free half-hour shown as a tappable pill, grouped
+   Morning/Afternoon/Evening/Night. Taken/past times are hidden or greyed.
+   The **earliest free time is auto-selected** — 0–1 tap
+4. Big sticky **Book · price** button — 1 tap
+→ Fastest path is **1 tap**; typical is 2–4 taps, well under 30 seconds.
+
+Build phases + loop:
+| Phase | What | Status |
+|---|---|---|
+| A | UX analysis + target flow (this plan) | ✅ |
+| B | Build the new one-screen flow (slot grid, chip durations, auto-select, sticky CTA) | ✅ (v1) |
+| C | Arabic + English + RTL for all new labels | ✅ |
+| D | TypeScript check + `/code-review` on the diff, fix findings | ✅ (2 findings found & fixed) |
+| E | **Loop v1**: Ashraf tested → wants a STEP WIZARD instead, + Full-charge + h/m picker | ✅ feedback taken |
+
+### 🎫 Booking Redesign v2 — STEP WIZARD (Ashraf's direction, 2026-07-20)
+
+One decision per screen, with a progress bar and Back/Next:
+- **Step 1 — Day**: pick the day. Shows the **current time** ("Now 2:45 PM").
+- **Step 2 — Start**: **Start now** (today) or pick a free start time.
+- **Step 3 — How long?** two modes:
+  - **⚡ Full charge** — charger booked until the car finishes / the window ends
+    ("no end time"). You only pay for the energy actually used.
+  - **⏱ Set a time** — pick **hours + minutes** (steppers, no keyboard).
+- **Step 4 — Confirm & Book**: full summary → one Confirm button.
+
+⚠️ **How "Full charge / no end time" works with the money system (important):**
+A charger can't be *literally* open-ended — the double-booking guard and the
+auto-shutoff both need an end. So Full charge = **reserve the longest free window**
+from your start (until the next booking or the charger's closing time, capped at 8h),
+turn the plug on, and **bill only the real kWh used** — the unused part of the prepaid
+hold is released automatically (Phase 1 already does this). In practice: "charge my
+car fully without guessing a duration, pay only for what it takes."
+Known limitation: if the car finishes early and the customer walks away without
+tapping Stop, the slot stays reserved until the window ends or auto-shutoff. A future
+"detect charging complete (power→0) and auto-stop" upgrade removes that.
+
+| Phase | What | Status |
+|---|---|---|
+| B2 | Build the 4-step wizard (day → start → duration modes → confirm) | 🔵 |
+| C2 | AR/EN/RTL for wizard labels | 🔵 with B2 |
+| D2 | tsc + `/code-review` on the diff, fix findings | ⬜ |
+| E2 | **Loop**: Ashraf tests → adjust → done | ⬜ |
+
+Unchanged under the hood: availability via `get_booked_slots`, debt-cap check,
+the overlap-safe DB constraint, host push notification, navigation to ActiveBooking.
+
+### 🧍 Customer Profile & Payment Setup flow (2026-07-20)
+
+Requested flow:
+- Signup stays name/email/password only.
+- **After signup → a skippable popup** nudges "complete your profile".
+- **When the customer picks a charger to book → profile completion is required first:**
+  car details (battery size, connector type, make/model) → then a **payment method**
+  step → then the booking. Saved to the profile, editable later.
+
+⚠️ **Card storage:** raw card numbers are never stored (PCI law). Decision: build the
+full profile + car details + a **payment-method screen shell now** (card entry shown
+as "coming soon"), and wire real **Thawani tokenized saved-cards** later. The wallet
+remains the working payment rail in the meantime.
+
+| Phase | What | Status |
+|---|---|---|
+| P1 | DB: car fields on profile (battery_kwh, connector_type, car_make) + prompt flag | ✅ deployed |
+| P2 | Post-signup skippable "complete profile" popup | ✅ |
+| P3 | Complete-Profile screen: car details form | ✅ |
+| P4 | Payment-method step (wallet + "add card coming soon" shell) | ✅ |
+| P5 | Booking gate: picking a charger requires a complete car profile first | ✅ |
+| P6 | Editable later from Profile (Car & payment row) · car-specific full-charge estimate · tsc + /code-review | 🔵 |
+
 ### Still open in Phase 8 (not started)
 Investor onboarding stepper, offline/poor-network handling, App/Play Store release,
 and the map-provider swap (waiting on Rashid's quote).

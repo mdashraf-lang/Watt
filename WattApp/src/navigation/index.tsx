@@ -2,7 +2,7 @@ import React, { useEffect, useState, Suspense, lazy } from 'react';
 import {
   ActivityIndicator, Modal, Text, TouchableOpacity, View, StyleSheet,
 } from 'react-native';
-import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme, useNavigation } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing, FadeIn } from 'react-native-reanimated';
 import { TAB_BAR_TOP, TAB_PILL_HEIGHT } from './tabBarLayout';
 import { useAuth } from '../context/AuthContext';
+import { isCarProfileComplete } from '../lib/profileComplete';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
 import {
@@ -73,6 +74,7 @@ const BookingsScreen            = lazyScreen(() => import('../screens/BookingsSc
 const WalletScreen              = lazyScreen(() => import('../screens/WalletScreen'));
 const ProfileScreen             = lazyScreen(() => import('../screens/ProfileScreen'));
 const InvestorApplicationScreen = lazyScreen(() => import('../screens/InvestorApplicationScreen'));
+const CompleteProfileScreen     = lazyScreen(() => import('../screens/CompleteProfileScreen'));
 
 const AdminMapScreen               = lazyScreen(() => import('../screens/admin/AdminMapScreen'));
 const AdminUsersScreen             = lazyScreen(() => import('../screens/admin/AdminUsersScreen'));
@@ -294,9 +296,75 @@ function GuestNavigator() {
 
 // ── CUSTOMER ──────────────────────────────────────────────────
 
+// Gentle, skippable nudge after signup to complete the car profile. Shows once
+// (profile_prompted flag). "Complete now" opens the profile flow; "Skip" just
+// dismisses — the profile is required later, at booking time.
+function CustomerProfilePrompt() {
+  const { profile, updateProfile } = useAuth();
+  const { t, isRTL } = useLang();
+  const navigation = useNavigation<any>();
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    if (profile && profile.role === 'customer'
+      && profile.profile_prompted === false
+      && !isCarProfileComplete(profile)) {
+      const id = setTimeout(() => setVisible(true), 700);
+      return () => clearTimeout(id);
+    }
+  }, [profile?.id, profile?.profile_prompted]);
+
+  // Either action counts as "seen" — the popup is a one-time nudge. Completion
+  // is still enforced later at booking time, so dismissing it loses nothing.
+  const markSeen = async () => {
+    try { await updateProfile({ profile_prompted: true }); } catch {}
+  };
+  const skip = () => { setVisible(false); markSeen(); };
+  const complete = () => {
+    setVisible(false);
+    markSeen();
+    navigation.navigate('CompleteProfile');
+  };
+
+  if (!visible) return null;
+  return (
+    <Modal visible transparent animationType="fade" statusBarTranslucent>
+      <View style={promptStyles.overlay}>
+        <View style={promptStyles.card}>
+          <View style={promptStyles.iconCircle}>
+            <ZapIcon size={32} color={COLORS.primary} strokeWidth={2} />
+          </View>
+          <Text style={[promptStyles.title, { textAlign: isRTL ? 'right' : 'center' }]}>{t.cp_prompt_title}</Text>
+          <Text style={[promptStyles.body, { textAlign: isRTL ? 'right' : 'center' }]}>{t.cp_prompt_body}</Text>
+          <TouchableOpacity style={promptStyles.primaryBtn} onPress={complete} activeOpacity={0.85}>
+            <Text style={promptStyles.primaryText}>{t.cp_prompt_complete}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={promptStyles.skipBtn} onPress={skip} activeOpacity={0.7}>
+            <Text style={promptStyles.skipText}>{t.cp_prompt_skip}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const promptStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  card: { backgroundColor: COLORS.card, borderRadius: 28, padding: 28, width: '100%', alignItems: 'center', gap: 10 },
+  iconCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: COLORS.primaryBg, borderWidth: 2, borderColor: COLORS.primaryTint, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  title: { fontSize: 20, fontWeight: '800', color: COLORS.text },
+  body: { fontSize: 14, color: COLORS.textSecondary, lineHeight: 20, marginBottom: 8 },
+  primaryBtn: { backgroundColor: COLORS.primary, borderRadius: 16, paddingVertical: 15, width: '100%', alignItems: 'center' },
+  primaryText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+  skipBtn: { paddingVertical: 10 },
+  skipText: { color: COLORS.textSecondary, fontSize: 14, fontWeight: '600' },
+});
+
 function CustomerTabs() {
   const { t } = useLang();
   return (
+    <>
+    <CustomerProfilePrompt />
     <CustomerTab.Navigator
       tabBar={(props) => <CustomTabBar {...props} accentColor={COLORS.primary} />}
       screenOptions={{ headerShown: false }}
@@ -342,6 +410,7 @@ function CustomerTabs() {
         }}
       />
     </CustomerTab.Navigator>
+    </>
   );
 }
 
@@ -350,6 +419,7 @@ function CustomerNavigator() {
     <CustomerStack.Navigator screenOptions={{ headerShown: false }}>
       <CustomerStack.Screen name="Tabs" component={CustomerTabs} />
       <CustomerStack.Screen name="StationDetails" component={StationDetailsScreen} />
+      <CustomerStack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
       <CustomerStack.Screen name="Booking" component={BookingScreen} />
       <CustomerStack.Screen name="ActiveBooking" component={ActiveBookingScreen} />
       <CustomerStack.Screen name="Charging" component={ChargingScreen} />
@@ -534,6 +604,7 @@ function InvestorNavigator() {
     <InvestorStack.Navigator screenOptions={{ headerShown: false }}>
       <InvestorStack.Screen name="InvestorTabs" component={InvestorTabs} />
       <InvestorStack.Screen name="StationDetails" component={StationDetailsScreen} />
+      <InvestorStack.Screen name="CompleteProfile" component={CompleteProfileScreen} />
       <InvestorStack.Screen name="Booking" component={BookingScreen} />
       <InvestorStack.Screen name="ActiveBooking" component={ActiveBookingScreen} />
       <InvestorStack.Screen name="Charging" component={ChargingScreen} />

@@ -10,6 +10,10 @@ export interface Profile {
   total_sessions: number;
   total_kwh: number;
   car_model?: string;
+  car_make?: string | null;
+  battery_kwh?: number | null;
+  connector_type?: string | null;
+  profile_prompted?: boolean;
   investor_welcomed?: boolean;
   payout_bank_name?: string | null;
   payout_account_holder?: string | null;
@@ -178,6 +182,7 @@ export type GuestTabParamList = {
 export type CustomerStackParamList = {
   Tabs: undefined;
   StationDetails: { stationId: string };
+  CompleteProfile: { station?: Station; listingId?: string } | undefined;
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };
@@ -235,6 +240,7 @@ export type InvestorTabParamList = {
 export type InvestorStackParamList = {
   InvestorTabs: undefined;
   StationDetails: { stationId: string };
+  CompleteProfile: { station?: Station; listingId?: string } | undefined;
   Booking: { station: Station; listingId?: string };
   ActiveBooking: { bookingId: string };
   Charging: { sessionId: string; stationName: string };

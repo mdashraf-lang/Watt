@@ -349,6 +349,7 @@ export default function ProfileScreen() {
         {/* ── Settings ──────────────────────────────────────── */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t.profile_settings}</Text>
+          <SettingRow Icon={PlugZapIcon}    label={t.cp_edit_row}            onPress={() => navigation.navigate('CompleteProfile')} />
           <SettingRow Icon={BellIcon}       label={t.profile_notifications}  onPress={() => setNotifModal(true)} />
           <SettingRow Icon={ShieldIcon}     label={t.profile_security}       onPress={() => setSecurityModal(true)} />
           <SettingRow Icon={HistoryIcon}    label={t.profile_history_title}  onPress={() => setHistoryModal(true)} />
