@@ -753,4 +753,38 @@ you've tested the current version.
 Open **My Charger** as an investor with earnings → confirm today's + this month's
 numbers look right.
 
+---
+
+## 📋 Charger Control Model — clarified (fixes the "who turns it on/off" problem)
+
+### The problem
+The investor's on/off toggle was doing **two different jobs at once**: it both
+listed the charger *and physically powered the plug*. That meant an "available"
+charger was live-powered — so a customer could plug in and charge **for free**
+without booking or paying, and it was unclear who really controls the switch.
+
+### The clean model (now)
+Two separate things, each with one clear owner:
+
+| Thing | Who controls it | What it does |
+|---|---|---|
+| **Availability** (online/offline) | The **investor** | Just a flag: "can customers see and book my charger?" It does **not** power the plug. Instant, no hardware needed. |
+| **Power** (the physical switch) | The **system**, only during a session | The plug turns on **only** when an authorised session starts (a customer who booked + paid taps Start, or the investor self-charges), and turns off when the session ends or the booking time runs out. |
+
+### Why this is safe and simple
+- **No free electricity** — the plug is OFF whenever nobody has an active paid
+  session, so a customer can't just plug in.
+- **Two people can't clash** — power follows the *single* active session, and only
+  one session can run on a charger at a time (bookings can't overlap). The investor's
+  availability toggle never touches power, so it can't fight with a charging customer.
+- **The investor still can't cut someone off** — turning "unavailable" is blocked
+  while a customer is mid-charge.
+- **Faster + more reliable** — the availability toggle no longer waits on the Tuya
+  device to respond, so it never hangs or gets stuck.
+
+### What changed (files)
+- `InvestorChargerScreen.tsx` — the availability toggle now only sets the listing
+  flag; the physical switch is left entirely to the session lifecycle (start/stop/
+  auto-shutoff, which already power it on and off).
+
 

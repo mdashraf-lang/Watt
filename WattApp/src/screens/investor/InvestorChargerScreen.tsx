@@ -193,9 +193,14 @@ export default function InvestorChargerScreen() {
     const prevVal = listing.is_available;
     setToggling(true);
     try {
-      // Never cut power on a customer mid-charge: block turning OFF while an
-      // active session is running on this charger (checked server-side since
-      // RLS hides the customer's session from the host).
+      // AVAILABILITY is just a listing flag — "can customers see and book this
+      // charger?" It does NOT power the plug. The physical switch is turned on
+      // ONLY during an authorised charging session (customer start / self-charge)
+      // and off when the session ends. So nobody can get free electricity, and
+      // the investor's toggle can never clash with a charging customer.
+      //
+      // Guard: can't go OFFLINE while a customer is mid-charge (they'd lose the
+      // booking they're using). Checked server-side (RLS hides their session).
       if (!newVal) {
         const { data: busy } = await supabase.rpc('listing_has_active_session', { p_listing: listing.id });
         if (busy) {
@@ -205,50 +210,17 @@ export default function InvestorChargerScreen() {
         }
       }
 
-      // Optimistic: flip the UI instantly so it feels immediate.
-      setListing(prev => prev ? { ...prev, is_available: newVal, switch_status: newVal } : prev);
-
-      // Confirm with the physical switch (with a timeout + one retry). If the
-      // hardware won't respond, roll the UI back — never show "on" when it's off.
-      if (listing.tuya_device_id) {
-        const ok = await sendSwitchCommand(listing.id, newVal);
-        if (!ok) {
-          setListing(prev => prev ? { ...prev, is_available: prevVal, switch_status: prevVal } : prev);
-          Alert.alert(t.error, t.inv_toggle_failed);
-          return;
-        }
-      }
-
-      // Hardware confirmed → persist. Roll back the UI if the write fails.
+      // Instant + reliable: no hardware call, so it never hangs waiting on Tuya.
+      setListing(prev => prev ? { ...prev, is_available: newVal } : prev);
       const { error } = await supabase.from('charger_listings')
-        .update({ is_available: newVal, switch_status: newVal }).eq('id', listing.id);
+        .update({ is_available: newVal }).eq('id', listing.id);
       if (error) {
-        setListing(prev => prev ? { ...prev, is_available: prevVal, switch_status: prevVal } : prev);
+        setListing(prev => prev ? { ...prev, is_available: prevVal } : prev);
         throw error;
       }
     } catch (e: any) {
       Alert.alert(t.error, e.message);
     } finally { setToggling(false); }
-  };
-
-  // Send an on/off command to the Tuya switch with a 7s timeout and one retry.
-  // Returns true only if the hardware acknowledged the command.
-  const sendSwitchCommand = async (listingId: string, on: boolean): Promise<boolean> => {
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const call = supabase.functions.invoke('control-tuya-switch', {
-          body: { action: on ? 'on' : 'off', listing_id: listingId },
-        });
-        const timeout = new Promise<{ data: any; error: any }>((_, rej) =>
-          setTimeout(() => rej(new Error('timeout')), 7000));
-        const { data, error } = await Promise.race([call, timeout]) as any;
-        if (!error && !data?.error) return true;
-        console.warn('[InvestorCharger] Tuya toggle failed:', error?.message ?? data?.error);
-      } catch (e: any) {
-        console.warn('[InvestorCharger] Tuya toggle attempt failed:', e.message);
-      }
-    }
-    return false;
   };
 
   // ── Self-charge ──────────────────────────────────────────────
