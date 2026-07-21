@@ -17,6 +17,9 @@ import payoutsRoutes from './modules/payouts/payouts.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import superadminRoutes from './modules/superadmin/superadmin.routes';
 import hostRoutes from './modules/host/host.routes';
+import paymentsRoutes from './modules/payments/payments.routes';
+import devicesRoutes from './modules/devices/devices.routes';
+import jobsRoutes from './modules/jobs/jobs.routes';
 
 export function createApp() {
   const app = express();
@@ -43,8 +46,9 @@ export function createApp() {
   app.use('/api/admin', adminRoutes);
   app.use('/api/superadmin', superadminRoutes);
   app.use('/api/host', hostRoutes);
-  // TODO (integrations): /api/payments (Thawani), /api/devices (Tuya),
-  //   /api/notify, realtime (Socket.IO), cron jobs
+  app.use('/api/payments', paymentsRoutes);
+  app.use('/api/devices', devicesRoutes);
+  app.use('/api/jobs', jobsRoutes);   // cron-only (x-job-secret)
 
   app.use(notFoundHandler);
   app.use(errorHandler);

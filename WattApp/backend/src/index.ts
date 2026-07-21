@@ -1,14 +1,20 @@
+import { createServer } from 'http';
 import { createApp } from './app';
 import { env } from './config/env';
 import { pool } from './db/pool';
+import { attachRealtime } from './realtime/socket';
 
 async function main() {
   // Verify the DB connection before accepting traffic.
   await pool.query('select 1');
+
   const app = createApp();
-  const server = app.listen(env.PORT, () => {
+  const server = createServer(app);
+  attachRealtime(server);   // Socket.IO for live updates (replaces Supabase Realtime)
+
+  server.listen(env.PORT, () => {
     // eslint-disable-next-line no-console
-    console.log(`GO WATT API listening on :${env.PORT} (${env.NODE_ENV})`);
+    console.log(`GO WATT API + realtime listening on :${env.PORT} (${env.NODE_ENV})`);
   });
 
   const shutdown = async () => {

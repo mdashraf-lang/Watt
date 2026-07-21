@@ -64,17 +64,30 @@ Implemented (all build clean; each is a thin `.routes.ts` over a query or SQL fu
 - ✅ **Superadmin** (admins list/set / settings get/set)
 - ✅ **Host** (listing / bookings / toggle availability / edit — device-lock enforced)
 
-Remaining — the external integrations + realtime + cron:
+Integrations + realtime + cron — **now implemented**:
+- ✅ **Payments** (`/api/payments/create|verify`) — Thawani hosted checkout + wallet credit
+- ✅ **Devices** (`/api/devices/switch|energy`) — Tuya on/off + energy (HMAC-signed)
+- ✅ **Push + Email** — Expo push + SMTP; host push on new booking, customer push on
+  auto-stop, password-reset emails
+- ✅ **Realtime** — Socket.IO over Postgres LISTEN/NOTIFY (`sql/backend-realtime.sql`)
+- ✅ **Cron jobs** (`/api/jobs/*`, x-job-secret) — auto-shutoff, no-show, disburse
 
-| Module | Endpoints | Port from |
-|---|---|---|
-| payments | Thawani create/verify | `thawani-checkout` edge fn |
-| devices | Tuya on/off/energy | `control-tuya-switch` edge fn |
-| notify | push / email / booking SMS | `send-push` / `send-watt-email` / `notify-booking` |
-| realtime | WS for stations/listings/bookings updates | Socket.IO + Postgres LISTEN/NOTIFY |
-| jobs | auto-shutoff (1m), no-show (10m), disburse (daily) | `_finalize_charging_session`, `release_no_show_bookings`, `enqueue/settle_auto_payout` |
+### One-time DB prep (all three)
+```bash
+psql "$DATABASE_URL" -f sql/backend-compat.sql
+psql "$DATABASE_URL" -f sql/backend-tables.sql
+psql "$DATABASE_URL" -f sql/backend-realtime.sql
+```
 
-See `../C-server.md` for the complete endpoint ↔ function map and auth/roles.
+### Scheduling the cron jobs (server crontab)
+```
+* * * * *    curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/auto-shutoff
+*/10 * * * * curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/no-show
+0 6 * * *    curl -s -XPOST -H "x-job-secret: $JOB_SECRET" http://localhost:8080/api/jobs/disburse
+```
+
+**The backend API is now feature-complete.** Next: the app-side — replace
+`@supabase/supabase-js` with an API client that calls these endpoints (see `../C-server.md` §9).
 
 ## Security notes
 - Never trust an id from the client — always use `req.user.id` from the verified JWT.

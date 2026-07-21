@@ -4,6 +4,7 @@ import { asyncHandler } from '../../middleware/error';
 import { requireAuth } from '../../middleware/auth';
 import { validateBody } from '../../middleware/validate';
 import { query, callFn } from '../../db/pool';
+import { sendPush } from '../../integrations/push';
 
 const router = Router();
 
@@ -42,6 +43,14 @@ router.post('/',
       [req.user!.id, b.station_id ?? null, b.listing_id ?? null, b.booked_at,
        b.duration_minutes, b.estimated_kwh ?? null, b.estimated_cost ?? null],
     );
+    // Heads-up push to the host when their private charger is booked (best-effort).
+    if (b.listing_id) {
+      const { rows: h } = await query(`select host_id from public.charger_listings where id = $1`, [b.listing_id]);
+      if (h[0]?.host_id) {
+        sendPush([h[0].host_id], 'booking', 'New booking on your charger',
+          'A customer just booked your charger.').catch(() => {});
+      }
+    }
     res.status(201).json(rows[0]);
   }),
 );
