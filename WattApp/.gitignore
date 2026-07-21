@@ -38,6 +38,9 @@ yarn-error.*
 *.sql.dump
 gowatt_backup.sql
 *_backup.sql
+gowatt_public.sql
+gowatt_auth_users.sql
+gowatt_*.sql
 
 # typescript
 *.tsbuildinfo

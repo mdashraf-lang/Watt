@@ -196,3 +196,70 @@ Also configure in the self-hosted Auth settings:
 - Review the server admin's `docker/.env` and Caddy config for mistakes.
 
 Ask and I'll prepare any of these.
+--------------------------------------------------------------------------
+
+ First: you may already have them ✅
+
+  The gowatt_backup.sql you made with pg_dump already includes the auth users — the auth.users table (with the bcrypt password hashes)
+  and auth.identities. So when it's restored, your users log in with their same passwords. You don't strictly need the SQL editor.
+
+  But restoring auth has a catch, so here's the clean way to do both parts.
+
+  Part 1 — Look at / export the auth users (SQL editor)
+
+  In the Supabase dashboard SQL Editor, to see them:
+  select id, email, email_confirmed_at, created_at
+  from auth.users
+  order by created_at;
+
+  The SQL editor can only show data (and export the result grid to CSV) — it can't produce a full SQL dump. For a real migration you
+  export with pg_dump (Part 2), because the passwords/identities need to come as proper INSERTs.
+
+  Part 2 — The dump, split correctly
+
+  The key insight: on the new self-hosted server, Supabase's GoTrue creates the auth schema itself. So you must not overwrite that
+  schema — you only want to insert the user rows into it. That means two separate dumps:
+
+  A) Your app data (public schema) — full:
+  PGPASSWORD='<db-password>' pg_dump \
+    "host=aws-1-ap-southeast-1.pooler.supabase.com port=5432 dbname=postgres user=postgres.cnwlmbpmgwmhzzjnmltz sslmode=require" \
+    --schema=public -f gowatt_public.sql
+
+  B) Just the auth USER ROWS (data only, as inserts):
+  PGPASSWORD='<db-password>' pg_dump \
+    "host=aws-1-ap-southeast-1.pooler.supabase.com port=5432 dbname=postgres user=postgres.cnwlmbpmgwmhzzjnmltz sslmode=require" \
+    --data-only --column-inserts \
+    --table=auth.users --table=auth.identities -f gowatt_auth_users.sql
+
+  Part 3 — Restore on the company server (order matters)
+
+  Once the self-hosted Supabase stack is running (GoTrue has created the auth schema):
+
+  # 1. Auth users first (into the schema GoTrue already made)
+  psql "postgresql://postgres:<pw>@localhost:5432/postgres" -f gowatt_auth_users.sql
+  # 2. Then your app data
+  psql "postgresql://postgres:<pw>@localhost:5432/postgres" -f gowatt_public.sql
+
+  Passwords keep working because the hash algorithm (bcrypt) is identical between cloud and self-hosted Supabase.
+
+  ---
+  ⚠️  If a user row already exists on the fresh server (e.g. a test signup), the insert will conflict. Cleanest: restore auth into a
+  fresh, empty stack before anyone signs up.
+
+  Since you have SELF_HOSTING.md open, want me to add this exact "migrate auth users" section into it (with the two-dump +
+  restore-order steps) so the server admin has it in one place? I can also generate the two split dumps for you right now via the same
+  pooler connection if you'd like them ready to hand over.
+  # 1. Auth users first (into the schema GoTrue already made)
+  psql "postgresql://postgres:<pw>@localhost:5432/postgres" -f gowatt_auth_users.sql
+  # 2. Then your app data
+  psql "postgresql://postgres:<pw>@localhost:5432/postgres" -f gowatt_public.sql
+
+  Passwords keep working because the hash algorithm (bcrypt) is identical between cloud and self-hosted Supabase.
+
+  ---
+  ⚠️  If a user row already exists on the fresh server (e.g. a test signup), the insert will conflict. Cleanest: restore auth into a
+  fresh, empty stack before anyone signs up.
+
+  Since you have SELF_HOSTING.md open, want me to add this exact "migrate auth users" section into it (with the two-dump +
+  restore-order steps) so the server admin has it in one place? I can also generate the two split dumps for you right now via the same
+  pooler connection if you'd like them ready to hand over.
