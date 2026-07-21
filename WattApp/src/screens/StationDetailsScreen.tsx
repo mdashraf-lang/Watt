@@ -51,11 +51,13 @@ export default function StationDetailsScreen() {
 
   const [station, setStation] = useState<Station | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
+  const [reviews, setReviews] = useState<{ rating: number; comment: string | null; reviewer: string; created_at: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStation();
     fetchConnectors();
+    fetchReviews();
     const channel = supabase
       .channel(`station-${stationId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stations', filter: `id=eq.${stationId}` },
@@ -73,6 +75,11 @@ export default function StationDetailsScreen() {
   const fetchConnectors = async () => {
     const { data } = await supabase.from('connectors').select('*').eq('station_id', stationId);
     if (data) setConnectors(data as Connector[]);
+  };
+
+  const fetchReviews = async () => {
+    const { data } = await supabase.rpc('get_charger_reviews', { p_station: stationId, p_listing: null });
+    if (data) setReviews(data as typeof reviews);
   };
 
   if (loading) {
@@ -162,6 +169,38 @@ export default function StationDetailsScreen() {
           <InfoRow Icon={CheckIcon} label={t.station_maintenance} value={station.last_maintenance ? new Date(station.last_maintenance).toLocaleDateString(locale) : t.station_maintenance_none} />
           <InfoRow Icon={StarIcon} label={t.ratings_label} value={`${station.total_ratings} ${t.station_ratings_count}`} />
         </View>
+
+        {/* Reviews */}
+        {reviews.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.reviewsHeader}>
+              <Text style={styles.sectionTitle}>{t.reviews_title}</Text>
+              <View style={styles.reviewsAvg}>
+                <StarIcon size={13} color={COLORS.gold} strokeWidth={2} filled />
+                <Text style={styles.reviewsAvgText}>
+                  {station.rating.toFixed(1)} · {station.total_ratings} {t.station_ratings_count}
+                </Text>
+              </View>
+            </View>
+            {reviews.filter(r => r.comment).slice(0, 8).map((r, i) => (
+              <View key={i} style={[styles.reviewRow, i === 0 && { borderTopWidth: 0 }]}>
+                <View style={styles.reviewTop}>
+                  <Text style={styles.reviewName}>{r.reviewer}</Text>
+                  <View style={styles.reviewStars}>
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <StarIcon key={n} size={11} color={n <= r.rating ? COLORS.gold : COLORS.border} filled={n <= r.rating} />
+                    ))}
+                  </View>
+                </View>
+                {r.comment ? <Text style={styles.reviewComment}>{r.comment}</Text> : null}
+                <Text style={styles.reviewDate}>{new Date(r.created_at).toLocaleDateString(locale)}</Text>
+              </View>
+            ))}
+            {reviews.filter(r => r.comment).length === 0 && (
+              <Text style={styles.reviewEmpty}>{t.reviews_no_comments}</Text>
+            )}
+          </View>
+        )}
 
         {/* Amenities */}
         {station.amenities && station.amenities.length > 0 && (
@@ -324,6 +363,18 @@ const styles = StyleSheet.create({
   },
   infoLabel: { flex: 1, fontSize: 13, color: COLORS.textSecondary },
   infoValue: { fontSize: 13, fontWeight: '600', color: COLORS.text, textAlign: 'right' },
+
+  // Reviews
+  reviewsHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  reviewsAvg: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 12 },
+  reviewsAvgText: { fontSize: 12, fontWeight: '700', color: COLORS.textSecondary },
+  reviewRow: { paddingVertical: 12, borderTopWidth: 1, borderTopColor: COLORS.border, gap: 5 },
+  reviewTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  reviewName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
+  reviewStars: { flexDirection: 'row', gap: 1 },
+  reviewComment: { fontSize: 13, color: COLORS.textSecondary, lineHeight: 19 },
+  reviewDate: { fontSize: 11, color: COLORS.textTertiary },
+  reviewEmpty: { fontSize: 13, color: COLORS.textTertiary, paddingVertical: 8, textAlign: 'center' },
 
   // Amenities
   amenitiesGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },

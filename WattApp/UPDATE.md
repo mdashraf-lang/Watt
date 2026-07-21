@@ -630,6 +630,12 @@ Completes Phase 3's meter-vs-billed reconciliation. Admin → Analytics → tap 
 kWh, % difference, customer, charger) with a **Mark reviewed** button. Backed by
 `get_flagged_sessions_detail` + `resolve_flagged_session` (deployed live).
 
+### ✅ Charger reviews on Station Details (2026-07-21)
+Surfaces the Phase 4 ratings: the station details screen now shows a **Reviews**
+section — average + count, and recent written reviews (reviewer first name, stars,
+comment, date). Backed by `get_charger_reviews` (deployed; returns first-name-only
+for privacy). Social proof that helps customers choose a charger.
+
 ### Still open in Phase 8 (not started)
 Investor onboarding stepper, offline/poor-network handling, App/Play Store release,
 and the map-provider swap (waiting on Rashid's quote).

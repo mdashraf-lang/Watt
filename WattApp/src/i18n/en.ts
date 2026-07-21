@@ -228,6 +228,8 @@ const en: Translations = {
   station_maintenance: 'Last Maintenance',
   station_maintenance_none: 'Not specified',
   station_ratings_count: 'ratings',
+  reviews_title: 'Reviews',
+  reviews_no_comments: 'No written reviews yet.',
   station_amenities: 'Amenities',
   station_book: 'Book Now',
   station_unavailable: 'Unavailable',

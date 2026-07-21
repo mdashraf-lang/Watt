@@ -226,6 +226,8 @@ const ar = {
   station_maintenance: 'آخر صيانة',
   station_maintenance_none: 'غير محدد',
   station_ratings_count: 'تقييم',
+  reviews_title: 'المراجعات',
+  reviews_no_comments: 'لا توجد مراجعات مكتوبة بعد.',
   station_amenities: 'المرافق',
   station_book: 'احجز الآن',
   station_unavailable: 'غير متاحة',
