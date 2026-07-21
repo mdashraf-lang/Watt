@@ -226,6 +226,7 @@ export type AdminStackParamList = {
   AdminCustomerDetail: { customer: AdminCustomer };
   AdminPayouts: undefined;
   AdminAnalytics: undefined;
+  AdminFlagged: undefined;
   SuperAdmin: undefined;
 };
 

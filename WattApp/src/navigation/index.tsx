@@ -85,6 +85,7 @@ const AdminProfileScreen           = lazyScreen(() => import('../screens/admin/A
 const AdminPayoutsScreen           = lazyScreen(() => import('../screens/admin/AdminPayoutsScreen'));
 const SuperAdminScreen             = lazyScreen(() => import('../screens/admin/SuperAdminScreen'));
 const AdminAnalyticsScreen         = lazyScreen(() => import('../screens/admin/AdminAnalyticsScreen'));
+const AdminFlaggedScreen           = lazyScreen(() => import('../screens/admin/AdminFlaggedScreen'));
 
 const InvestorChargerScreen     = lazyScreen(() => import('../screens/investor/InvestorChargerScreen'));
 const InvestorEarningsScreen    = lazyScreen(() => import('../screens/investor/InvestorEarningsScreen'));
@@ -675,6 +676,7 @@ function AdminNavigator() {
       <AdminStack.Screen name="AdminApplicationDetail" component={AdminApplicationDetailScreen} />
       <AdminStack.Screen name="AdminPayouts" component={AdminPayoutsScreen} />
       <AdminStack.Screen name="AdminAnalytics" component={AdminAnalyticsScreen} />
+      <AdminStack.Screen name="AdminFlagged" component={AdminFlaggedScreen} />
       <AdminStack.Screen name="SuperAdmin" component={SuperAdminScreen} />
     </AdminStack.Navigator>
   );

@@ -75,11 +75,12 @@ export default function AdminAnalyticsScreen() {
           {/* All time */}
           <PeriodCard title={t.analytics_all_time} bucket={data.all_time} money={money} t={t} />
 
-          {/* Flagged sessions */}
+          {/* Flagged sessions — tap to review */}
           {data.flagged > 0 && (
-            <View style={s.flagRow}>
+            <TouchableOpacity style={s.flagRow} onPress={() => navigation.navigate('AdminFlagged')} activeOpacity={0.8}>
               <Text style={s.flagText}>⚠ {data.flagged} {t.analytics_flagged}</Text>
-            </View>
+              <Text style={s.flagArrow}>›</Text>
+            </TouchableOpacity>
           )}
 
           {/* Top chargers this month */}
@@ -151,8 +152,9 @@ const s = StyleSheet.create({
   metricValue: { fontSize: 17, fontWeight: '800', color: COLORS.text, marginTop: 4 },
   metricLabel: { fontSize: 11, color: COLORS.textSecondary },
 
-  flagRow: { backgroundColor: COLORS.errorBg, borderRadius: 12, padding: 12, borderWidth: 1, borderColor: '#fecaca' },
+  flagRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: COLORS.errorBg, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: '#fecaca' },
   flagText: { fontSize: 13, fontWeight: '700', color: COLORS.error },
+  flagArrow: { fontSize: 20, fontWeight: '800', color: COLORS.error },
 
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: COLORS.border },
   rankWrap: { width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.primaryBg, alignItems: 'center', justifyContent: 'center' },

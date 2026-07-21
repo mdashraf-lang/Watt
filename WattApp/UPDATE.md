@@ -624,6 +624,12 @@ remains the working payment rail in the meantime.
 | P5 | Booking gate: picking a charger requires a complete car profile first | ✅ |
 | P6 | Editable later from Profile (Car & payment row) · car-specific full-charge estimate · tsc + /code-review | 🔵 |
 
+### ✅ Admin flagged-sessions review (2026-07-21)
+Completes Phase 3's meter-vs-billed reconciliation. Admin → Analytics → tap the
+"flagged sessions" banner → a review screen listing each mismatch (meter vs billed
+kWh, % difference, customer, charger) with a **Mark reviewed** button. Backed by
+`get_flagged_sessions_detail` + `resolve_flagged_session` (deployed live).
+
 ### Still open in Phase 8 (not started)
 Investor onboarding stepper, offline/poor-network handling, App/Play Store release,
 and the map-provider swap (waiting on Rashid's quote).
