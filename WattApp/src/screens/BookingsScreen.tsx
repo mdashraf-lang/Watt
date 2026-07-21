@@ -9,7 +9,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { Booking, CustomerStackParamList, CustomerTabParamList } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
@@ -103,15 +103,16 @@ export default function BookingsScreen() {
     if (quiet === false) setLoading(true);
     else if (quiet === true) setRefreshing(true);
     // 'silent': no spinner at all (focus refetch)
-    const { data, error } = await supabase
-      .from('bookings')
-      .select('*, station:stations(name, name_ar, governorate)')
-      .eq('user_id', profile.id)
-      .order('booked_at', { ascending: false });
-    if (data) setBookings(data as Booking[]);
-    setLoadError(!!error && !data);
-    setLoading(false);
-    setRefreshing(false);
+    try {
+      const data = await api.bookings.list();
+      setBookings(data as Booking[]);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [profile]);
 
   useEffect(() => { fetchBookings(); }, [fetchBookings]);
@@ -159,11 +160,7 @@ export default function BookingsScreen() {
     if (!cancelBooking || !cancelReason) return;
     setCancelling(true);
     try {
-      const { error } = await supabase
-        .from('bookings')
-        .update({ status: 'cancelled', cancellation_reason: cancelReason })
-        .eq('id', cancelBooking.id);
-      if (error) throw error;
+      await api.bookings.cancel(cancelBooking.id, cancelReason);
       setCancelBooking(null);
       Alert.alert('', t.bookings_cancel_success);
       fetchBookings(true);

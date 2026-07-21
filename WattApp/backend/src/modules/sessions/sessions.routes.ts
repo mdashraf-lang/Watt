@@ -10,6 +10,18 @@ import { callFn, query } from '../../db/pool';
 // hold/billing correctness, and host payout. Do NOT reimplement this logic here.
 const router = Router();
 
+// The current user's charging history (with station name).
+router.get('/', requireAuth, asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    `select cs.*, json_build_object('name', s.name) as station
+     from public.charging_sessions cs
+     left join public.stations s on s.id = cs.station_id
+     where cs.user_id = $1 order by cs.started_at desc limit 30`,
+    [req.user!.id],
+  );
+  res.json(rows);
+}));
+
 // Single session (owner only) with station/listing/booking for the charging screen.
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await query(

@@ -14,7 +14,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native';
 import * as WebBrowser from 'expo-web-browser';
 import type { WalletTransaction } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
@@ -87,14 +87,11 @@ export default function WalletScreen() {
   const fetchTransactions = async () => {
     if (!profile) return;   // wait until the profile loads; effect re-runs on profile.id
     try {
-      const { data, error } = await supabase
-        .from('wallet_transactions')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
-      if (data) setTransactions(data as WalletTransaction[]);
-      setLoadError(!!error && !data);
+      const data = await api.wallet.transactions();
+      setTransactions(data as WalletTransaction[]);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -105,12 +102,8 @@ export default function WalletScreen() {
     setTopUpLoading(true);
     try {
       // 1. Create a Thawani checkout session on the server
-      const { data: created, error: createErr } = await supabase.functions.invoke('thawani-checkout', {
-        body: { action: 'create', amount: selectedAmount },
-      });
-      if (createErr || !created?.pay_url) {
-        throw new Error(created?.error ?? createErr?.message ?? t.wallet_payment_error);
-      }
+      const created: any = await api.payments.create(selectedAmount);
+      if (!created?.pay_url) throw new Error(t.wallet_payment_error);
 
       // 2. Open Thawani's hosted payment page; returns on the watt:// redirect
       const result = await WebBrowser.openAuthSessionAsync(created.pay_url, 'watt://wallet');
@@ -120,10 +113,7 @@ export default function WalletScreen() {
       }
 
       // 3. Verify with Thawani and credit the wallet only if actually paid
-      const { data: verified, error: verifyErr } = await supabase.functions.invoke('thawani-checkout', {
-        body: { action: 'verify', session_id: created.session_id },
-      });
-      if (verifyErr) throw new Error(verifyErr.message);
+      const verified: any = await api.payments.verify(created.session_id);
 
       await refreshProfile();
       await fetchTransactions();

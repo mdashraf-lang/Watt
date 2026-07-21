@@ -9,7 +9,7 @@ import * as WebBrowser from 'expo-web-browser';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { CustomerStackParamList } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { COLORS } from '../constants/colors';
@@ -63,13 +63,11 @@ export default function CompleteProfileScreen() {
   const topUp = async () => {
     setTopUpLoading(true);
     try {
-      const { data: created, error } = await supabase.functions.invoke('thawani-checkout', {
-        body: { action: 'create', amount: 10 },
-      });
-      if (error || !created?.pay_url) throw new Error(created?.error ?? error?.message ?? t.wallet_payment_error);
+      const created: any = await api.payments.create(10);
+      if (!created?.pay_url) throw new Error(t.wallet_payment_error);
       const result = await WebBrowser.openAuthSessionAsync(created.pay_url, 'watt://wallet');
       if (result.type === 'success' || result.type === 'dismiss') {
-        await supabase.functions.invoke('thawani-checkout', { body: { action: 'verify', session_id: created.session_id } });
+        await api.payments.verify(created.session_id);
         await refreshProfile();
       }
     } catch (e: any) {

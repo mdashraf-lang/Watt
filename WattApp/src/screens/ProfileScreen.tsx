@@ -12,7 +12,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { COLORS } from '../constants/colors';
 import TermsScreen from './TermsScreen';
 import PrivacyScreen from './PrivacyScreen';
@@ -119,14 +119,9 @@ export default function ProfileScreen() {
 
   const fetchApplication = useCallback(() => {
     if (!profile) return;
-    supabase
-      .from('charger_applications')
-      .select('*')
-      .eq('user_id', profile.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-      .then(({ data }) => setApplication(data as ChargerApplication | null));
+    api.applications.mine()
+      .then((data) => setApplication((data ?? null) as ChargerApplication | null))
+      .catch(() => setApplication(null));
   }, [profile?.id]);
 
   useFocusEffect(fetchApplication);
@@ -188,14 +183,10 @@ export default function ProfileScreen() {
     if (!profile) return;
     setSessionsLoading(true);
     try {
-      const { data } = await supabase
-        .from('charging_sessions')
-        .select('*, station:stations(name)')
-        .eq('user_id', profile.id)
-        .order('started_at', { ascending: false })
-        .limit(30);
-      if (data) setSessions(data as ChargingSession[]);
-    } finally {
+      const data = await api.sessions.list();
+      setSessions(data as ChargingSession[]);
+    } catch { /* ignore */ }
+    finally {
       setSessionsLoading(false);
     }
   }, [profile]);

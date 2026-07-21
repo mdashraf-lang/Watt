@@ -138,6 +138,7 @@ export const api = {
   },
 
   sessions: {
+    list:     () => request('GET', '/api/sessions'),
     get:      (id: string) => request('GET', `/api/sessions/${id}`),
     start:    (booking_id: string) => request('POST', '/api/sessions/start', { body: { booking_id } }),
     progress: (id: string, kwh_delivered: number, cost: number) =>
@@ -150,6 +151,10 @@ export const api = {
 
   wallet: {
     transactions: () => request('GET', '/api/wallet/transactions'),
+  },
+
+  applications: {
+    mine: () => request('GET', '/api/applications/mine'),
   },
 
   favorites: {
