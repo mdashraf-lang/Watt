@@ -50,28 +50,27 @@ sql/
 ```
 
 ## What's implemented vs. remaining
-Implemented (the foundation + patterns to copy):
+Implemented (all build clean; each is a thin `.routes.ts` over a query or SQL function):
 - ✅ Config, DB layer, error handling, JWT/password, middleware
 - ✅ **Auth** (register/login/refresh/logout/change/forgot/reset/check-email)
 - ✅ **Profile** (get/update/delete)
 - ✅ **Stations** (list/detail/reviews/availability)
-- ✅ **Sessions** (start/complete/rate — the money pattern)
+- ✅ **Sessions** (start/complete/rate — 🔴 money, calls SQL functions)
+- ✅ **Bookings** (list/create/cancel/active-check)
+- ✅ **Wallet** (transactions)
+- ✅ **Favorites** (add/list/remove)
+- ✅ **Payouts** (request / mine / admin list / process 🔴)
+- ✅ **Admin** (analytics / flagged / resolve / users / applications)
+- ✅ **Superadmin** (admins list/set / settings get/set)
+- ✅ **Host** (listing / bookings / toggle availability / edit — device-lock enforced)
 
-Remaining modules — each follows the SAME pattern (a `.routes.ts` calling either a
-plain query or an existing SQL function via `callFn`):
+Remaining — the external integrations + realtime + cron:
 
-| Module | Endpoints | Backing (reuse) |
+| Module | Endpoints | Port from |
 |---|---|---|
-| bookings | create / list own / cancel | table + exclusion constraint |
-| wallet | list transactions | `wallet_transactions` |
-| favorites | add / list / remove | `favorites` table |
-| payouts | request / (admin) list / process | `request_payout`, `get_payout_requests`, `process_payout` |
-| admin | analytics / flagged / resolve | `get_admin_analytics`, `get_flagged_sessions_detail`, `resolve_flagged_session` |
-| superadmin | admins list/set / settings get/set | `sa_list_admins`, `sa_set_admin`, `sa_get_settings`, `sa_set_setting` |
-| host | listing bookings, toggle availability | `get_host_listing_bookings` |
-| payments | Thawani create/verify | port `thawani-checkout` edge fn |
-| devices | Tuya on/off/energy | port `control-tuya-switch` edge fn |
-| notify | push / email / booking SMS | port `send-push` / `send-watt-email` / `notify-booking` |
+| payments | Thawani create/verify | `thawani-checkout` edge fn |
+| devices | Tuya on/off/energy | `control-tuya-switch` edge fn |
+| notify | push / email / booking SMS | `send-push` / `send-watt-email` / `notify-booking` |
 | realtime | WS for stations/listings/bookings updates | Socket.IO + Postgres LISTEN/NOTIFY |
 | jobs | auto-shutoff (1m), no-show (10m), disburse (daily) | `_finalize_charging_session`, `release_no_show_bookings`, `enqueue/settle_auto_payout` |
 

@@ -10,6 +10,13 @@ import authRoutes from './modules/auth/auth.routes';
 import profileRoutes from './modules/profile/profile.routes';
 import stationsRoutes from './modules/stations/stations.routes';
 import sessionsRoutes from './modules/sessions/sessions.routes';
+import bookingsRoutes from './modules/bookings/bookings.routes';
+import walletRoutes from './modules/wallet/wallet.routes';
+import favoritesRoutes from './modules/favorites/favorites.routes';
+import payoutsRoutes from './modules/payouts/payouts.routes';
+import adminRoutes from './modules/admin/admin.routes';
+import superadminRoutes from './modules/superadmin/superadmin.routes';
+import hostRoutes from './modules/host/host.routes';
 
 export function createApp() {
   const app = express();
@@ -29,8 +36,15 @@ export function createApp() {
   app.use('/api/profile', profileRoutes);
   app.use('/api/stations', stationsRoutes);
   app.use('/api/sessions', sessionsRoutes);
-  // TODO (same pattern): /api/bookings, /api/wallet, /api/favorites,
-  //   /api/payouts, /api/admin, /api/superadmin, /api/devices, /api/payments
+  app.use('/api/bookings', bookingsRoutes);
+  app.use('/api/wallet', walletRoutes);
+  app.use('/api/favorites', favoritesRoutes);
+  app.use('/api/payouts', payoutsRoutes);
+  app.use('/api/admin', adminRoutes);
+  app.use('/api/superadmin', superadminRoutes);
+  app.use('/api/host', hostRoutes);
+  // TODO (integrations): /api/payments (Thawani), /api/devices (Tuya),
+  //   /api/notify, realtime (Socket.IO), cron jobs
 
   app.use(notFoundHandler);
   app.use(errorHandler);
