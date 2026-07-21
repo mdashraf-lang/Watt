@@ -1,29 +1,19 @@
-import argon2 from 'argon2';
+import bcrypt from 'bcryptjs';
 import { createHash, timingSafeEqual } from 'crypto';
 
-// New passwords are hashed with Argon2id (modern best practice).
-export function hashPassword(plain: string): Promise<string> {
-  return argon2.hash(plain, { type: argon2.argon2id });
+// Pure-JS bcrypt — no native build needed. Also verifies the bcrypt hashes
+// migrated from Supabase (auth.users.encrypted_password), so existing users
+// keep their passwords.
+const BCRYPT_ROUNDS = 12;
+
+export async function hashPassword(plain: string): Promise<string> {
+  return bcrypt.hash(plain, BCRYPT_ROUNDS);
 }
 
-/**
- * Verify a password against a stored hash. Supports BOTH:
- *  - Argon2 hashes (new accounts created by this backend), and
- *  - bcrypt hashes migrated from Supabase (auth.users.encrypted_password).
- * So existing users keep their passwords.
- */
 export async function verifyPassword(hash: string, plain: string): Promise<boolean> {
   if (!hash) return false;
-  if (hash.startsWith('$argon2')) {
-    try { return await argon2.verify(hash, plain); } catch { return false; }
-  }
-  if (hash.startsWith('$2a$') || hash.startsWith('$2b$') || hash.startsWith('$2y$')) {
-    // bcrypt from Supabase — lazy-load bcryptjs so it's only needed for legacy logins.
-    const bcrypt = await import('bcryptjs').catch(() => null as any);
-    if (!bcrypt) throw new Error('bcryptjs not installed — needed for legacy Supabase passwords');
-    return bcrypt.compareSync(plain, hash);
-  }
-  return false;
+  // bcrypt hashes start with $2a$ / $2b$ / $2y$ (both new + migrated Supabase).
+  try { return await bcrypt.compare(plain, hash); } catch { return false; }
 }
 
 // Opaque refresh-token hashing (store only the hash server-side).

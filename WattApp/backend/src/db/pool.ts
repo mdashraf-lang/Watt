@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'pg';
+import { Pool, PoolClient, QueryResultRow } from 'pg';
 import { env } from '../config/env';
 
 // Single shared connection pool to the dedicated PostgreSQL server.
@@ -15,7 +15,7 @@ pool.on('error', (err) => {
 });
 
 /** Simple query on the pool. */
-export function query<T = any>(text: string, params?: any[]) {
+export function query<T extends QueryResultRow = any>(text: string, params?: any[]) {
   return pool.query<T>(text, params);
 }
 
