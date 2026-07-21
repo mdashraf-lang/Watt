@@ -19,11 +19,17 @@ const SUPABASE_ANON_KEY =
 const APP_ENV: AppEnv =
   (process.env.EXPO_PUBLIC_APP_ENV as AppEnv) ?? 'development';
 
+// The GO WATT backend (Supabase-free). Point this at your server, e.g.
+//   EXPO_PUBLIC_API_URL=https://api.gowatt.om   (or http://<server-ip>:8080 for testing)
+const API_URL =
+  (process.env.EXPO_PUBLIC_API_URL ?? '').replace(/\/$/, '');
+
 export const ENV = {
   supabaseUrl:     SUPABASE_URL,
   supabaseAnonKey: SUPABASE_ANON_KEY,
+  apiUrl:          API_URL,
   appEnv:          APP_ENV,
   isProduction:    APP_ENV === 'production',
   // Host only, for display (e.g. "api.gowatt.om" or "…supabase.co").
-  backendHost:     SUPABASE_URL.replace(/^https?:\/\//, '').replace(/\/$/, ''),
+  backendHost:     (API_URL || SUPABASE_URL).replace(/^https?:\/\//, '').replace(/\/$/, ''),
 };

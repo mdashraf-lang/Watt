@@ -1,0 +1,194 @@
+import { ENV } from '../config/env';
+import { tokenStore } from './tokenStore';
+
+// ── GO WATT API client (replaces supabase-js) ───────────────────────────────
+// Talks to the custom backend. Handles JWT access/refresh tokens, transparent
+// token refresh on 401, and clean typed errors.
+
+export class ApiError extends Error {
+  constructor(public status: number, public code: string, message: string) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+const BASE = () => ENV.apiUrl; // e.g. https://api.gowatt.om
+
+type Method = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
+interface Opts { auth?: boolean; body?: any; query?: Record<string, any>; }
+
+// Listeners notified when the session is lost (refresh failed) → AuthContext logs out.
+let onSessionLost: (() => void) | null = null;
+export function setOnSessionLost(fn: () => void) { onSessionLost = fn; }
+
+let refreshing: Promise<boolean> | null = null;
+
+async function doRefresh(): Promise<boolean> {
+  const rt = tokenStore.getRefresh();
+  if (!rt) return false;
+  try {
+    const res = await fetch(`${BASE()}/api/auth/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: rt }),
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    await tokenStore.set(data.access_token, data.refresh_token);
+    return true;
+  } catch { return false; }
+}
+
+async function request<T = any>(method: Method, path: string, opts: Opts = {}): Promise<T> {
+  if (!BASE()) throw new ApiError(0, 'no_api_url', 'API URL not configured (EXPO_PUBLIC_API_URL)');
+
+  const qs = opts.query
+    ? '?' + new URLSearchParams(
+        Object.entries(opts.query).filter(([, v]) => v != null).map(([k, v]) => [k, String(v)]),
+      ).toString()
+    : '';
+
+  const send = async (): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+    const token = tokenStore.getAccess();
+    if (opts.auth !== false && token) headers.Authorization = `Bearer ${token}`;
+    return fetch(`${BASE()}${path}${qs}`, {
+      method,
+      headers,
+      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    });
+  };
+
+  let res = await send();
+
+  // Transparent refresh on 401 (once).
+  if (res.status === 401 && opts.auth !== false && tokenStore.getRefresh()) {
+    refreshing = refreshing ?? doRefresh();
+    const ok = await refreshing;
+    refreshing = null;
+    if (ok) {
+      res = await send();
+    } else {
+      await tokenStore.clear();
+      onSessionLost?.();
+      throw new ApiError(401, 'unauthorized', 'Session expired');
+    }
+  }
+
+  if (res.status === 204) return undefined as T;
+
+  const text = await res.text();
+  const data = text ? safeJson(text) : null;
+  if (!res.ok) {
+    const err = data?.error ?? {};
+    throw new ApiError(res.status, err.code ?? 'error', err.message ?? `Request failed (${res.status})`);
+  }
+  return data as T;
+}
+
+function safeJson(s: string): any { try { return JSON.parse(s); } catch { return null; } }
+
+// ── Domain methods ──────────────────────────────────────────────────────────
+export const api = {
+  request,
+
+  auth: {
+    register: (email: string, password: string, full_name: string) =>
+      request('POST', '/api/auth/register', { auth: false, body: { email, password, full_name } }),
+    login: (email: string, password: string) =>
+      request('POST', '/api/auth/login', { auth: false, body: { email, password } }),
+    logout: (refresh_token?: string) =>
+      request('POST', '/api/auth/logout', { auth: false, body: { refresh_token } }),
+    forgotPassword: (email: string) =>
+      request('POST', '/api/auth/forgot-password', { auth: false, body: { email } }),
+    resetPassword: (token: string, new_password: string) =>
+      request('POST', '/api/auth/reset-password', { auth: false, body: { token, new_password } }),
+    changePassword: (current_password: string, new_password: string) =>
+      request('POST', '/api/auth/change-password', { body: { current_password, new_password } }),
+    checkEmail: (email: string) =>
+      request<{ exists: boolean }>('POST', '/api/auth/check-email', { auth: false, body: { email } }),
+  },
+
+  profile: {
+    me:     () => request('GET', '/api/profile'),
+    update: (patch: Record<string, any>) => request('PATCH', '/api/profile', { body: patch }),
+    delete: () => request('DELETE', '/api/profile'),
+  },
+
+  stations: {
+    list:         () => request('GET', '/api/stations'),
+    get:          (id: string) => request('GET', `/api/stations/${id}`),
+    reviews:      (id: string) => request('GET', `/api/stations/${id}/reviews`),
+    availability: (q: { from: string; to: string; station_id?: string; listing_id?: string }) =>
+      request('GET', '/api/stations/availability', { query: q }),
+  },
+
+  bookings: {
+    list:   () => request('GET', '/api/bookings'),
+    create: (b: any) => request('POST', '/api/bookings', { body: b }),
+    cancel: (id: string, reason?: string) => request('POST', `/api/bookings/${id}/cancel`, { body: { reason } }),
+    active: (listingId: string) => request<{ active: boolean }>('GET', `/api/bookings/${listingId}/active`),
+  },
+
+  sessions: {
+    start:    (booking_id: string) => request('POST', '/api/sessions/start', { body: { booking_id } }),
+    complete: (id: string, p: { kwh: number; battery_end?: number | null; description?: string; meter_kwh?: number | null }) =>
+      request('POST', `/api/sessions/${id}/complete`, { body: p }),
+    rate:     (id: string, rating: number, comment?: string) =>
+      request('POST', `/api/sessions/${id}/rate`, { body: { rating, comment } }),
+  },
+
+  wallet: {
+    transactions: () => request('GET', '/api/wallet/transactions'),
+  },
+
+  favorites: {
+    list:   () => request('GET', '/api/favorites'),
+    add:    (target: { station_id?: string; listing_id?: string }) => request('POST', '/api/favorites', { body: target }),
+    remove: (id: string) => request('DELETE', `/api/favorites/${id}`),
+  },
+
+  payouts: {
+    request: (amount: number) => request('POST', '/api/payouts/request', { body: { amount } }),
+    mine:    () => request('GET', '/api/payouts/mine'),
+    list:    (status?: string) => request('GET', '/api/payouts', { query: { status } }),
+    process: (id: string, action: 'paid' | 'reject', note?: string) =>
+      request('POST', `/api/payouts/${id}/process`, { body: { action, note } }),
+  },
+
+  admin: {
+    analytics:    () => request('GET', '/api/admin/analytics'),
+    flagged:      () => request('GET', '/api/admin/flagged'),
+    resolveFlag:  (id: string) => request('POST', `/api/admin/flagged/${id}/resolve`),
+    users:        () => request('GET', '/api/admin/users'),
+    application:  (id: string, action: 'accept' | 'reject' | 'review') =>
+      request('POST', `/api/admin/applications/${id}/${action}`, { body: {} }),
+  },
+
+  superadmin: {
+    admins:      () => request('GET', '/api/superadmin/admins'),
+    setAdmin:    (identifier: string, make: boolean) => request('POST', '/api/superadmin/admins', { body: { identifier, make } }),
+    settings:    () => request('GET', '/api/superadmin/settings'),
+    setSetting:  (key: string, value: string) => request('PUT', '/api/superadmin/settings', { body: { key, value } }),
+  },
+
+  host: {
+    listing:        () => request('GET', '/api/host/listing'),
+    bookings:       () => request('GET', '/api/host/bookings'),
+    setAvailability:(is_available: boolean) => request('PATCH', '/api/host/listing/availability', { body: { is_available } }),
+    editListing:    (patch: Record<string, any>) => request('PATCH', '/api/host/listing', { body: patch }),
+  },
+
+  payments: {
+    create: (amount: number) => request('POST', '/api/payments/create', { body: { amount } }),
+    verify: (session_id: string) => request('POST', '/api/payments/verify', { body: { session_id } }),
+  },
+
+  devices: {
+    switch: (target: { booking_id?: string; listing_id?: string; action: 'on' | 'off' }) =>
+      request('POST', '/api/devices/switch', { body: target }),
+    energy: (target: { booking_id?: string; listing_id?: string }) =>
+      request('POST', '/api/devices/energy', { body: target }),
+  },
+};
