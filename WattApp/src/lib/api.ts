@@ -124,15 +124,24 @@ export const api = {
       request('GET', '/api/stations/availability', { query: q }),
   },
 
+  chargers: {
+    listAvailable: () => request('GET', '/api/chargers'),
+    reviews:       (id: string) => request('GET', `/api/chargers/${id}/reviews`),
+  },
+
   bookings: {
     list:   () => request('GET', '/api/bookings'),
+    get:    (id: string) => request('GET', `/api/bookings/${id}`),
     create: (b: any) => request('POST', '/api/bookings', { body: b }),
     cancel: (id: string, reason?: string) => request('POST', `/api/bookings/${id}/cancel`, { body: { reason } }),
     active: (listingId: string) => request<{ active: boolean }>('GET', `/api/bookings/${listingId}/active`),
   },
 
   sessions: {
+    get:      (id: string) => request('GET', `/api/sessions/${id}`),
     start:    (booking_id: string) => request('POST', '/api/sessions/start', { body: { booking_id } }),
+    progress: (id: string, kwh_delivered: number, cost: number) =>
+      request('PATCH', `/api/sessions/${id}/progress`, { body: { kwh_delivered, cost } }),
     complete: (id: string, p: { kwh: number; battery_end?: number | null; description?: string; meter_kwh?: number | null }) =>
       request('POST', `/api/sessions/${id}/complete`, { body: p }),
     rate:     (id: string, rating: number, comment?: string) =>

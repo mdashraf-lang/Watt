@@ -12,7 +12,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { Connector, MainStackParamList, Station } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
+import { realtime } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
@@ -60,38 +61,36 @@ export default function StationDetailsScreen() {
 
   useEffect(() => {
     fetchStation();
-    fetchConnectors();
     fetchReviews();
     fetchFavorite();
-    const channel = supabase
-      .channel(`station-${stationId}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stations', filter: `id=eq.${stationId}` },
-        payload => setStation(prev => prev ? { ...prev, ...payload.new } : null))
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    // Live status updates for this station.
+    const off = realtime.onTable('stations', (row) => {
+      if (row?.id === stationId) setStation(prev => prev ? { ...prev, ...row } : row);
+    });
+    return off;
   }, [stationId]);
 
   const fetchStation = async () => {
-    const { data } = await supabase.from('stations').select('*').eq('id', stationId).single();
-    if (data) setStation(data as Station);
-    setLoading(false);
-  };
-
-  const fetchConnectors = async () => {
-    const { data } = await supabase.from('connectors').select('*').eq('station_id', stationId);
-    if (data) setConnectors(data as Connector[]);
+    try {
+      const data: any = await api.stations.get(stationId);
+      if (data) {
+        setStation(data as Station);
+        setConnectors((data.connectors ?? []) as Connector[]);
+      }
+    } catch { /* keep null → shows retry */ }
+    finally { setLoading(false); }
   };
 
   const fetchReviews = async () => {
-    const { data } = await supabase.rpc('get_charger_reviews', { p_station: stationId, p_listing: null });
-    if (data) setReviews(data as typeof reviews);
+    try { setReviews((await api.stations.reviews(stationId)) as typeof reviews); } catch { /* ignore */ }
   };
 
   const fetchFavorite = async () => {
     if (!profile) return;
-    const { data } = await supabase.from('favorites').select('id')
-      .eq('user_id', profile.id).eq('station_id', stationId).maybeSingle();
-    setFavId(data?.id ?? null);
+    try {
+      const favs: any[] = await api.favorites.list();
+      setFavId(favs.find(f => f.station_id === stationId)?.id ?? null);
+    } catch { /* ignore */ }
   };
 
   const toggleFavorite = async () => {
@@ -101,15 +100,12 @@ export default function StationDetailsScreen() {
     try {
       if (wasFav) {
         setFavId(null);                                     // optimistic
-        const { error } = await supabase.from('favorites').delete().eq('id', wasFav);
-        if (error) { setFavId(wasFav); throw error; }
+        await api.favorites.remove(wasFav);
       } else {
-        const { data, error } = await supabase.from('favorites')
-          .insert({ user_id: profile.id, station_id: stationId }).select('id').single();
-        if (error) throw error;
-        setFavId(data.id);
+        const row: any = await api.favorites.add({ station_id: stationId });
+        setFavId(row.id);
       }
-    } catch { /* silent — revert already handled */ }
+    } catch { setFavId(wasFav); }                            // revert on failure
     finally { setFavBusy(false); }
   };
 
@@ -125,7 +121,7 @@ export default function StationDetailsScreen() {
   if (!station) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <ErrorView onRetry={() => { setLoading(true); fetchStation(); fetchConnectors(); }} />
+        <ErrorView onRetry={() => { setLoading(true); fetchStation(); fetchReviews(); }} />
         <TouchableOpacity onPress={() => navigation.goBack()} style={{ alignSelf: 'center', padding: 12 }}>
           <Text style={{ color: COLORS.textSecondary, fontSize: 14 }}>{t.cancel}</Text>
         </TouchableOpacity>

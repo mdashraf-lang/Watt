@@ -8,7 +8,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { MainStackParamList } from '../types';
-import { supabase } from '../lib/supabase';
+import { api, ApiError } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { isCarProfileComplete } from '../lib/profileComplete';
@@ -251,20 +251,22 @@ export default function BookingScreen() {
     setFetchingSlots(true);
     const startOfDay = new Date(selectedDate); startOfDay.setHours(0, 0, 0, 0);
     const endOfDay   = new Date(selectedDate); endOfDay.setHours(23, 59, 59, 999);
-    const { data } = await supabase.rpc('get_booked_slots', {
-      p_from:    startOfDay.toISOString(),
-      p_to:      endOfDay.toISOString(),
-      p_station: listingId ? null : station.id,
-      p_listing: listingId ?? null,
-    });
-    setBookedRanges(
-      (data as { booked_at: string; duration_minutes: number }[] | null ?? []).map(b => {
-        const start = new Date(b.booked_at);
-        const startMin = start.getHours() * 60 + start.getMinutes();
-        return [startMin, startMin + b.duration_minutes] as [number, number];
-      }),
-    );
-    setFetchingSlots(false);
+    try {
+      const data: any = await api.stations.availability({
+        from: startOfDay.toISOString(),
+        to:   endOfDay.toISOString(),
+        station_id: listingId ? undefined : station.id,
+        listing_id: listingId ?? undefined,
+      });
+      setBookedRanges(
+        ((data ?? []) as { booked_at: string; duration_minutes: number }[]).map(b => {
+          const start = new Date(b.booked_at);
+          const startMin = start.getHours() * 60 + start.getMinutes();
+          return [startMin, startMin + b.duration_minutes] as [number, number];
+        }),
+      );
+    } catch { setBookedRanges([]); }
+    finally { setFetchingSlots(false); }
   };
 
   // ── Derived timing ──────────────────────────────────────────
@@ -373,32 +375,21 @@ export default function BookingScreen() {
       // Freshness: if "start now" and time slid past, re-anchor to current minute.
       if (startNow && isToday) bookedAt.setTime(Date.now());
 
-      const { data, error } = await supabase
-        .from('bookings')
-        .insert({
-          user_id:          profile.id,
-          station_id:       listingId ? null : station.id,
-          listing_id:       listingId ?? null,
-          status:           'confirmed',
-          booked_at:        bookedAt.toISOString(),
-          duration_minutes: durationMin,
-          estimated_kwh:    estimatedKwh,
-          estimated_cost:   estimatedCost,
-        })
-        .select()
-        .single();
-      if (error) throw error;
-      if (profile.phone) {
-        const dateStr = bookedAt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit' });
-        supabase.functions.invoke('notify-booking', { body: { phone: profile.phone, date: dateStr, time: fmtTime(startMin) } });
-      }
-      if (listingId) {
-        supabase.functions.invoke('send-push', { body: { booking_id: data.id } })
-          .catch(e => console.warn('[BookingScreen] host push failed:', e));
-      }
+      // The backend sends the host a push automatically on create.
+      const data: any = await api.bookings.create({
+        station_id:       listingId ? null : station.id,
+        listing_id:       listingId ?? null,
+        booked_at:        bookedAt.toISOString(),
+        duration_minutes: durationMin,
+        estimated_kwh:    estimatedKwh,
+        estimated_cost:   estimatedCost,
+      });
       navigation.replace('ActiveBooking', { bookingId: data.id });
     } catch (e: any) {
-      const isOverlap = e?.code === '23P01' || /bookings_no_overlap|exclusion/i.test(e?.message ?? '');
+      // Someone booked this exact slot first — the DB overlap guard rejected it
+      // (backend maps it to a 409 conflict).
+      const isOverlap = (e instanceof ApiError && e.code === 'conflict') ||
+        /bookings_no_overlap|exclusion|just taken/i.test(e?.message ?? '');
       if (isOverlap) {
         await fetchBookedSlots();
         Alert.alert(t.warning, t.booking_slot_taken);

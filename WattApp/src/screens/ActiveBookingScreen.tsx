@@ -8,7 +8,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { Booking, MainStackParamList } from '../types';
-import { supabase } from '../lib/supabase';
+import { api, ApiError } from '../lib/api';
+import { realtime } from '../lib/realtime';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { stationDisplayName } from '../i18n/govMap';
@@ -53,27 +54,19 @@ export default function ActiveBookingScreen() {
   // Fetch booking + real-time updates
   useEffect(() => {
     fetchBooking();
-
-    const channel = supabase
-      .channel(`booking-${bookingId}`)
-      .on('postgres_changes', {
-        event: 'UPDATE', schema: 'public',
-        table: 'bookings', filter: `id=eq.${bookingId}`,
-      }, payload => setBooking(prev => prev ? { ...prev, ...payload.new } : null))
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    const off = realtime.onTable('bookings', (row) => {
+      if (row?.id === bookingId) setBooking(prev => prev ? { ...prev, ...row } : prev);
+    });
+    return off;
   }, [bookingId]);
 
 
   const fetchBooking = async () => {
-    const { data } = await supabase
-      .from('bookings')
-      .select('*, station:stations(*), listing:charger_listings(id, address, station_name)')
-      .eq('id', bookingId)
-      .single();
-    if (data) setBooking(data as Booking);
-    setLoading(false);
+    try {
+      const data = await api.bookings.get(bookingId);
+      if (data) setBooking(data as Booking);
+    } catch { /* keep null */ }
+    finally { setLoading(false); }
   };
 
   const handleStartCharging = async () => {
@@ -104,15 +97,15 @@ export default function ActiveBookingScreen() {
       //    places a hold for the estimated cost, and creates the session — all
       //    atomically. Nothing is powered on until the money is secured, so a
       //    customer can never charge without paying.
-      const { data: startRes, error: startErr } = await supabase.rpc('start_charging_session', {
-        p_booking: booking.id,
-      });
-      if (startErr) {
-        const short = parseInsufficient(startErr.message);
-        if (short != null) {
+      let startRes: any;
+      try {
+        startRes = await api.sessions.start(booking.id);
+      } catch (startErr: any) {
+        const short = parseInsufficient(startErr instanceof ApiError ? startErr.message : startErr?.message);
+        if (startErr instanceof ApiError && startErr.code === 'insufficient_balance' || short != null) {
           Alert.alert(
             t.charging_insufficient_title,
-            `${t.charging_insufficient_msg} ${short.toFixed(3)} OMR`,
+            `${t.charging_insufficient_msg} ${(short ?? 0).toFixed(3)} OMR`,
             [
               { text: t.cancel, style: 'cancel' },
               { text: t.booking_top_up, onPress: () => navigation.navigate('Tabs') },
@@ -122,31 +115,18 @@ export default function ActiveBookingScreen() {
         }
         throw startErr;
       }
-      const sessionId = (startRes as any).session_id as string;
+      const sessionId = startRes.session_id as string;
 
       // 2) Power on the Tuya switch for private chargers. If it fails, release
       //    the hold by finishing the just-started session at zero cost.
       if (booking.listing_id) {
-        const { data: switchResult, error: switchError } = await supabase.functions.invoke(
-          'control-tuya-switch',
-          { body: { action: 'on', booking_id: booking.id } },
-        );
-        let errMsg: string | null = null;
-        if (switchResult?.error) errMsg = switchResult.error;
-        else if (switchError) {
+        try {
+          await api.devices.switch({ booking_id: booking.id, action: 'on' });
+        } catch (switchErr: any) {
           try {
-            const raw = await (switchError as any)?.context?.json?.();
-            errMsg = raw?.error ?? switchError.message;
-          } catch { errMsg = switchError.message; }
-        }
-        if (errMsg) {
-          try {
-            await supabase.rpc('complete_charging_session', {
-              p_session: sessionId, p_kwh: 0, p_battery_end: null,
-              p_description: 'Cancelled — charger did not start',
-            });
+            await api.sessions.complete(sessionId, { kwh: 0, battery_end: null, description: 'Cancelled — charger did not start' });
           } catch { /* hold auto-repairs; surfacing the switch error matters more */ }
-          Alert.alert(t.active_charger_err_title, errMsg);
+          Alert.alert(t.active_charger_err_title, switchErr?.message ?? 'Charger did not start');
           return;
         }
       }
@@ -179,10 +159,7 @@ export default function ActiveBookingScreen() {
           style: 'destructive',
           onPress: async () => {
             setCancelLoading(true);
-            await supabase
-              .from('bookings')
-              .update({ status: 'cancelled', cancellation_reason: 'user_cancelled' })
-              .eq('id', bookingId);
+            try { await api.bookings.cancel(bookingId, 'user_cancelled'); } catch { /* ignore */ }
             setCancelLoading(false);
             navigation.goBack();
           },

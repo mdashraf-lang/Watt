@@ -9,6 +9,7 @@ import { errorHandler, notFoundHandler } from './middleware/error';
 import authRoutes from './modules/auth/auth.routes';
 import profileRoutes from './modules/profile/profile.routes';
 import stationsRoutes from './modules/stations/stations.routes';
+import chargersRoutes from './modules/chargers/chargers.routes';
 import sessionsRoutes from './modules/sessions/sessions.routes';
 import bookingsRoutes from './modules/bookings/bookings.routes';
 import walletRoutes from './modules/wallet/wallet.routes';
@@ -38,6 +39,7 @@ export function createApp() {
   app.use('/api/auth', authLimiter, authRoutes);
   app.use('/api/profile', profileRoutes);
   app.use('/api/stations', stationsRoutes);
+  app.use('/api/chargers', chargersRoutes);
   app.use('/api/sessions', sessionsRoutes);
   app.use('/api/bookings', bookingsRoutes);
   app.use('/api/wallet', walletRoutes);

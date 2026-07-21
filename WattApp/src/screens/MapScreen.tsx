@@ -17,7 +17,8 @@ import * as Location from 'expo-location';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { Station, ChargerListing } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
+import { realtime } from '../lib/realtime';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
@@ -112,17 +113,11 @@ export default function MapScreen() {
     fetchStations();
     fetchListings();
     requestLocation();
-
-    const channel = supabase
-      .channel('stations-realtime')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'stations' }, payload => {
-        if (payload.eventType === 'UPDATE') {
-          setStations(prev => prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s));
-        }
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+    // Live station status updates.
+    const off = realtime.onTable('stations', (row) => {
+      setStations(prev => prev.map(s => s.id === row.id ? { ...s, ...row } : s));
+    });
+    return off;
   }, []);
 
   // Fetch investor's own charger listing (even when offline)
@@ -135,11 +130,9 @@ export default function MapScreen() {
   // Load the user's favorite station ids (to pin them in the nearby list)
   useEffect(() => {
     if (!profile) return;
-    supabase.from('favorites').select('station_id').eq('user_id', profile.id)
-      .not('station_id', 'is', null)
-      .then(({ data }) => {
-        if (data) setFavStationIds(new Set(data.map((r: any) => r.station_id)));
-      });
+    api.favorites.list()
+      .then((favs: any[]) => setFavStationIds(new Set(favs.filter(f => f.station_id).map(f => f.station_id))))
+      .catch(() => {});
   }, [profile?.id]);
 
   useEffect(() => {
@@ -154,38 +147,31 @@ export default function MapScreen() {
   }, [search, stations]);
 
   const fetchStations = async () => {
-    const { data, error } = await supabase.from('stations').select('*').order('name');
-    if (!error && data) {
+    try {
+      const data = await api.stations.list();
       setStations(data as Station[]);
       setFiltered(data as Station[]);
       setLoadError(false);
-    } else if (error) {
+    } catch {
       setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const fetchListings = async () => {
-    const { data } = await supabase
-      .from('charger_listings')
-      .select('*, profiles(full_name)')
-      .eq('is_available', true);
-    if (data) {
-      const mapped = data.map((d: any) => ({ ...d, host_name: d.profiles?.full_name ?? null })) as ChargerListing[];
-      setListings(mapped);
-    }
+    try {
+      const data = await api.chargers.listAvailable();
+      setListings(data as ChargerListing[]);   // backend already includes host_name
+    } catch { /* ignore */ }
   };
 
   const fetchMyListing = async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from('charger_listings')
-      .select('*, profiles(full_name)')
-      .eq('host_id', profile.id)
-      .maybeSingle();
-    if (data && data.latitude && data.latitude !== 0) {
-      setMyListing({ ...data, host_name: data.profiles?.full_name ?? null } as ChargerListing);
-    }
+    try {
+      const data: any = await api.host.listing();
+      if (data && data.latitude && data.latitude !== 0) setMyListing(data as ChargerListing);
+    } catch { /* ignore */ }
   };
 
   const requestLocation = async () => {

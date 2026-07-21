@@ -3,12 +3,45 @@ import { z } from 'zod';
 import { asyncHandler } from '../../middleware/error';
 import { validateBody } from '../../middleware/validate';
 import { requireAuth } from '../../middleware/auth';
-import { callFn } from '../../db/pool';
+import { callFn, query } from '../../db/pool';
 
 // 🔴 MONEY-CRITICAL. These call the existing hardened SQL functions (with the
 // user context set via withUser/callFn), preserving idempotency, row-locking,
 // hold/billing correctness, and host payout. Do NOT reimplement this logic here.
 const router = Router();
+
+// Single session (owner only) with station/listing/booking for the charging screen.
+router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    `select cs.*,
+            row_to_json(s.*) as station,
+            json_build_object('id', cl.id, 'tuya_device_id', cl.tuya_device_id, 'power_kw', cl.power_kw,
+              'price_per_kwh', cl.price_per_kwh, 'address', cl.address) as listing,
+            json_build_object('id', b.id, 'listing_id', b.listing_id) as booking
+     from public.charging_sessions cs
+     left join public.stations s on s.id = cs.station_id
+     left join public.charger_listings cl on cl.id = cs.listing_id
+     left join public.bookings b on b.id = cs.booking_id
+     where cs.id = $1 and cs.user_id = $2`,
+    [req.params.id, req.user!.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: { code: 'not_found', message: 'Session not found' } });
+  res.json(rows[0]);
+}));
+
+// Live progress sync while charging (kwh/cost). Owner's active session only.
+router.patch('/:id/progress',
+  requireAuth,
+  validateBody(z.object({ kwh_delivered: z.number().nonnegative(), cost: z.number().nonnegative() })),
+  asyncHandler(async (req, res) => {
+    await query(
+      `update public.charging_sessions set kwh_delivered = $3, cost = $4
+       where id = $1 and user_id = $2 and status = 'active'`,
+      [req.params.id, req.user!.id, req.body.kwh_delivered, req.body.cost],
+    );
+    res.status(204).end();
+  }),
+);
 
 // Start charging: verifies funds, places the hold, creates the session.
 router.post('/start',

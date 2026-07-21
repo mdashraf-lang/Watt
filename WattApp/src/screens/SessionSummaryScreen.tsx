@@ -7,7 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { CustomerStackParamList } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { COLORS } from '../constants/colors';
 import { useLang } from '../context/LanguageContext';
 import { CheckIcon, ZapIcon, LeafIcon, HomeIcon, StarIcon } from '../components/icons';
@@ -30,11 +30,10 @@ export default function SessionSummaryScreen() {
     if (!sessionId || stars < 1) return;
     setRating(true);
     try {
-      const { error } = await supabase.rpc('rate_session', {
-        p_session: sessionId, p_rating: stars, p_comment: comment.trim() || null,
-      });
-      if (!error) setRated(true);
-    } finally {
+      await api.sessions.rate(sessionId, stars, comment.trim() || undefined);
+      setRated(true);
+    } catch { /* leave un-rated on failure */ }
+    finally {
       setRating(false);
     }
   };

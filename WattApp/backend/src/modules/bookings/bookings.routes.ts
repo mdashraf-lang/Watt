@@ -72,6 +72,23 @@ router.post('/:id/cancel',
   }),
 );
 
+// Single booking (owner only) with station + listing for the active-booking screen.
+router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    `select b.*,
+            row_to_json(s.*) as station,
+            json_build_object('id', cl.id, 'address', cl.address, 'station_name', cl.station_name,
+              'tuya_device_id', cl.tuya_device_id, 'power_kw', cl.power_kw, 'price_per_kwh', cl.price_per_kwh) as listing
+     from public.bookings b
+     left join public.stations s on s.id = b.station_id
+     left join public.charger_listings cl on cl.id = b.listing_id
+     where b.id = $1 and b.user_id = $2`,
+    [req.params.id, req.user!.id],
+  );
+  if (!rows[0]) return res.status(404).json({ error: { code: 'not_found', message: 'Booking not found' } });
+  res.json(rows[0]);
+}));
+
 // Whether a charger currently has an active session (for the UI).
 router.get('/:listingId/active', requireAuth, asyncHandler(async (req, res) => {
   const row = await callFn<{ result: boolean }>(req.user!.id,

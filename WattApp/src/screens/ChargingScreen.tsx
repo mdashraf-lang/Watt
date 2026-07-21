@@ -9,7 +9,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { ChargingSession, MainStackParamList } from '../types';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { useCharging } from '../context/ChargingContext';
@@ -103,13 +103,10 @@ export default function ChargingScreen() {
       const c = kwh * pricePerKwh;
       setKwhDelivered(kwh);
       setCost(c);
-      // Sync to DB roughly every 30 s
+      // Sync to the backend roughly every 30 s (best-effort).
       if (elapsed - lastSyncRef.current >= 30) {
         lastSyncRef.current = elapsed;
-        await supabase
-          .from('charging_sessions')
-          .update({ kwh_delivered: kwh, cost: c })
-          .eq('id', sessionId);
+        api.sessions.progress(sessionId, kwh, c).catch(() => {});
       }
     };
     tick();
@@ -126,11 +123,10 @@ export default function ChargingScreen() {
 
     const poll = async () => {
       try {
-        const body = bookingId
-          ? { action: 'energy', booking_id: bookingId }
-          : { action: 'energy', listing_id: listingId };
-        const { data, error } = await supabase.functions.invoke('control-tuya-switch', { body });
-        if (error || !data?.success) return;
+        const data: any = await api.devices.energy(
+          bookingId ? { booking_id: bookingId } : { listing_id: listingId },
+        );
+        if (!data?.success) return;
 
         const r   = realRef.current;
         const now = Date.now();
@@ -165,11 +161,7 @@ export default function ChargingScreen() {
   }, [session]);
 
   const fetchSession = async () => {
-    const { data } = await supabase
-      .from('charging_sessions')
-      .select('*, station:stations(*), booking:bookings(id, listing_id), listing:charger_listings(id, tuya_device_id, power_kw, price_per_kwh, address)')
-      .eq('id', sessionId)
-      .single();
+    const data: any = await api.sessions.get(sessionId).catch(() => null);
     if (data) {
       setSession(data as any);
       const d = data as any;
@@ -214,17 +206,13 @@ export default function ChargingScreen() {
   const payDue = async (due: number) => {
     try {
       const amount = Math.max(0.1, Math.round(due * 1000) / 1000);
-      const { data: created, error } = await supabase.functions.invoke('thawani-checkout', {
-        body: { action: 'create', amount },
-      });
-      if (error || !created?.pay_url) throw new Error(created?.error ?? error?.message ?? 'unavailable');
+      const created: any = await api.payments.create(amount);
+      if (!created?.pay_url) throw new Error('unavailable');
 
       const result = await WebBrowser.openAuthSessionAsync(created.pay_url, 'watt://wallet');
       if (result.type !== 'success' && result.type !== 'dismiss') return;
 
-      await supabase.functions.invoke('thawani-checkout', {
-        body: { action: 'verify', session_id: created.session_id },
-      });
+      await api.payments.verify(created.session_id);
       await refreshProfile();
     } catch {
       Alert.alert(t.pay_due_title, t.pay_later_note);
@@ -252,11 +240,10 @@ export default function ChargingScreen() {
       const bookingId = (session as any).booking?.id;
       const listingId = (session as any).booking?.listing_id ?? (session as any).listing_id;
       if (listingId) {
-        const body = bookingId
-          ? { action: 'off', booking_id: bookingId }   // customer booking path
-          : { action: 'off', listing_id: listingId };  // investor self-charge path
-        supabase.functions.invoke('control-tuya-switch', { body })
-          .catch(e => console.warn('[ChargingScreen] switch off failed:', e));
+        const target = bookingId
+          ? { booking_id: bookingId, action: 'off' as const }   // customer booking path
+          : { listing_id: listingId, action: 'off' as const };  // investor self-charge path
+        api.devices.switch(target).catch(e => console.warn('[ChargingScreen] switch off failed:', e));
       }
 
       // Compute fresh values at stop time (metrics state updates on a 5 s
@@ -276,14 +263,12 @@ export default function ChargingScreen() {
       // Pass the device's own meter reading (when the hardware was metering) so
       // the server can reconcile it against the physics estimate and flag faults.
       const meterKwh = realRef.current.metering ? realRef.current.kwh : null;
-      const { data: result, error: rpcErr } = await supabase.rpc('complete_charging_session', {
-        p_session:     sessionId,
-        p_kwh:         kwhNow,
-        p_battery_end: batteryEnd,
-        p_description: isRTL ? `شحن في ${stationName}` : `Charging at ${stationName}`,
-        p_meter_kwh:   meterKwh,
+      const result: any = await api.sessions.complete(sessionId, {
+        kwh:         kwhNow,
+        battery_end: batteryEnd,
+        description: isRTL ? `شحن في ${stationName}` : `Charging at ${stationName}`,
+        meter_kwh:   meterKwh,
       });
-      if (rpcErr) throw rpcErr;
 
       const finalCost = Number(result?.cost ?? cost);
       const finalKwh  = Number(result?.kwh ?? kwhDelivered);
