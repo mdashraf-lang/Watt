@@ -13,10 +13,11 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { Connector, MainStackParamList, Station } from '../types';
 import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../i18n/govMap';
 import { COLORS } from '../constants/colors';
-import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon } from '../components/icons';
+import { ArrowLeftIcon, ZapIcon, StarIcon, ClockIcon, MapPinIcon, CheckIcon, HeartIcon } from '../components/icons';
 import ErrorView from '../components/ErrorView';
 
 type Nav = NativeStackNavigationProp<MainStackParamList, 'StationDetails'>;
@@ -41,6 +42,7 @@ export default function StationDetailsScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
   const { stationId } = route.params;
+  const { profile } = useAuth();
   const { t, isRTL } = useLang();
   const locale = isRTL ? 'ar-OM' : 'en-GB';
 
@@ -52,12 +54,15 @@ export default function StationDetailsScreen() {
   const [station, setStation] = useState<Station | null>(null);
   const [connectors, setConnectors] = useState<Connector[]>([]);
   const [reviews, setReviews] = useState<{ rating: number; comment: string | null; reviewer: string; created_at: string }[]>([]);
+  const [favId, setFavId]   = useState<string | null>(null);   // favorites row id (null = not favorited)
+  const [favBusy, setFavBusy] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchStation();
     fetchConnectors();
     fetchReviews();
+    fetchFavorite();
     const channel = supabase
       .channel(`station-${stationId}`)
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stations', filter: `id=eq.${stationId}` },
@@ -80,6 +85,32 @@ export default function StationDetailsScreen() {
   const fetchReviews = async () => {
     const { data } = await supabase.rpc('get_charger_reviews', { p_station: stationId, p_listing: null });
     if (data) setReviews(data as typeof reviews);
+  };
+
+  const fetchFavorite = async () => {
+    if (!profile) return;
+    const { data } = await supabase.from('favorites').select('id')
+      .eq('user_id', profile.id).eq('station_id', stationId).maybeSingle();
+    setFavId(data?.id ?? null);
+  };
+
+  const toggleFavorite = async () => {
+    if (!profile || favBusy) return;
+    setFavBusy(true);
+    const wasFav = favId;
+    try {
+      if (wasFav) {
+        setFavId(null);                                     // optimistic
+        const { error } = await supabase.from('favorites').delete().eq('id', wasFav);
+        if (error) { setFavId(wasFav); throw error; }
+      } else {
+        const { data, error } = await supabase.from('favorites')
+          .insert({ user_id: profile.id, station_id: stationId }).select('id').single();
+        if (error) throw error;
+        setFavId(data.id);
+      }
+    } catch { /* silent — revert already handled */ }
+    finally { setFavBusy(false); }
   };
 
   if (loading) {
@@ -112,7 +143,10 @@ export default function StationDetailsScreen() {
           <ArrowLeftIcon size={20} color={COLORS.text} strokeWidth={2.5} />
         </TouchableOpacity>
         <Text style={styles.headerTitle} numberOfLines={1}>{station.name}</Text>
-        <View style={{ width: 40 }} />
+        <TouchableOpacity onPress={toggleFavorite} style={styles.back} disabled={favBusy}
+          accessibilityRole="button" accessibilityLabel={t.fav_toggle}>
+          <HeartIcon size={20} color={favId ? COLORS.error : COLORS.textTertiary} filled={!!favId} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView showsVerticalScrollIndicator={false}>

@@ -230,6 +230,7 @@ const en: Translations = {
   station_ratings_count: 'ratings',
   reviews_title: 'Reviews',
   reviews_no_comments: 'No written reviews yet.',
+  fav_toggle: 'Add or remove favorite',
   station_amenities: 'Amenities',
   station_book: 'Book Now',
   station_unavailable: 'Unavailable',

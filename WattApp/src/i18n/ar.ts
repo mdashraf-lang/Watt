@@ -228,6 +228,7 @@ const ar = {
   station_ratings_count: 'تقييم',
   reviews_title: 'المراجعات',
   reviews_no_comments: 'لا توجد مراجعات مكتوبة بعد.',
+  fav_toggle: 'إضافة أو إزالة من المفضلة',
   station_amenities: 'المرافق',
   station_book: 'احجز الآن',
   station_unavailable: 'غير متاحة',

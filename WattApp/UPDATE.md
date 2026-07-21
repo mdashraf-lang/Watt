@@ -636,6 +636,13 @@ section — average + count, and recent written reviews (reviewer first name, st
 comment, date). Backed by `get_charger_reviews` (deployed; returns first-name-only
 for privacy). Social proof that helps customers choose a charger.
 
+### ✅ Favorite chargers (2026-07-21)
+Customers can save chargers for quick access. A **heart button** on the station
+details screen toggles favorite; **favorited stations float to the top** of the
+map's nearby list with a heart marker. New `favorites` table (RLS: own only,
+deployed). Regular drivers reach their usual charger in one tap. (Official stations
+now; private-listing favorites can be added later — the table already supports them.)
+
 ### Still open in Phase 8 (not started)
 Investor onboarding stepper, offline/poor-network handling, App/Play Store release,
 and the map-provider swap (waiting on Rashid's quote).

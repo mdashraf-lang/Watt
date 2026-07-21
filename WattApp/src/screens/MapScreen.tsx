@@ -24,7 +24,7 @@ import { useAuth } from '../context/AuthContext';
 import { useCharging } from '../context/ChargingContext';
 import { translateGov, stationDisplayName } from '../i18n/govMap';
 import { useTabBarHeight } from '../navigation/tabBarLayout';
-import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon } from '../components/icons';
+import { SearchIcon, LocateIcon, XIcon as CloseIcon, ZapIcon, HomeIcon, StarIcon, HeartIcon } from '../components/icons';
 
 function listingToStation(l: ChargerListing): Station {
   return {
@@ -85,6 +85,7 @@ export default function MapScreen() {
   const [selected, setSelected]         = useState<Station | null>(null);
   const [selectedListing, setSelectedListing] = useState<ChargerListing | null>(null);
   const [showList, setShowList]         = useState(false);
+  const [favStationIds, setFavStationIds] = useState<Set<string>>(new Set());
 
   const listAnim       = useRef(new Animated.Value(0)).current;
   const sheetTranslateY = useRef(new Animated.Value(0)).current;
@@ -130,6 +131,16 @@ export default function MapScreen() {
       fetchMyListing();
     }
   }, [profile?.id, profile?.role]);
+
+  // Load the user's favorite station ids (to pin them in the nearby list)
+  useEffect(() => {
+    if (!profile) return;
+    supabase.from('favorites').select('station_id').eq('user_id', profile.id)
+      .not('station_id', 'is', null)
+      .then(({ data }) => {
+        if (data) setFavStationIds(new Set(data.map((r: any) => r.station_id)));
+      });
+  }, [profile?.id]);
 
   useEffect(() => {
     const q = search.toLowerCase();
@@ -217,13 +228,19 @@ export default function MapScreen() {
     [listings],
   );
 
-  // Combined list: official stations + available private listings (excluding own)
+  // Combined list: official stations + available private listings (excluding own).
+  // Favorited stations float to the top for quick access.
   const combinedItems = React.useMemo<Station[]>(() => {
     const listingStations = listings
       .filter(l => !myListing || l.id !== myListing.id)
       .map(listingToStation);
-    return [...filtered, ...listingStations];
-  }, [filtered, listings, myListing]);
+    const all = [...filtered, ...listingStations];
+    return [...all].sort((a, b) => {
+      const fa = favStationIds.has(a.id) ? 1 : 0;
+      const fb = favStationIds.has(b.id) ? 1 : 0;
+      return fb - fa;   // favorites first, otherwise stable
+    });
+  }, [filtered, listings, myListing, favStationIds]);
 
   const renderStationCard = useCallback(({ item }: { item: Station }) => {
     const isListing = listingIdSet.has(item.id);
@@ -237,9 +254,14 @@ export default function MapScreen() {
       <TouchableOpacity style={styles.listCard} onPress={onPress} activeOpacity={0.8}>
         <View style={[styles.statusDot, { backgroundColor: STATUS_COLOR[item.status] }]} />
         <View style={styles.listCardInfo}>
-          <Text style={[styles.listCardName, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
-            {isListing ? item.name : stationDisplayName(item, isRTL)}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, justifyContent: isRTL ? 'flex-end' : 'flex-start' }}>
+            {!isListing && favStationIds.has(item.id) && (
+              <HeartIcon size={13} color={COLORS.error} filled />
+            )}
+            <Text style={[styles.listCardName, { textAlign: isRTL ? 'right' : 'left' }]} numberOfLines={1}>
+              {isListing ? item.name : stationDisplayName(item, isRTL)}
+            </Text>
+          </View>
           <Text style={[styles.listCardSub, { textAlign: isRTL ? 'right' : 'left' }]}>
             {subText}
           </Text>
@@ -247,7 +269,7 @@ export default function MapScreen() {
         <Text style={styles.listCardPrice}>{item.price_per_kwh.toFixed(3)} OMR/kWh</Text>
       </TouchableOpacity>
     );
-  }, [isRTL, t, listingIdSet, listings]);
+  }, [isRTL, t, listingIdSet, listings, favStationIds]);
 
   const isInvestor = profile?.role === 'investor' || profile?.role === 'host';
 
