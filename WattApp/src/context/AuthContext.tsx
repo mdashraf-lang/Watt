@@ -1,16 +1,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { Alert, Linking, Platform } from 'react-native';
-import type { Session } from '@supabase/supabase-js';
-import * as WebBrowser from 'expo-web-browser';
-import { supabase } from '../lib/supabase';
+import { Alert, Linking } from 'react-native';
+import { api, ApiError, setOnSessionLost } from '../lib/api';
+import { tokenStore } from '../lib/tokenStore';
+import { realtime } from '../lib/realtime';
 import { registerForPushNotifications, unregisterPushNotifications } from '../lib/notifications';
 import type { Profile } from '../types';
 
-WebBrowser.maybeCompleteAuthSession();
+// Minimal session shape the app relies on (screens use session.user.id / !!session).
+export type AppSession = { user: { id: string; email: string | null } } | null;
 
-// Parse auth params from both the query string (?a=b) and the URL
-// fragment (#a=b). Supabase returns recovery tokens in either place
-// depending on the auth flow (PKCE = code query, implicit = token hash).
 function parseAuthParams(url: string): Record<string, string> {
   const params: Record<string, string> = {};
   const collect = (str: string) => {
@@ -30,10 +28,10 @@ function parseAuthParams(url: string): Record<string, string> {
 }
 
 interface AuthContextType {
-  session:    Session | null;
+  session:    AppSession;
   profile:    Profile | null;
   loading:    boolean;
-  profileError: boolean;   // logged in but profile failed to load (e.g. no connection)
+  profileError: boolean;
   recoveryMode: boolean;
   signOut:           () => Promise<void>;
   refreshProfile:    () => Promise<void>;
@@ -54,332 +52,171 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session,      setSession]      = useState<Session | null>(null);
+  const [session,      setSession]      = useState<AppSession>(null);
   const [profile,      setProfile]      = useState<Profile | null>(null);
   const [loading,      setLoading]      = useState(true);
   const [profileError, setProfileError] = useState(false);
   const [recoveryMode, setRecoveryMode] = useState(false);
+  const resetToken = useRef<string | null>(null);   // from the reset-password deep link
 
-  const isSigningUp = useRef(false);
-
-  const fetchProfile = useCallback(async (userId: string) => {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', userId)
-      .maybeSingle();
-    // Couldn't load the profile (no connection / server error / row missing) —
-    // don't hang forever on the splash spinner. Flag it so the navigator shows
-    // a "Couldn't connect · Retry" screen instead of an endless loader.
-    if (error || !data) {
+  // Load the current user's profile from the backend and set session state.
+  const loadProfile = useCallback(async (opts: { silent?: boolean } = {}) => {
+    try {
+      const p: any = await api.profile.me();
+      if (!p) { setProfileError(true); return; }
+      if (p.is_active === false) {
+        Alert.alert('Account Deactivated', 'This account has been deactivated. Contact support if this was a mistake.');
+        await doSignOut();
+        return;
+      }
+      setProfile(p as Profile);
+      setSession({ user: { id: p.id, email: p.email ?? null } });
+      setProfileError(false);
+      registerForPushNotifications(p.id).catch(() => {});
+    } catch {
+      // Couldn't load (no connection / server error) — show the Retry screen
+      // instead of hanging on the splash spinner.
       setProfileError(true);
-      setLoading(false);
-      return;
+    } finally {
+      if (!opts.silent) setLoading(false);
     }
-    if (data.is_active === false) {
-      Alert.alert('Account Deactivated', 'This account has been deactivated. Contact support if this was a mistake.');
-      await supabase.auth.signOut();
-      return;
-    }
-    setProfileError(false);
-    setProfile(data as Profile);
-    setLoading(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Creates the profile row for OAuth users who don't have one yet
-  const ensureProfile = useCallback(async (userId: string, fullName: string) => {
-    await supabase.from('profiles').upsert({
-      id: userId,
-      full_name: fullName,
-      wallet_balance: 0,
-      total_sessions: 0,
-      total_kwh: 0,
-      is_active: true,
-    }, { onConflict: 'id' });
-    await fetchProfile(userId);
-  }, [fetchProfile]);
+  const doSignOut = useCallback(async () => {
+    const rt = tokenStore.getRefresh();
+    try { await api.auth.logout(rt ?? undefined); } catch { /* ignore */ }
+    if (session?.user.id) unregisterPushNotifications(session.user.id).catch(() => {});
+    await tokenStore.clear();
+    realtime.disconnect();
+    setSession(null);
+    setProfile(null);
+    setProfileError(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.user.id]);
 
+  // Startup: restore tokens and load the profile if we have a session.
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      if (session) {
-        fetchProfile(session.user.id);
-        registerForPushNotifications(session.user.id);
-      }
-      setLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      // Password-recovery deep link — show the reset screen instead of
-      // routing the user into the app with the temporary recovery session.
-      if (event === 'PASSWORD_RECOVERY') { setRecoveryMode(true); setSession(session); return; }
-      setSession(session);
-      if (session) {
-        if (!isSigningUp.current) {
-          fetchProfile(session.user.id);
-        }
-        if (event === 'SIGNED_IN') registerForPushNotifications(session.user.id);
+    setOnSessionLost(() => { setSession(null); setProfile(null); realtime.disconnect(); });
+    (async () => {
+      await tokenStore.load();
+      if (tokenStore.getAccess() || tokenStore.getRefresh()) {
+        await loadProfile();
       } else {
-        setProfile(null);
-        setProfileError(false);
         setLoading(false);
       }
-    });
+    })();
+  }, [loadProfile]);
 
-    return () => subscription.unsubscribe();
-  }, [fetchProfile]);
-
-  // ── Password-reset deep link (watt://reset-password) ───────────
-  // The reset email opens this URL from outside the app. We establish
-  // the recovery session from its tokens, then flip recoveryMode so the
-  // navigator shows the "set new password" screen.
+  // ── Password-reset deep link (watt://reset-password?token=…) ────
   useEffect(() => {
-    const handleUrl = async (url: string | null) => {
+    const handleUrl = (url: string | null) => {
       if (!url || !url.includes('reset-password')) return;
       const p = parseAuthParams(url);
-      try {
-        if (p.access_token && p.refresh_token) {
-          const { error } = await supabase.auth.setSession({
-            access_token: p.access_token,
-            refresh_token: p.refresh_token,
-          });
-          if (error) throw error;
-        } else if (p.code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(url);
-          if (error) throw error;
-        } else if (p.error_description) {
-          Alert.alert('Reset link problem', p.error_description);
-          return;
-        } else {
-          return;
-        }
+      if (p.token) {
+        resetToken.current = p.token;
         setRecoveryMode(true);
-      } catch (e: any) {
-        Alert.alert('Reset link expired', e?.message ?? 'This password reset link is no longer valid. Please request a new one.');
+      } else if (p.error_description) {
+        Alert.alert('Reset link problem', p.error_description);
       }
     };
-
     Linking.getInitialURL().then(handleUrl);
     const sub = Linking.addEventListener('url', ({ url }) => handleUrl(url));
     return () => sub.remove();
   }, []);
 
+  // ── Auth actions ────────────────────────────────────────────────
+  const afterAuth = async (r: any) => {
+    await tokenStore.set(r.access_token, r.refresh_token);
+    realtime.reconnectWithToken();
+    await loadProfile();
+  };
+
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const r = await api.auth.login(email.trim().toLowerCase(), password);
+    await afterAuth(r);
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    isSigningUp.current = true;
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { data: { full_name: fullName } },
-      });
-      if (error) {
-        const msg = error.message?.toLowerCase() ?? '';
-        if (msg.includes('already registered') || msg.includes('already exists')) {
-          throw new Error('This email is already registered. Please sign in instead.');
-        }
-        throw error;
-      }
-      if (!data.user?.identities || data.user.identities.length === 0) {
+      const r = await api.auth.register(email.trim().toLowerCase(), password, fullName);
+      await afterAuth(r);
+    } catch (e) {
+      if (e instanceof ApiError && e.code === 'conflict') {
         throw new Error('This email is already registered. Please sign in instead.');
       }
-      if (data.user) {
-        await supabase.from('profiles').upsert({
-          id: data.user.id,
-          full_name: fullName,
-          wallet_balance: 0,
-          total_sessions: 0,
-          total_kwh: 0,
-          is_active: true,
-        }, { onConflict: 'id' });
-        await fetchProfile(data.user.id);
-      }
-    } finally {
-      isSigningUp.current = false;
+      throw e;
     }
   };
 
-  const signInWithGoogle = async () => {
-    const redirectTo = 'watt://auth/callback';
-    const { data, error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo, skipBrowserRedirect: true },
-    });
-    if (error) throw error;
-    if (!data.url) throw new Error('No OAuth URL returned');
-
-    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
-    if (result.type !== 'success') return;
-
-    const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(result.url);
-    if (sessionError) throw sessionError;
-
-    if (sessionData?.user) {
-      const fullName =
-        sessionData.user.user_metadata?.full_name ??
-        sessionData.user.user_metadata?.name ??
-        sessionData.user.email ?? '';
-      await ensureProfile(sessionData.user.id, fullName);
-    }
+  const notAvailable = (what: string) => async () => {
+    Alert.alert('Not available yet', `${what} sign-in isn't enabled on this server yet.`);
+    throw new Error(`${what} sign-in not available`);
   };
-
-  // ── Phone (OTP) login ───────────────────────────────────────
-  // Requires an SMS provider (e.g. Twilio Verify) configured on the Supabase
-  // project (Dashboard → Authentication → Providers → Phone). Until then,
-  // signInWithOtp returns a clear "provider not configured" error.
-  const signInWithPhone = async (phone: string) => {
-    const { error } = await supabase.auth.signInWithOtp({ phone });
-    if (error) throw error;
+  const signInWithGoogle = notAvailable('Google');
+  const signInWithApple  = notAvailable('Apple');
+  const signInWithPhone  = async (_phone: string) => {
+    Alert.alert('Not available yet', 'Phone sign-in isn\'t enabled on this server yet.');
+    throw new Error('Phone sign-in not available');
   };
-
-  const verifyPhoneOtp = async (phone: string, token: string) => {
-    const { data, error } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
-    if (error) throw error;
-    // First-time phone users have no profile row yet — create one (they can
-    // set their real name later in Profile → Edit), then store the phone.
-    if (data?.user) {
-      await ensureProfile(data.user.id, data.user.phone ?? '');
-      if (data.user.phone) {
-        await supabase.from('profiles')
-          .update({ phone: data.user.phone })
-          .eq('id', data.user.id);
-      }
-    }
+  const verifyPhoneOtp = async (_phone: string, _token: string) => {
+    throw new Error('Phone sign-in not available');
   };
 
   const sendPasswordReset = async (email: string) => {
     const clean = email.trim().toLowerCase();
-    // Check if an account with this email exists first
-    const { data: exists, error: checkError } = await supabase.rpc('check_email_exists', { p_email: clean });
-    if (checkError) throw checkError;
+    const { exists } = await api.auth.checkEmail(clean);
     if (!exists) {
       const err = new Error('NO_ACCOUNT');
       (err as any).code = 'NO_ACCOUNT';
       throw err;
     }
-    const { error } = await supabase.auth.resetPasswordForEmail(clean, {
-      redirectTo: 'watt://reset-password',
-    });
-    if (error) throw error;
+    await api.auth.forgotPassword(clean);
   };
 
-  const signInWithApple = async () => {
-    if (Platform.OS !== 'ios') {
-      Alert.alert('Not available', 'Apple sign-in is only available on iOS.');
-      return;
-    }
-    // Dynamically imported to avoid Android build failure
-    const AppleAuthentication = await import('expo-apple-authentication');
-    const isAvailable = await AppleAuthentication.isAvailableAsync();
-    if (!isAvailable) {
-      Alert.alert('Not available', 'Apple sign-in is not available on this device.');
-      return;
-    }
-    try {
-      const credential = await AppleAuthentication.signInAsync({
-        requestedScopes: [
-          AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
-          AppleAuthentication.AppleAuthenticationScope.EMAIL,
-        ],
-      });
-
-      const { data, error } = await supabase.auth.signInWithIdToken({
-        provider: 'apple',
-        token: credential.identityToken!,
-      });
-      if (error) throw error;
-
-      if (data?.user) {
-        const nameParts = credential.fullName;
-        const fullName = nameParts
-          ? [nameParts.givenName, nameParts.familyName].filter(Boolean).join(' ')
-          : (data.user.email ?? '');
-        await ensureProfile(data.user.id, fullName);
-      }
-    } catch (e: any) {
-      if (e.code === 'ERR_REQUEST_CANCELED') return; // user dismissed
-      throw e;
-    }
-  };
-
-  const signOut = async () => {
-    if (session?.user.id) await unregisterPushNotifications(session.user.id);
-    await supabase.auth.signOut();
-  };
-
-  const deactivateAccount = async () => {
-    if (!session) return;
-    const { error } = await supabase
-      .from('profiles')
-      .update({ is_active: false })
-      .eq('id', session.user.id);
-    if (error) throw error;
-    await supabase.auth.signOut();
-  };
-
-  // Permanent account deletion (App Store requirement). Deletes the auth user
-  // server-side (cascades to all owned data), then signs out.
-  const deleteAccount = async () => {
-    if (!session) return;
-    if (session.user.id) await unregisterPushNotifications(session.user.id).catch(() => {});
-    const { error } = await supabase.rpc('delete_own_account');
-    if (error) throw error;
-    await supabase.auth.signOut();
-  };
-
-  const refreshProfile = async () => {
-    if (session) await fetchProfile(session.user.id);
-  };
-
-  const updateProfile = async (data: Partial<Profile>) => {
-    if (!session) return;
-    const { error } = await supabase
-      .from('profiles')
-      .update(data)
-      .eq('id', session.user.id);
-    if (error) throw error;
-    await fetchProfile(session.user.id);
-  };
-
-  // Set the new password using the active recovery session, then sign
-  // out so the user logs in fresh with their new credentials.
   const completePasswordRecovery = async (newPassword: string) => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) throw error;
+    if (!resetToken.current) throw new Error('This reset link is no longer valid. Please request a new one.');
+    await api.auth.resetPassword(resetToken.current, newPassword);
+    resetToken.current = null;
     setRecoveryMode(false);
-    await supabase.auth.signOut();
   };
 
   const cancelPasswordRecovery = async () => {
+    resetToken.current = null;
     setRecoveryMode(false);
-    await supabase.auth.signOut();
+  };
+
+  const signOut = async () => { await doSignOut(); };
+
+  const deactivateAccount = async () => {
+    await api.profile.update({ is_active: false } as any);
+    await doSignOut();
+  };
+
+  const deleteAccount = async () => {
+    if (session?.user.id) await unregisterPushNotifications(session.user.id).catch(() => {});
+    await api.profile.delete();
+    await tokenStore.clear();
+    realtime.disconnect();
+    setSession(null);
+    setProfile(null);
+  };
+
+  const refreshProfile = async () => {
+    if (session) await loadProfile({ silent: true });
+  };
+
+  const updateProfile = async (data: Partial<Profile>) => {
+    const updated: any = await api.profile.update(data as Record<string, any>);
+    if (updated) setProfile(updated as Profile);
   };
 
   return (
     <AuthContext.Provider value={{
-      session,
-      profile,
-      loading,
-      profileError,
-      recoveryMode,
-      signIn,
-      signUp,
-      signInWithGoogle,
-      signInWithApple,
-      signInWithPhone,
-      verifyPhoneOtp,
-      sendPasswordReset,
-      completePasswordRecovery,
-      cancelPasswordRecovery,
-      signOut,
-      deactivateAccount,
-      deleteAccount,
-      refreshProfile,
-      updateProfile,
+      session, profile, loading, profileError, recoveryMode,
+      signIn, signUp, signInWithGoogle, signInWithApple, signInWithPhone, verifyPhoneOtp,
+      sendPasswordReset, completePasswordRecovery, cancelPasswordRecovery,
+      signOut, deactivateAccount, deleteAccount, refreshProfile, updateProfile,
     }}>
       {children}
     </AuthContext.Provider>

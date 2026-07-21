@@ -28,6 +28,7 @@ const editable = z.object({
   connector_type: z.string().nullable().optional(),
   avatar_url: z.string().url().nullable().optional(),
   profile_prompted: z.boolean().optional(),
+  is_active: z.literal(false).optional(),   // self-deactivate only (never reactivate)
   notif_push: z.boolean().optional(),
   notif_booking: z.boolean().optional(),
   notif_charging: z.boolean().optional(),
