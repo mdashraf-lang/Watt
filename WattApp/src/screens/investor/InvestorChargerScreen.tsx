@@ -9,7 +9,8 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
-import { supabase } from '../../lib/supabase';
+import { api, ApiError } from '../../lib/api';
+import { realtime } from '../../lib/realtime';
 import { COLORS } from '../../constants/colors';
 import type { ChargerListing, Booking } from '../../types';
 import {
@@ -49,32 +50,27 @@ export default function InvestorChargerScreen() {
     if (!profile) return;
     setLoading(true);
     try {
-      const { data: listData } = await supabase
-        .from('charger_listings').select('*').eq('host_id', profile.id).maybeSingle();
+      const listData: any = await api.host.listing();
       setListing(listData as ChargerListing | null);
       if (listData) {
-        // RLS hides customer bookings/profiles from the host, so fetch via an
-        // ownership-scoped RPC that includes the customer name/phone.
-        const { data: bData } = await supabase.rpc('get_host_listing_bookings');
+        const bData: any[] = await api.host.bookings();
         const mapped = (bData ?? []).map((r: any) => ({
           ...r,
           customer: { full_name: r.customer_name, phone: r.customer_phone },
         }));
         setBookings(mapped as Booking[]);
       }
-    } finally { setLoading(false); }
+    } catch { /* keep prior state */ }
+    finally { setLoading(false); }
   }, [profile]);
 
   const fetchEarnings = useCallback(async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from('wallet_transactions')
-      .select('amount, created_at')
-      .eq('user_id', profile.id)
-      .eq('type', 'earning')
-      .order('created_at', { ascending: false })
-      .limit(300);
-    if (!data) return;
+    let data: { amount: number; created_at: string; type: string }[];
+    try {
+      const all: any[] = await api.wallet.transactions();
+      data = all.filter(tx => tx.type === 'earning');
+    } catch { return; }
     const now = new Date();
     let today = 0, month = 0, count = 0;
     for (const tx of data as { amount: number; created_at: string }[]) {
@@ -93,18 +89,10 @@ export default function InvestorChargerScreen() {
   // session starts, auto-shutoff fires, or an admin changes it.
   useEffect(() => {
     if (!listing?.id) return;
-    const channel = supabase
-      .channel(`listing-${listing.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'charger_listings', filter: `id=eq.${listing.id}` },
-        (payload) => {
-          const row = payload.new as ChargerListing;
-          setListing(prev => (prev ? { ...prev, ...row } : row));
-        },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const off = realtime.onTable('charger_listings', (row) => {
+      if (row?.id === listing.id) setListing(prev => (prev ? { ...prev, ...row } : row));
+    });
+    return off;
   }, [listing?.id]);
 
   const openEdit = (focusDevice = false) => {
@@ -140,9 +128,8 @@ export default function InvestorChargerScreen() {
       if (!listing.tuya_verified) {
         updates.tuya_device_id = editDeviceId.trim() || null;
       }
-      const { error } = await supabase.from('charger_listings').update(updates).eq('id', listing.id);
-      if (error) throw error;
-      setListing(prev => prev ? { ...prev, ...updates } : prev);
+      const saved: any = await api.host.editListing(updates);
+      setListing(prev => prev ? { ...prev, ...(saved ?? updates) } : prev);
       setEditModal(false);
     } catch (e: any) {
       Alert.alert(t.error, e.message);
@@ -153,22 +140,7 @@ export default function InvestorChargerScreen() {
     if (!profile) return;
     setSaving(true);
     try {
-      const { data: app } = await supabase
-        .from('charger_applications').select('*')
-        .eq('user_id', profile.id).eq('status', 'approved')
-        .order('created_at', { ascending: false }).limit(1).maybeSingle();
-      const { data, error } = await supabase.from('charger_listings').insert({
-        host_id:       profile.id,
-        station_name:  app?.station_name ?? null,
-        address:       app ? `${app.city}, ${app.governorate}` : '',
-        latitude:      app?.latitude  ?? 23.588,
-        longitude:     app?.longitude ?? 58.383,
-        charger_type:  app?.charger_type ?? 'Type2',
-        power_kw:      app?.power_kw  ?? 7.4,
-        price_per_kwh: 0.028,   // placeholder — DB trigger applies the admin-set default
-        is_available:  false,
-      }).select().single();
-      if (error) throw error;
+      const data: any = await api.host.createListing();   // built server-side from the approved application
       setListing(data as ChargerListing);
       openEdit();
     } catch (e: any) {
@@ -201,22 +173,15 @@ export default function InvestorChargerScreen() {
       //
       // Guard: can't go OFFLINE while a customer is mid-charge (they'd lose the
       // booking they're using). Checked server-side (RLS hides their session).
-      if (!newVal) {
-        const { data: busy } = await supabase.rpc('listing_has_active_session', { p_listing: listing.id });
-        if (busy) {
-          Alert.alert(t.warning, t.inv_toggle_busy);
-          setToggling(false);
-          return;
-        }
-      }
-
-      // Instant + reliable: no hardware call, so it never hangs waiting on Tuya.
+      // Instant + reliable: no hardware call. The backend rejects going offline
+      // (409 'busy') if a customer is mid-charge.
       setListing(prev => prev ? { ...prev, is_available: newVal } : prev);
-      const { error } = await supabase.from('charger_listings')
-        .update({ is_available: newVal }).eq('id', listing.id);
-      if (error) {
+      try {
+        await api.host.setAvailability(newVal);
+      } catch (e: any) {
         setListing(prev => prev ? { ...prev, is_available: prevVal } : prev);
-        throw error;
+        if (e instanceof ApiError && e.code === 'busy') { Alert.alert(t.warning, t.inv_toggle_busy); return; }
+        throw e;
       }
     } catch (e: any) {
       Alert.alert(t.error, e.message);
@@ -247,32 +212,10 @@ export default function InvestorChargerScreen() {
     if (!listing || !profile) return;
     setSelfCharging(true);
     try {
-      // 1. Turn on the physical switch
-      const { data: switchData, error: switchErr } = await supabase.functions.invoke(
-        'control-tuya-switch',
-        { body: { action: 'on', listing_id: listing.id } },
-      );
-      const switchErrMsg = switchData?.error ?? switchErr?.message;
-      if (switchErrMsg) throw new Error(switchErrMsg);
-
-      // 2. Create a charging session directly (no booking)
-      const { data: session, error: sessionErr } = await supabase
-        .from('charging_sessions')
-        .insert({
-          user_id:           profile.id,
-          listing_id:        listing.id,
-          status:            'active',
-          battery_start_pct: 20,
-          kwh_delivered:     0,
-          cost:              0,
-        })
-        .select()
-        .single();
-      if (sessionErr) throw sessionErr;
-
-      // 3. Navigate to the live charging screen
+      // Backend turns on the switch and creates the (no-booking) session.
+      const { session_id } = await api.host.selfCharge();
       navigation.navigate('Charging', {
-        sessionId:   session.id,
+        sessionId:   session_id,
         stationName: listing.station_name || listing.address || t.inv_charger_tab,
       });
     } catch (e: any) {

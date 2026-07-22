@@ -189,9 +189,11 @@ export const api = {
 
   host: {
     listing:        () => request('GET', '/api/host/listing'),
+    createListing:  () => request('POST', '/api/host/listing'),
     bookings:       () => request('GET', '/api/host/bookings'),
     setAvailability:(is_available: boolean) => request('PATCH', '/api/host/listing/availability', { body: { is_available } }),
     editListing:    (patch: Record<string, any>) => request('PATCH', '/api/host/listing', { body: patch }),
+    selfCharge:     () => request<{ session_id: string }>('POST', '/api/host/self-charge'),
   },
 
   payments: {

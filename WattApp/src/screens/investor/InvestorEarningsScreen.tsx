@@ -8,7 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import type { WalletTransaction, PayoutRequest } from '../../types';
 import { TrendingUpIcon, WalletIcon, XIcon } from '../../components/icons';
@@ -43,15 +43,15 @@ export default function InvestorEarningsScreen() {
     if (!profile) return;
     if (!silent) setLoading(true);
     try {
-      const [{ data: tx, error: txErr }, { data: pr }] = await Promise.all([
-        supabase.from('wallet_transactions').select('*')
-          .eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50),
-        supabase.from('payout_requests').select('*')
-          .order('requested_at', { ascending: false }).limit(20),
+      const [tx, pr] = await Promise.all([
+        api.wallet.transactions(),
+        api.payouts.mine(),
       ]);
       setTransactions((tx ?? []) as WalletTransaction[]);
       setPayouts((pr ?? []) as PayoutRequest[]);
-      setLoadError(!!txErr && !tx);
+      setLoadError(false);
+    } catch {
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
