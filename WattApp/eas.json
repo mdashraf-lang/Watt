@@ -18,6 +18,10 @@
       "autoIncrement": true,
       "android": {
         "buildType": "app-bundle"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://go-watt.com",
+        "EXPO_PUBLIC_APP_ENV": "production"
       }
     }
   },
