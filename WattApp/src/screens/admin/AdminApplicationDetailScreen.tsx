@@ -10,7 +10,7 @@ import type { RouteProp } from '@react-navigation/native';
 import type { AdminStackParamList, ChargerApplication } from '../../types';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import {
   ArrowLeftIcon, PhoneIcon, ZapIcon, UserIcon, MapPinIcon, ShieldIcon, CheckIcon,
 } from '../../components/icons';
@@ -58,17 +58,14 @@ export default function AdminApplicationDetailScreen() {
   // Fetch the charger listing if application is approved
   useEffect(() => {
     if (app.status === 'approved') {
-      supabase
-        .from('charger_listings')
-        .select('id, tuya_device_id, tuya_verified, price_per_kwh')
-        .eq('host_id', app.user_id)
-        .maybeSingle()
-        .then(({ data }) => {
+      api.admin.userListing(app.user_id)
+        .then(data => {
           if (data) {
-            setListing(data as any);
-            setPriceInput(String((data as any).price_per_kwh ?? ''));
+            setListing(data);
+            setPriceInput(String(data.price_per_kwh ?? ''));
           }
-        });
+        })
+        .catch(() => {});
     }
   }, [app.user_id, app.status]);
 
@@ -80,11 +77,7 @@ export default function AdminApplicationDetailScreen() {
     }
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('charger_listings')
-        .update({ price_per_kwh: price })
-        .eq('id', listing.id);
-      if (error) throw error;
+      await api.admin.updateListing(listing.id, { price_per_kwh: price });
       setListing(prev => prev ? { ...prev, price_per_kwh: price } : prev);
       Alert.alert('✓', t.admin_price_saved);
     } catch (e: any) {
@@ -103,11 +96,7 @@ export default function AdminApplicationDetailScreen() {
         onPress: async () => {
           setSaving(true);
           try {
-            const { error } = await supabase
-              .from('charger_listings')
-              .update({ tuya_verified: true })
-              .eq('id', listing.id);
-            if (error) throw error;
+            await api.admin.updateListing(listing.id, { tuya_verified: true });
             setListing(prev => prev ? { ...prev, tuya_verified: true } : prev);
             Alert.alert('✓', t.admin_tuya_verify_done);
           } catch (e: any) {
@@ -136,11 +125,7 @@ export default function AdminApplicationDetailScreen() {
           onPress: async () => {
             setSaving(true);
             try {
-              const { error } = await supabase
-                .from('charger_applications')
-                .delete()
-                .eq('id', app.id);
-              if (error) throw error;
+              await api.admin.deleteApplication(app.id);
               navigation.goBack();
             } catch (e: any) {
               Alert.alert(t.error, e.message);
@@ -156,11 +141,7 @@ export default function AdminApplicationDetailScreen() {
   const handleSaveComment = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('charger_applications')
-        .update({ admin_comment: comment.trim() || null })
-        .eq('id', app.id);
-      if (error) throw error;
+      await api.admin.saveComment(app.id, comment.trim() || null);
       setApp(prev => ({ ...prev, admin_comment: comment.trim() || undefined }));
       Alert.alert('✓', t.admin_inv_comment_saved);
     } catch (e: any) {
@@ -171,7 +152,6 @@ export default function AdminApplicationDetailScreen() {
   };
 
   const handleAction = async (action: 'accept' | 'reject' | 'review') => {
-    const rpcMap    = { accept: 'accept_investor_application', reject: 'reject_investor_application', review: 'set_application_under_review' };
     const statusMap = { accept: 'approved' as const, reject: 'rejected' as const, review: 'under_review' as const };
     const labelMap  = { accept: t.admin_inv_accept, reject: t.admin_inv_reject, review: t.admin_inv_on_review };
 
@@ -186,8 +166,7 @@ export default function AdminApplicationDetailScreen() {
           onPress: async () => {
             setSaving(true);
             try {
-              const { error } = await supabase.rpc(rpcMap[action], { p_application_id: app.id });
-              if (error) throw error;
+              await api.admin.application(app.id, action);
               setApp(prev => ({ ...prev, status: statusMap[action] }));
               if (action === 'accept') await sendEmail('application_accepted', '', app.full_name);
               if (action === 'reject') await sendEmail('application_rejected', '', app.full_name, comment);

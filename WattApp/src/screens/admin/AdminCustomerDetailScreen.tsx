@@ -7,7 +7,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { AdminStackParamList, AdminCustomer } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import {
@@ -46,10 +46,14 @@ export default function AdminCustomerDetailScreen() {
 
   const setActiveStatus = async (active: boolean) => {
     setBusy(true);
-    const { error } = await supabase.from('profiles').update({ is_active: active }).eq('id', user.id);
-    setBusy(false);
-    if (error) { Alert.alert(t.error, error.message); return; }
-    setUser(prev => ({ ...prev, is_active: active }));
+    try {
+      await api.admin.setUserActive(user.id, active);
+      setUser(prev => ({ ...prev, is_active: active }));
+    } catch (e: any) {
+      Alert.alert(t.error, e.message);
+    } finally {
+      setBusy(false);
+    }
   };
 
   const confirmDeactivate = () => {
@@ -73,9 +77,12 @@ export default function AdminCustomerDetailScreen() {
           text: t.admin_delete_confirm,
           style: 'destructive',
           onPress: async () => {
-            const { error } = await supabase.rpc('delete_user_account', { target_user_id: user.id });
-            if (error) { Alert.alert(t.error, error.message); return; }
-            navigation.goBack();
+            try {
+              await api.admin.deleteUser(user.id);
+              navigation.goBack();
+            } catch (e: any) {
+              Alert.alert(t.error, e.message);
+            }
           },
         },
       ],

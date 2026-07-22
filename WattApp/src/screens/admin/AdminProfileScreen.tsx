@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { useLang } from '../../context/LanguageContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import {
@@ -33,10 +33,9 @@ export default function AdminProfileScreen() {
   const email = session?.user?.email ?? '';
 
   useEffect(() => {
-    supabase.from('stations').select('*', { count: 'exact', head: true })
-      .then(({ count }) => setStationCount(count ?? 0));
-    supabase.from('profiles').select('*', { count: 'exact', head: true })
-      .then(({ count }) => setUserCount(count ?? 0));
+    api.admin.counts()
+      .then(({ stations, users }) => { setStationCount(stations); setUserCount(users); })
+      .catch(() => {});
   }, []);
 
   const openEdit = () => {

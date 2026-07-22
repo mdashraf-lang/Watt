@@ -9,7 +9,7 @@ import type { CompositeNavigationProp } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AdminCustomer, AdminTabParamList, AdminStackParamList } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
@@ -35,10 +35,15 @@ export default function AdminUsersScreen() {
 
   const fetchCustomers = async (silent = false) => {
     if (!silent) setLoading(true);
-    const { data, error } = await supabase.rpc('get_customers_with_email');
-    if (data) setCustomers(data as AdminCustomer[]);
-    if (error) Alert.alert('Error', error.message);
-    if (!silent) setLoading(false);
+    try {
+      const data = await api.admin.users();
+      const customers = ((data ?? []) as AdminCustomer[]).filter(u => u.role === 'customer');
+      setCustomers(customers);
+    } catch (e: any) {
+      Alert.alert('Error', e.message);
+    } finally {
+      if (!silent) setLoading(false);
+    }
   };
 
   useEffect(() => { fetchCustomers(); }, []);

@@ -173,9 +173,21 @@ export const api = {
 
   admin: {
     analytics:    () => request('GET', '/api/admin/analytics'),
+    counts:       () => request<{ stations: number; users: number }>('GET', '/api/admin/counts'),
     flagged:      () => request('GET', '/api/admin/flagged'),
     resolveFlag:  (id: string) => request('POST', `/api/admin/flagged/${id}/resolve`),
     users:        () => request('GET', '/api/admin/users'),
+    setUserActive:(id: string, is_active: boolean) => request('PATCH', `/api/admin/users/${id}`, { body: { is_active } }),
+    deleteUser:   (id: string) => request('DELETE', `/api/admin/users/${id}`),
+    applications: () => request('GET', '/api/admin/applications'),
+    saveComment:  (id: string, admin_comment: string | null) =>
+      request('PATCH', `/api/admin/applications/${id}`, { body: { admin_comment } }),
+    deleteApplication: (id: string) => request('DELETE', `/api/admin/applications/${id}`),
+    userListing:  (userId: string) =>
+      request<{ id: string; tuya_device_id: string | null; tuya_verified: boolean; price_per_kwh: number } | null>(
+        'GET', `/api/admin/users/${userId}/listing`),
+    updateListing:(id: string, patch: { price_per_kwh?: number; tuya_verified?: boolean }) =>
+      request('PATCH', `/api/admin/listings/${id}`, { body: patch }),
     application:  (id: string, action: 'accept' | 'reject' | 'review') =>
       request('POST', `/api/admin/applications/${id}/${action}`, { body: {} }),
   },

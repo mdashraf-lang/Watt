@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { ArrowLeftIcon, TrendingUpIcon, ZapIcon, WalletIcon } from '../../components/icons';
@@ -29,8 +29,7 @@ export default function AdminAnalyticsScreen() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data: res, error: err } = await supabase.rpc('get_admin_analytics');
-      if (err) throw err;
+      const res = await api.admin.analytics();
       setData(res as Analytics);
       setError(false);
     } catch {

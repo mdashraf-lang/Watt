@@ -12,7 +12,7 @@ import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import type { ChargerApplication, AdminTabParamList, AdminStackParamList } from '../../types';
 import {
   TrendingUpIcon, PhoneIcon, SearchIcon, XIcon, ChevronRightIcon,
@@ -49,11 +49,7 @@ export default function AdminInvestorsScreen() {
   const fetchApplications = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('charger_applications')
-        .select('*, profile:profiles(full_name, phone)')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await api.admin.applications();
       setApplications((data ?? []) as ChargerApplication[]);
     } catch (e: any) {
       Alert.alert(t.error, e.message);

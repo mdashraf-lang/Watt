@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { ArrowLeftIcon, ShieldIcon, UsersIcon, XIcon } from '../../components/icons';
@@ -34,9 +34,9 @@ export default function SuperAdminScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [{ data: cfg }, { data: adm }] = await Promise.all([
-        supabase.rpc('sa_get_settings'),
-        supabase.rpc('sa_list_admins'),
+      const [cfg, adm] = await Promise.all([
+        api.superadmin.settings(),
+        api.superadmin.admins(),
       ]);
       if (cfg) {
         const rate = parseFloat(cfg.host_commission_rate ?? '0');
@@ -57,8 +57,7 @@ export default function SuperAdminScreen() {
   const saveSetting = async (key: string, value: string) => {
     setSaving(key);
     try {
-      const { error } = await supabase.rpc('sa_set_setting', { p_key: key, p_value: value });
-      if (error) throw error;
+      await api.superadmin.setSetting(key, value);
     } catch (e: any) {
       Alert.alert(t.error, e.message);
       await load();
@@ -81,8 +80,7 @@ export default function SuperAdminScreen() {
     if (!newContact.trim()) return;
     setPromoting(true);
     try {
-      const { data, error } = await supabase.rpc('sa_set_admin', { p_identifier: newContact.trim(), p_make: true });
-      if (error) throw error;
+      const data = await api.superadmin.setAdmin(newContact.trim(), true);
       setNewContact('');
       await load();
       Alert.alert('', `${(data as any)?.name ?? 'User'} ${t.sa_now_admin}`);
@@ -100,8 +98,7 @@ export default function SuperAdminScreen() {
         text: t.sa_remove_admin_confirm, style: 'destructive',
         onPress: async () => {
           try {
-            const { error } = await supabase.rpc('sa_set_admin', { p_identifier: a.email || a.phone, p_make: false });
-            if (error) throw error;
+            await api.superadmin.setAdmin(a.email || a.phone, false);
             await load();
           } catch (e: any) { Alert.alert(t.error, e.message); }
         },

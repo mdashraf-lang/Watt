@@ -8,7 +8,8 @@ import * as Location from 'expo-location';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTabBarHeight } from '../../navigation/tabBarLayout';
 import type { Station } from '../../types';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
+import { realtime } from '../../lib/realtime';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { translateGov, stationDisplayName, stationDisplayAddress } from '../../i18n/govMap';
@@ -50,21 +51,21 @@ export default function AdminMapScreen() {
     fetchStations();
     requestLocation();
 
-    const channel = supabase
-      .channel('admin-stations-rt')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'stations' }, payload => {
-        setStations(prev =>
-          prev.map(s => s.id === payload.new.id ? { ...s, ...payload.new } : s)
-        );
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    const unsub = realtime.onTable('stations', row => {
+      setStations(prev =>
+        prev.map(s => s.id === row.id ? { ...s, ...row } : s)
+      );
+    });
+    return unsub;
   }, []);
 
   const fetchStations = async () => {
-    const { data } = await supabase.from('stations').select('*').order('name');
-    if (data) setStations(data as Station[]);
-    setLoading(false);
+    try {
+      const data = await api.stations.list();
+      setStations((data ?? []) as Station[]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const requestLocation = async () => {

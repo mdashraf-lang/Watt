@@ -5,7 +5,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { useLang } from '../../context/LanguageContext';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import type { PayoutRequest } from '../../types';
 import { ArrowLeftIcon, WalletIcon } from '../../components/icons';
@@ -24,9 +24,7 @@ export default function AdminPayoutsScreen() {
   const fetchRequests = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await supabase.rpc('get_payout_requests', {
-        p_status: filter === 'all' ? null : filter,
-      });
+      const data = await api.payouts.list(filter === 'all' ? undefined : filter);
       setRequests((data ?? []) as PayoutRequest[]);
     } finally {
       setLoading(false);

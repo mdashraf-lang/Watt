@@ -4,7 +4,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../../lib/supabase';
+import { api } from '../../lib/api';
 import { COLORS } from '../../constants/colors';
 import { useLang } from '../../context/LanguageContext';
 import { ArrowLeftIcon, CheckIcon, ZapIcon } from '../../components/icons';
@@ -33,8 +33,7 @@ export default function AdminFlaggedScreen() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error: err } = await supabase.rpc('get_flagged_sessions_detail');
-      if (err) throw err;
+      const data = await api.admin.flagged();
       setRows((data ?? []) as Flagged[]);
       setError(false);
     } catch {
@@ -54,8 +53,7 @@ export default function AdminFlaggedScreen() {
         onPress: async () => {
           setBusyId(id);
           try {
-            const { error: err } = await supabase.rpc('resolve_flagged_session', { p_session: id });
-            if (err) throw err;
+            await api.admin.resolveFlag(id);
             setRows(prev => prev.filter(r => r.id !== id));
           } catch (e: any) {
             Alert.alert(t.error, e.message);
