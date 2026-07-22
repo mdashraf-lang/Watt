@@ -9,7 +9,7 @@ import * as Location from 'expo-location';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAuth } from '../context/AuthContext';
 import { useLang } from '../context/LanguageContext';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import { COLORS } from '../constants/colors';
 import type { CustomerStackParamList } from '../types';
 import {
@@ -64,13 +64,7 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
   useEffect(() => {
     if (!reapply || !profile) return;
     (async () => {
-      const { data } = await supabase
-        .from('charger_applications')
-        .select('*')
-        .eq('user_id', profile.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .single();
+      const data = await api.applications.mine().catch(() => null);
       if (data) {
         setFullName(data.full_name);
         setPhone(data.phone);
@@ -110,8 +104,7 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
     if (!profile || !session) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('charger_applications').insert({
-        user_id: profile.id,
+      await api.applications.submit({
         full_name: fullName.trim(),
         phone: phone.trim(),
         station_name: stationName.trim() || null,
@@ -124,14 +117,9 @@ export default function InvestorApplicationScreen({ navigation, route }: Props) 
         electricity_form_name: electricityForm.trim(),
         commercial_registration: commercialReg.trim(),
         id_card_number: idCard.trim(),
-        status: 'pending',
       });
-      if (error) throw error;
 
-      // TODO: wire up once SMTP is configured
-      // supabase.functions.invoke('send-watt-email', {
-      //   body: { type: 'application_received', to_email: session.user?.email, to_name: fullName.trim() },
-      // });
+      // TODO: send a confirmation email once SMTP is configured on the server.
 
       setSubmitted(true);
     } catch (e: any) {

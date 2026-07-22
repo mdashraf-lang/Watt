@@ -22,6 +22,23 @@ router.get('/', requireAuth, asyncHandler(async (req, res) => {
   res.json(rows);
 }));
 
+// The user's currently-active session (for restoring the banner after a restart).
+// Must be declared before '/:id' so 'active' isn't captured as an id.
+router.get('/active', requireAuth, asyncHandler(async (req, res) => {
+  const { rows } = await query(
+    `select cs.id,
+            json_build_object('name', s.name) as station,
+            json_build_object('station_name', cl.station_name, 'address', cl.address) as listing
+     from public.charging_sessions cs
+     left join public.stations s on s.id = cs.station_id
+     left join public.charger_listings cl on cl.id = cs.listing_id
+     where cs.user_id = $1 and cs.status = 'active'
+     order by cs.started_at desc limit 1`,
+    [req.user!.id],
+  );
+  res.json(rows[0] ?? null);
+}));
+
 // Single session (owner only) with station/listing/booking for the charging screen.
 router.get('/:id', requireAuth, asyncHandler(async (req, res) => {
   const { rows } = await query(

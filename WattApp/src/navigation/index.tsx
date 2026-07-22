@@ -17,7 +17,7 @@ import {
   MapPinIcon, CalendarIcon, WalletIcon, UserIcon,
   ZapIcon, UsersIcon, TrendingUpIcon, ShieldIcon, StarIcon, CheckIcon,
 } from '../components/icons';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 import type { ChargerListing } from '../types';
 import type {
   GuestStackParamList,
@@ -446,11 +446,7 @@ function InvestorWelcomeModal() {
 
   const fetchListingAndShow = async () => {
     if (!profile) return;
-    const { data } = await supabase
-      .from('charger_listings')
-      .select('*')
-      .eq('host_id', profile.id)
-      .maybeSingle();
+    const data = await api.host.listing().catch(() => null);
     if (data) setListing(data as ChargerListing);
     // Show after brief delay for UI to settle
     setTimeout(() => setVisible(true), 600);

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useAuth } from './AuthContext';
-import { supabase } from '../lib/supabase';
+import { api } from '../lib/api';
 
 interface ChargingContextType {
   activeSessionId: string | null;
@@ -43,22 +43,15 @@ export function ChargingProvider({ children }: { children: React.ReactNode }) {
     }
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('charging_sessions')
-        .select('id, station:stations(name), listing:charger_listings(station_name, address)')
-        .eq('user_id', session.user.id)
-        .eq('status', 'active')
-        .order('started_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const data = await api.sessions.active().catch(() => null);
       if (cancelled || !data) return;
       const name =
-        (data as any).station?.name ||
-        (data as any).listing?.station_name ||
-        (data as any).listing?.address ||
+        data.station?.name ||
+        data.listing?.station_name ||
+        data.listing?.address ||
         '';
       // Don't clobber a session already being tracked from the live flow.
-      setActiveSessionId(prev => prev ?? (data as any).id);
+      setActiveSessionId(prev => prev ?? data.id);
       setActiveStationName(prev => prev ?? name);
     })();
     return () => { cancelled = true; };

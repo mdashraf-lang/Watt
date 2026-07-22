@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
-import { supabase } from './supabase';
+import { api } from './api';
 
 // Remote push was removed from Expo Go in SDK 53 — even *importing*
 // expo-notifications runs native init that throws there. So we never load
@@ -38,7 +38,7 @@ function getProjectId(): string | undefined {
  * no-ops in Expo Go, on simulators, when permission is denied, or before
  * EAS is set up.
  */
-export async function registerForPushNotifications(userId: string): Promise<void> {
+export async function registerForPushNotifications(_userId?: string): Promise<void> {
   if (isExpoGo) return;                          // remote push unavailable in Expo Go (SDK 53+)
   try {
     const Device = await import('expo-device');
@@ -70,19 +70,16 @@ export async function registerForPushNotifications(userId: string): Promise<void
     const { data: token } = await Notifications.getExpoPushTokenAsync({ projectId });
     if (!token) return;
 
-    await supabase
-      .from('profiles')
-      .update({ expo_push_token: token })
-      .eq('id', userId);
+    await api.profile.update({ expo_push_token: token });
   } catch (e) {
     console.warn('[notifications] registration failed:', e);
   }
 }
 
 /** Clears the stored push token on sign-out so the device stops receiving pushes. */
-export async function unregisterPushNotifications(userId: string): Promise<void> {
+export async function unregisterPushNotifications(_userId?: string): Promise<void> {
   try {
-    await supabase.from('profiles').update({ expo_push_token: null }).eq('id', userId);
+    await api.profile.update({ expo_push_token: null });
   } catch (e) {
     console.warn('[notifications] unregister failed:', e);
   }

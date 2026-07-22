@@ -139,6 +139,7 @@ export const api = {
 
   sessions: {
     list:     () => request('GET', '/api/sessions'),
+    active:   () => request<{ id: string; station: { name: string | null } | null; listing: { station_name: string | null; address: string | null } | null } | null>('GET', '/api/sessions/active'),
     get:      (id: string) => request('GET', `/api/sessions/${id}`),
     start:    (booking_id: string) => request('POST', '/api/sessions/start', { body: { booking_id } }),
     progress: (id: string, kwh_delivered: number, cost: number) =>
@@ -154,7 +155,13 @@ export const api = {
   },
 
   applications: {
-    mine: () => request('GET', '/api/applications/mine'),
+    mine:   () => request('GET', '/api/applications/mine'),
+    submit: (data: {
+      full_name: string; phone: string; station_name?: string | null;
+      governorate: string; city: string; latitude: number; longitude: number;
+      charger_type: string; power_kw?: number | null;
+      electricity_form_name: string; commercial_registration: string; id_card_number: string;
+    }) => request('POST', '/api/applications', { body: data }),
   },
 
   favorites: {
