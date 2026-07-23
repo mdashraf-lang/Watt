@@ -20,6 +20,7 @@ import superadminRoutes from './modules/superadmin/superadmin.routes';
 import hostRoutes from './modules/host/host.routes';
 import applicationsRoutes from './modules/applications/applications.routes';
 import paymentsRoutes from './modules/payments/payments.routes';
+import paymentReturnRoutes from './modules/payments/return.routes';
 import devicesRoutes from './modules/devices/devices.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
 
@@ -51,6 +52,7 @@ export function createApp() {
   app.use('/api/host', hostRoutes);
   app.use('/api/applications', applicationsRoutes);
   app.use('/api/payments', paymentsRoutes);
+  app.use('/pay', paymentReturnRoutes);   // public — payment redirect bounce pages
   app.use('/api/devices', devicesRoutes);
   app.use('/api/jobs', jobsRoutes);   // cron-only (x-job-secret)
 

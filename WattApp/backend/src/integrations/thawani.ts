@@ -28,8 +28,10 @@ export async function createCheckout(userId: string, omr: number) {
     client_reference_id: `${userId}:${Date.now()}`,
     mode: 'payment',
     products: [{ name: 'Watt Wallet Top-up', unit_amount: Math.round(omr * 1000), quantity: 1 }],
-    success_url: 'watt://wallet?status=success',
-    cancel_url: 'watt://wallet?status=cancel',
+    // Thawani requires valid http(s) return URLs (it rejects custom schemes like
+    // watt://). These backend endpoints bounce the browser to the app deep link.
+    success_url: `${env.PUBLIC_URL}/pay/success`,
+    cancel_url: `${env.PUBLIC_URL}/pay/cancel`,
     metadata: { user_id: userId, amount: omr },
   });
   const sid = json?.data?.session_id;

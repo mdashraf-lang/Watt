@@ -15,6 +15,10 @@ const schema = z.object({
 
   CORS_ORIGIN: z.string().default('*'),
 
+  // Public base URL of this backend (used to build payment return/redirect links
+  // that hosted checkouts like Thawani require to be valid http(s) URLs).
+  PUBLIC_URL: z.string().default('https://go-watt.com'),
+
   SMTP_HOST: z.string().optional(),
   SMTP_PORT: z.coerce.number().optional(),
   SMTP_USER: z.string().optional(),
