@@ -1,5 +1,14 @@
-import { Pool, PoolClient, QueryResultRow } from 'pg';
+import { Pool, PoolClient, QueryResultRow, types } from 'pg';
 import { env } from '../config/env';
+
+// node-postgres returns NUMERIC/DECIMAL (oid 1700) as strings to preserve
+// precision. The app was built against Supabase/PostgREST, which serialises them
+// as JSON numbers, so the whole client expects numbers (e.g. wallet_balance,
+// total_kwh, amounts → `.toFixed()`, arithmetic). Parse NUMERIC → float here so
+// the API contract matches. Money correctness is enforced inside the SQL
+// functions (atomic, row-locked), not in this transport layer — these parsed
+// values are only for reads/display.
+types.setTypeParser(1700, (v) => (v === null ? null : parseFloat(v)));
 
 // Single shared connection pool to the dedicated PostgreSQL server.
 export const pool = new Pool({
